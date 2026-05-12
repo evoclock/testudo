@@ -58,9 +58,13 @@ def fetch_https(
         raise ValueError(f"Only HTTPS URLs are accepted: {url!r}")
 
     owned = client is None
-    used = client if client is not None else httpx.Client(timeout=timeout)
+    used = (
+        client
+        if client is not None
+        else httpx.Client(timeout=timeout, follow_redirects=True)
+    )
     try:
-        resp = used.get(url)
+        resp = used.get(url, follow_redirects=True)
         resp.raise_for_status()
     finally:
         if owned:

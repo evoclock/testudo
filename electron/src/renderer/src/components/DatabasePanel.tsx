@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export type Adapter = "duckdb" | "databricks";
 
@@ -18,12 +18,52 @@ const DUCKDB_QUERY_DEFAULT = "SELECT 1 AS hello";
 const DATABRICKS_QUERY_DEFAULT =
   "SELECT * FROM samples.bakehouse.sales_transactions LIMIT 10";
 
+const DATABRICKS_SAMPLE_QUERIES: Array<{ label: string; sql: string }> = [
+  {
+    label: "Recent sales transactions",
+    sql: "SELECT * FROM samples.bakehouse.sales_transactions LIMIT 10",
+  },
+  {
+    label: "Free-text customer reviews (sanitiser exercise)",
+    sql: "SELECT review_body FROM samples.bakehouse.media_customer_reviews LIMIT 10",
+  },
+  {
+    label: "Customer purchase counts",
+    sql: "SELECT c.first_name, c.last_name, COUNT(t.transactionID) AS purchases FROM samples.bakehouse.sales_transactions t JOIN samples.bakehouse.sales_customers c ON t.customerID = c.customerID GROUP BY c.first_name, c.last_name ORDER BY purchases DESC LIMIT 10",
+  },
+  {
+    label: "Suppliers",
+    sql: "SELECT * FROM samples.bakehouse.sales_suppliers LIMIT 20",
+  },
+  {
+    label: "Franchises",
+    sql: "SELECT * FROM samples.bakehouse.sales_franchises LIMIT 20",
+  },
+];
+
 export function DatabasePanel({ busy, databricksReady, onRun }: Props) {
-  const [adapter, setAdapter] = useState<Adapter>("duckdb");
-  const [databasePath, setDatabasePath] = useState(":memory:");
-  const [query, setQuery] = useState(DUCKDB_QUERY_DEFAULT);
+  const [adapter, setAdapter] = useState<Adapter>(
+    databricksReady ? "databricks" : "duckdb",
+  );
+  const [databasePath, setDatabasePath] = useState(
+    databricksReady ? "" : ":memory:",
+  );
+  const [query, setQuery] = useState(
+    databricksReady ? DATABRICKS_QUERY_DEFAULT : DUCKDB_QUERY_DEFAULT,
+  );
   const [outputPath, setOutputPath] = useState("/tmp/testudo-db-results.md");
   const [note, setNote] = useState("");
+
+  // If env-check arrives after mount and reports Databricks ready, flip the
+  // default adapter so the user lands on the path they actually configured.
+  useEffect(() => {
+    if (databricksReady && adapter === "duckdb" && query === DUCKDB_QUERY_DEFAULT) {
+      setAdapter("databricks");
+      setQuery(DATABRICKS_QUERY_DEFAULT);
+      setDatabasePath("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [databricksReady]);
 
   const switchAdapter = (next: Adapter) => {
     setAdapter(next);
@@ -112,20 +152,36 @@ export function DatabasePanel({ busy, databricksReady, onRun }: Props) {
       )}
 
       {adapter === "databricks" && (
-        <div>
-          <label className="block text-xs uppercase text-muted tracking-wider mb-2">
-            Connection
-          </label>
-          <p className="text-xs text-muted">
-            Reads <code className="text-text">DATABRICKS_SERVER_HOSTNAME</code> /{" "}
-            <code className="text-text">HTTP_PATH</code> /{" "}
-            <code className="text-text">TOKEN</code> from the bridge process env.
-            Free Edition ships{" "}
-            <code className="text-text">samples.bakehouse</code> (sales_transactions,
-            media_customer_reviews, sales_customers, sales_franchises,
-            sales_suppliers, media_gold_reviews_chunked).
-          </p>
-        </div>
+        <>
+          <div>
+            <label className="block text-xs uppercase text-muted tracking-wider mb-2">
+              Sample queries
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {DATABRICKS_SAMPLE_QUERIES.map((q) => (
+                <button
+                  key={q.label}
+                  type="button"
+                  onClick={() => setQuery(q.sql)}
+                  className="text-left px-3 py-2 rounded bg-bg border border-border hover:border-accent text-xs"
+                  title={q.sql}
+                >
+                  <div className="text-text">{q.label}</div>
+                  <div className="text-[10px] text-muted font-mono truncate">
+                    {q.sql}
+                  </div>
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted mt-2">
+              Reads{" "}
+              <code className="text-text">DATABRICKS_SERVER_HOSTNAME</code> /{" "}
+              <code className="text-text">HTTP_PATH</code> /{" "}
+              <code className="text-text">TOKEN</code> from the bridge process env.
+              Free Edition ships <code className="text-text">samples.bakehouse</code>.
+            </p>
+          </div>
+        </>
       )}
 
       <div className="flex-1 flex flex-col">
