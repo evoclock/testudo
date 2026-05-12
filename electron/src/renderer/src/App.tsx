@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import { Group, Panel, Separator } from "react-resizable-panels";
 import { ComposePanel } from "./components/ComposePanel";
 import { DatabasePanel } from "./components/DatabasePanel";
 import { FilePanel } from "./components/FilePanel";
@@ -429,15 +429,15 @@ export default function App() {
         )}
       </header>
 
-      <PanelGroup direction="horizontal" className="h-full overflow-hidden">
-        <Panel defaultSize={50} minSize={25} className="flex flex-col overflow-hidden">
+      <Group orientation="horizontal" className="flex-1 overflow-hidden">
+        <Panel defaultSize={"50%"} minSize={"25%"} className="flex flex-col overflow-hidden">
           <ModeTabs active={mode} onSelect={setMode} />
           <div className="flex-1 overflow-y-auto">{renderPanel()}</div>
         </Panel>
-        <PanelResizeHandle className="w-1 bg-border hover:bg-accent transition-colors" />
-        <Panel defaultSize={50} minSize={25}>
-          <PanelGroup direction="vertical" className="h-full bg-bg">
-            <Panel defaultSize={60} minSize={20} className="flex flex-col overflow-hidden">
+        <Separator className="w-1 bg-border hover:bg-accent transition-colors" />
+        <Panel defaultSize={"50%"} minSize={"25%"}>
+          <Group orientation="vertical" className="h-full bg-bg">
+            <Panel defaultSize={"60%"} minSize={"20%"} className="flex flex-col overflow-hidden">
               <div className="px-5 py-3 border-b border-border bg-panel flex items-center justify-between">
                 <div className="text-xs uppercase tracking-wider text-muted">DAG</div>
                 {stagedWorkflow && (
@@ -450,16 +450,16 @@ export default function App() {
                 <WorkflowGraph workflow={stagedWorkflow} lastRun={lastRun} />
               </div>
             </Panel>
-            <PanelResizeHandle className="h-1 bg-border hover:bg-accent transition-colors" />
-            <Panel defaultSize={40} minSize={15} className="flex flex-col overflow-hidden">
+            <Separator className="h-1 bg-border hover:bg-accent transition-colors" />
+            <Panel defaultSize={"40%"} minSize={"15%"} className="flex flex-col overflow-hidden">
               <div className="px-5 py-3 border-b border-border bg-panel">
                 <div className="text-xs uppercase tracking-wider text-muted">Activity</div>
               </div>
               <ResultLog entries={entries} />
             </Panel>
-          </PanelGroup>
+          </Group>
         </Panel>
-      </PanelGroup>
+      </Group>
     </div>
   );
 }
