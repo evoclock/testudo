@@ -1,6 +1,6 @@
 {
   "name": "pdf-summarise-v015",
-  "description": "Extract text from a document, ask an Ollama-served LLM to summarise, sanitise the model output (built into the ollama_chat tool), write the summary to disk. Defaults to minimax-m2.5; set the model input to switch (e.g. llama3.2, qwen2.5, mistral).",
+  "description": "Extract text from a document, ask an Ollama-served LLM to summarise, sanitise the model output (built into the ollama_chat tool), write the summary to disk. Default model is minimax-m2.7:cloud; pass any other Ollama tag via the model input.",
   "inputs": {
     "pdf_path": {
       "type": "file",
@@ -11,12 +11,12 @@
       "type": "string",
       "required": false,
       "default": "minimax-m2.7:cloud",
-      "description": "Ollama model name. Cloud-served use the :cloud suffix (signin required). Recommended cloud: minimax-m2.7:cloud (default), mistral-large-3:675b-cloud, qwen3-coder-next:cloud. Local: mistral:latest, magistral:latest, jan-code:latest."
+      "description": "Ollama model tag. Cloud-served use the :cloud suffix (ollama signin required). Recommended cloud: minimax-m2.7:cloud (default), mistral-large-3:675b-cloud, qwen3-coder-next:cloud. Local: mistral:latest, magistral:latest, jan-code:latest."
     },
     "system_prompt": {
       "type": "string",
       "required": false,
-      "default": "You are a careful, factual summariser. Produce five bullet points; do not add information that is not in the source."
+      "default": "<role>\nYou are a careful, factual summariser.\n</role>\n<constraints>\n- Produce exactly five bullet points.\n- Each bullet is one sentence.\n- Do not add information that is not in the source document.\n- If a claim is not supported by the source, omit it; do not speculate.\n</constraints>"
     },
     "output_path": {
       "type": "file",
@@ -37,7 +37,7 @@
       "with": {
         "model": "${inputs.model}",
         "system": "${inputs.system_prompt}",
-        "prompt": "Summarise the following document in five bullet points:\n\n${steps.extract.content}",
+        "prompt": "<task>\nSummarise the document below in five bullet points.\n</task>\n\n<document>\n${steps.extract.content}\n</document>\n\n<output_format>\nReturn only the five bullet points, in markdown, each on its own line starting with \"- \". No preamble, no closing remarks.\n</output_format>",
         "temperature": 0.0
       }
     },
@@ -66,7 +66,7 @@
       "write": ["/"]
     },
     "network": {
-      "egress": ["localhost", "127.0.0.1"]
+      "egress": ["localhost", "127.0.0.1", "ollama.com"]
     },
     "process": {
       "spawn": false
