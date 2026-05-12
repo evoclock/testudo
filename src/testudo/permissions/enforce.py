@@ -49,6 +49,7 @@ def _is_within(target: Path, prefix: Path) -> bool:
 
 # --- filesystem --------------------------------------------------------------
 
+
 def check_filesystem_read(path: str | Path, perms: FilesystemPermissions) -> bool:
     """Return True iff ``path`` resolves within any allowed read prefix."""
     target = Path(path).resolve()
@@ -83,6 +84,7 @@ def require_filesystem_write(path: str | Path, perms: FilesystemPermissions) -> 
 
 # --- network -----------------------------------------------------------------
 
+
 def check_network_egress(host: str, perms: NetworkPermissions) -> bool:
     """Return True iff ``host`` matches an entry in the egress allow-list.
 
@@ -102,6 +104,7 @@ def require_network_egress(host: str, perms: NetworkPermissions) -> None:
 
 
 # --- process -----------------------------------------------------------------
+
 
 def check_process_spawn(perms: ProcessPermissions) -> bool:
     """Return True iff process spawning is allowed."""

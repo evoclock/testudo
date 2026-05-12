@@ -66,9 +66,7 @@ def test_audit_log_read_returns_events_in_order(tmp_path: Path) -> None:
     log_path = tmp_path / "audit.jsonl"
     log = AuditLog(log_path)
     log.emit(AuditEvent(type="workflow_start", run_id="r1", workflow="wf1"))
-    log.emit(
-        AuditEvent(type="step_start", run_id="r1", workflow="wf1", step_id="ingest")
-    )
+    log.emit(AuditEvent(type="step_start", run_id="r1", workflow="wf1", step_id="ingest"))
     events = log.read()
     assert len(events) == 2
     assert events[0].type == "workflow_start"

@@ -50,7 +50,7 @@ def main() -> None:
 @click.option("--run-dir", type=click.Path(), default=None, help="Directory for run artefacts.")
 def run(workflow: str, inputs: tuple[str, ...], run_dir: str | None) -> None:
     """Run a workflow inside a Testudo container."""
-    click.echo(f"[testudo] run is not yet implemented (v0.1 in progress).", err=True)
+    click.echo("[testudo] run is not yet implemented (v0.1 in progress).", err=True)
     click.echo(f"  workflow: {workflow}")
     click.echo(f"  inputs:   {list(inputs)}")
     click.echo(f"  run_dir:  {run_dir}")
@@ -68,7 +68,7 @@ def ui() -> None:
 @click.argument("audit_log", type=click.Path(exists=True, dir_okay=False))
 def inspect(audit_log: str) -> None:
     """Read and pretty-print a Testudo audit log."""
-    click.echo(f"[testudo] inspect is not yet implemented (v0.1 in progress).", err=True)
+    click.echo("[testudo] inspect is not yet implemented (v0.1 in progress).", err=True)
     click.echo(f"  audit_log: {audit_log}")
     sys.exit(2)
 

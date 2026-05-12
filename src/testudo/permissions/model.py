@@ -23,7 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class FilesystemPermissions(BaseModel):
     """Filesystem permissions: tuples of path prefixes for read and write."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     read: tuple[str, ...] = ()
     write: tuple[str, ...] = ()
@@ -32,7 +32,7 @@ class FilesystemPermissions(BaseModel):
 class NetworkPermissions(BaseModel):
     """Network permissions: egress host allow-list (exact match in v0.1)."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     egress: tuple[str, ...] = ()
 
@@ -40,7 +40,7 @@ class NetworkPermissions(BaseModel):
 class ProcessPermissions(BaseModel):
     """Process permissions: deny-by-default spawning."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     spawn: bool = False
 
@@ -48,7 +48,7 @@ class ProcessPermissions(BaseModel):
 class Permissions(BaseModel):
     """Top-level permission model. Deny-by-default across all sub-models."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     filesystem: FilesystemPermissions = Field(default_factory=FilesystemPermissions)
     network: NetworkPermissions = Field(default_factory=NetworkPermissions)
