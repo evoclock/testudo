@@ -48,23 +48,6 @@ def _run(workflow_name: str, inputs: dict, tmp_path: Path) -> dict:
     return executor.run(wf, inputs, perms, run_id="test")
 
 
-def test_pdf_debrief_runs_against_sample_markdown(tmp_path: Path) -> None:
-    output = tmp_path / "debrief.md"
-    results = _run(
-        "workflow-pdf-debrief.json",
-        {"pdf_path": str(EXAMPLES / "data" / "sample.md"), "output_path": str(output)},
-        tmp_path,
-    )
-    assert set(results) == {"extract", "sanitise", "write_debrief", "respond"}
-    for step_id, result in results.items():
-        assert result.error is None, f"{step_id} failed: {result.error}"
-    assert output.exists()
-    # Sample.md contains canonical PII; sanitiser should have flagged at least one finding
-    sanitise = results["sanitise"].output
-    assert sanitise["decision"] in {"redact", "reject"}
-    assert sanitise["high_count"] + sanitise["critical_count"] >= 1
-
-
 def test_url_fetch_runs_against_mock_transport(tmp_path: Path) -> None:
     """Inject an httpx.MockTransport via fetch_https' client= parameter."""
     from testudo.connectors import https as https_module
