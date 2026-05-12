@@ -1,33 +1,65 @@
 """
 Module: testudo.sanitisers.pii
 
-Purpose: regex-based UK-flavoured PII detection and optional redaction.
-``detect_pii`` returns findings without modifying content; ``redact_pii``
-returns the cleaned content (with matches replaced by placeholder tokens) plus
-findings; ``sanitise_pii`` produces a top-level ``SanitisationResult`` with a
-decision (accept / redact / reject).
+Purpose: regex-based PII detection and optional redaction. Covers the
+UK-flavoured set (NIN, email, phone, NHS number, postcode) plus an
+international set (US SSN, credit cards, IBAN, IPv4, IPv6, E.164,
+generic dd/mm/yyyy date-of-birth). ``detect_pii`` returns findings
+without modifying content; ``redact_pii`` returns the cleaned content
+with matches replaced by placeholder tokens; ``sanitise_pii`` produces
+a top-level ``SanitisationResult`` with an accept / redact / reject
+decision.
 
 Inputs: a string of text content to scan.
 
 Outputs: a list of ``Finding`` instances; ``(content, findings)`` from
 ``redact_pii``; a ``SanitisationResult`` from ``sanitise_pii``.
 
-Assumptions: regex-only in v0.1; the ``[sanitisers]`` extra (spaCy, Presidio)
-will land in v0.2 for higher-recall detection of names, addresses, and
-context-dependent identifiers. Callers needing higher recall should use the
-extras and a dedicated NER-based detector.
+Limitations (v0.1 — regex only):
+
+- Unstructured text breaks rule-based regex: phrasings like "five five
+  five one two 88" or "born 3rd of Feb '88" lack the canonical formats
+  the patterns expect.
+- Context is invisible to regex: relational PII (e.g. "my daughter
+  Emily attends Ridgewood Elementary") is sensitive only when entity
+  relationships are understood. v0.1 does not detect this class.
+- False-positive rate scales with prose: the date-of-birth and IPv4
+  patterns in particular flag any matching string regardless of
+  surrounding context.
+- Single-language patterns: most patterns target en-GB / en-US PII.
+  Other locales will under-match. The trackingplan/pii-regex-library
+  catalogue covers EU/CA/MX, and porting more locales is planned for
+  v0.2.
+
+The v0.2 plan (under the ``[sanitisers]`` extra) adds spaCy NER for
+named entities, Microsoft Presidio for context-aware detection, and a
+confidence-ranked merge of regex + NER + metadata signals. The
+documented hybrid approach follows Protecto's "Why Regex Fails for
+PII Detection in Unstructured Text" pipeline (regex for strict
+patterns, NER for contextual entities, confidence ranking for
+prioritisation).
+
+Assumptions: callers needing higher recall (legal e-discovery,
+healthcare PHI, financial PCI workflows) install the ``[sanitisers]``
+extra in v0.2 and use the hybrid pipeline rather than this regex-only
+detector.
 """
 
 from __future__ import annotations
 
-from testudo.sanitisers.patterns import UK_PII_PATTERNS
+from testudo.sanitisers.patterns import (
+    INTERNATIONAL_PII_PATTERNS,
+    UK_PII_PATTERNS,
+)
 from testudo.sanitisers.result import Finding, SanitisationResult, Severity
+
+ALL_PII_PATTERNS = UK_PII_PATTERNS + INTERNATIONAL_PII_PATTERNS
 
 
 def detect_pii(content: str) -> list[Finding]:
     """Return PII findings for ``content`` without modifying it."""
     findings: list[Finding] = []
-    for label, pattern in UK_PII_PATTERNS:
+    for label, pattern in ALL_PII_PATTERNS:
         for match in pattern.finditer(content):
             line_num = content[: match.start()].count("\n") + 1
             findings.append(
@@ -47,7 +79,7 @@ def redact_pii(content: str) -> tuple[str, list[Finding]]:
     """Detect PII and replace matches with ``[REDACTED-<short label>]`` markers."""
     findings = detect_pii(content)
     cleaned = content
-    for label, pattern in UK_PII_PATTERNS:
+    for label, pattern in ALL_PII_PATTERNS:
         marker = f"[REDACTED-{_short_label(label)}]"
         cleaned = pattern.sub(marker, cleaned)
     return cleaned, findings

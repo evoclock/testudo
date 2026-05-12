@@ -7,6 +7,7 @@ import pytest
 from testudo.sanitisers.patterns import (
     DESTRUCTIVE_PATTERNS,
     EXFILTRATION_PATTERNS,
+    INTERNATIONAL_PII_PATTERNS,
     PROMPT_INJECTION_PATTERNS,
     SECRET_PATTERNS,
     SHELL_INJECTION_PATTERNS,
@@ -104,3 +105,38 @@ def test_pii_patterns_do_not_false_positive_on_innocent_text() -> None:
     benign = "Hello world, the meeting is at 3pm today."
     matches = [label for label, p in UK_PII_PATTERNS if p.search(benign)]
     assert matches == []
+
+
+# ----------------------------------------------------------------------------
+# International PII coverage (added in the Chunk 4 follow-up)
+# ----------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "expected_label"),
+    [
+        ("My SSN is 123-45-6789", "US SSN"),
+        ("Card 4111111111111111", "Credit card (Visa)"),
+        ("Card 5500000000000004", "Credit card (Mastercard)"),
+        ("Card 340000000000009", "Credit card (Amex)"),
+        ("Card 6011111111111117", "Credit card (Discover)"),
+        ("IBAN GB29NWBK60161331926819", "IBAN"),
+        ("Server at 192.168.1.1", "IPv4 address"),
+        ("Bind to 2001:0db8:85a3:0000:0000:8a2e:0370:7334", "IPv6 address"),
+        ("Call +447584122253", "E.164 phone number"),
+        ("DOB 14/02/1988", "Date of birth (dd/mm/yyyy)"),
+    ],
+)
+def test_international_pii_patterns_match_canonical_examples(
+    text: str, expected_label: str
+) -> None:
+    matches = [label for label, pattern in INTERNATIONAL_PII_PATTERNS if pattern.search(text)]
+    assert expected_label in matches
+
+
+def test_us_ssn_pattern_rejects_reserved_prefixes() -> None:
+    # 000-, 666-, 9xx- prefixes are never issued.
+    invalid = ["000-12-3456", "666-12-3456", "900-12-3456"]
+    pattern = next(p for label, p in INTERNATIONAL_PII_PATTERNS if label == "US SSN")
+    for s in invalid:
+        assert pattern.search(s) is None, s

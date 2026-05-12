@@ -40,6 +40,52 @@ UK_PII_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ),
 ]
 
+# International PII patterns. Lower confidence than the UK set above; some have
+# meaningful false-positive rates (notably IPv4 in prose and DOB in dates that
+# happen to match dd/mm/yyyy). The hybrid v0.2 stack (regex + NER + confidence
+# ranking, per Protecto's "Why Regex Fails" analysis) is the planned home for
+# higher-recall context-aware detection.
+INTERNATIONAL_PII_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
+    # US SSN (3-2-4 with the standard reserved-prefix exclusions).
+    (
+        "US SSN",
+        re.compile(r"\b(?!000|666|9\d{2})\d{3}[-\s]?(?!00)\d{2}[-\s]?(?!0000)\d{4}\b"),
+    ),
+    # Credit card brands. Detection only; v0.2 should add Luhn validation
+    # before treating these as confirmed numbers.
+    ("Credit card (Visa)", re.compile(r"\b4\d{12}(?:\d{3})?\b")),
+    ("Credit card (Mastercard)", re.compile(r"\b5[1-5]\d{14}\b")),
+    ("Credit card (Amex)", re.compile(r"\b3[47]\d{13}\b")),
+    ("Credit card (Discover)", re.compile(r"\b6(?:011|5\d{2})\d{12}\b")),
+    # IBAN (15-34 alphanumerics after the 2-letter country and 2 check digits).
+    ("IBAN", re.compile(r"\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b")),
+    # IPv4. Bare-quad regex; ignores port and CIDR suffix.
+    (
+        "IPv4 address",
+        re.compile(
+            r"\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d?\d)\.){3}"
+            r"(?:25[0-5]|2[0-4]\d|[01]?\d?\d)\b"
+        ),
+    ),
+    # IPv6 (RFC 4291 forms; tolerates compression).
+    (
+        "IPv6 address",
+        re.compile(
+            r"(?:[A-Fa-f0-9]{1,4}:){7}[A-Fa-f0-9]{1,4}|"
+            r"::(?:[A-Fa-f0-9]{1,4}:){0,6}[A-Fa-f0-9]{1,4}|"
+            r"(?:[A-Fa-f0-9]{1,4}:){1,7}:"
+        ),
+    ),
+    # E.164: the strict-international form (+ followed by up to 15 digits).
+    ("E.164 phone number", re.compile(r"\+\d{8,15}\b")),
+    # Date of birth in dd/mm/yyyy or dd-mm-yyyy. False positives on any prose
+    # date; pair with NER context in v0.2 for "dob:" / "born on" cues.
+    (
+        "Date of birth (dd/mm/yyyy)",
+        re.compile(r"\b(?:0[1-9]|[12]\d|3[01])[/-](?:0[1-9]|1[0-2])[/-](?:19|20)\d{2}\b"),
+    ),
+]
+
 PROMPT_INJECTION_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     (
         "System prompt override",
