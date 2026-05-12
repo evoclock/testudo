@@ -84,6 +84,9 @@ ignore = ["E501"]
 testpaths = ["tests"]
 addopts = "-ra --cov=testudo --cov-report=term-missing"
 asyncio_mode = "auto"
+markers = [
+    "docker: requires a working Docker daemon on the host (auto-skipped without)",
+]
 
 [tool.coverage.run]
 source = ["src/testudo"]
