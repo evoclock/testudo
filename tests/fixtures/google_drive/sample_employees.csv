@@ -1,0 +1,6 @@
+id,name,email,phone,postcode,department
+EMP001,Alice Smith,alice.smith@example.co.uk,07700 900111,SW1A 1AA,Engineering
+EMP002,Bola Adeyemi,bola.adeyemi@example.org,07700 900222,M1 1AA,Product
+EMP003,Charlie Wong,charlie.wong@example.net,07700 900333,EH1 1AA,Design
+EMP004,Devi Ramaswami,devi.ramaswami@example.com,07700 900444,B1 1AA,Engineering
+EMP005,Eva Janssen,eva.janssen@example.eu,07700 900555,LS1 1AA,Operations

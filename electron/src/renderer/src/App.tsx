@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ComposePanel } from "./components/ComposePanel";
 import { DatabasePanel } from "./components/DatabasePanel";
 import { FilePanel } from "./components/FilePanel";
 import { ModeTabs } from "./components/ModeTabs";
@@ -72,6 +73,9 @@ export default function App() {
   const stagedWorkflow = useMemo<WorkflowSummary | null>(() => {
     if (mode === "workflow") {
       return workflows.find((w) => w.name === selectedWorkflowName) ?? null;
+    }
+    if (mode === "compose") {
+      return null;
     }
     const binding = MODE_BINDINGS[mode];
     return workflows.find((w) => w.name === binding.workflowName) ?? null;
@@ -218,8 +222,49 @@ export default function App() {
             onSelectionChange={setSelectedWorkflowName}
           />
         );
+      case "compose":
+        return (
+          <ComposePanel
+            client={client}
+            busy={busy}
+            onSaved={onWorkflowSaved}
+            onError={onComposeError}
+          />
+        );
     }
   };
+
+  const onWorkflowSaved = useCallback(
+    async (savedName: string, savedPath: string) => {
+      setEntries((e) => [
+        ...e,
+        {
+          kind: "system",
+          text: `Workflow "${savedName}" saved.`,
+          note: `Path: ${savedPath}. Switch to the Workflow tab to run it.`,
+        },
+      ]);
+      if (client) {
+        try {
+          const wf = await client.listWorkflows();
+          setWorkflows(wf);
+        } catch (err) {
+          setEntries((e) => [
+            ...e,
+            {
+              kind: "error",
+              text: `Could not refresh workflow list: ${(err as Error).message}`,
+            },
+          ]);
+        }
+      }
+    },
+    [client],
+  );
+
+  const onComposeError = useCallback((message: string) => {
+    setEntries((e) => [...e, { kind: "error", text: message }]);
+  }, []);
 
   return (
     <div className="grid grid-rows-[56px_1fr] h-full">

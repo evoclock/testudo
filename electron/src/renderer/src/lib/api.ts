@@ -40,6 +40,42 @@ export interface RunResponse {
   audit_log: string;
 }
 
+export interface ToolParam {
+  name: string;
+  annotation: string;
+  default: unknown;
+  has_default: boolean;
+  required: boolean;
+}
+
+export interface ToolSummary {
+  name: string;
+  module: string;
+  doc: string | null;
+  params: ToolParam[];
+}
+
+export interface WorkflowDraftStep {
+  id: string;
+  uses: string;
+  needs: string[];
+  with: Record<string, unknown>;
+}
+
+export interface WorkflowDraft {
+  name: string;
+  description?: string;
+  inputs?: Record<string, unknown>;
+  steps: WorkflowDraftStep[];
+  permissions?: Record<string, unknown>;
+  isolation?: Record<string, unknown>;
+}
+
+export interface WorkflowSaveResponse {
+  name: string;
+  path: string;
+}
+
 export class BridgeClient {
   constructor(private readonly url: string, private readonly token: string) {}
 
@@ -60,6 +96,25 @@ export class BridgeClient {
     const r = await fetch(`${this.url}/workflows`, { headers: this.headers() });
     if (!r.ok) throw new Error(`/workflows ${r.status}`);
     return (await r.json()) as WorkflowSummary[];
+  }
+
+  async listTools(): Promise<ToolSummary[]> {
+    const r = await fetch(`${this.url}/tools`, { headers: this.headers() });
+    if (!r.ok) throw new Error(`/tools ${r.status}`);
+    return (await r.json()) as ToolSummary[];
+  }
+
+  async saveWorkflow(draft: WorkflowDraft): Promise<WorkflowSaveResponse> {
+    const r = await fetch(`${this.url}/workflows`, {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify(draft),
+    });
+    if (!r.ok) {
+      const detail = await r.text();
+      throw new Error(`/workflows ${r.status}: ${detail}`);
+    }
+    return (await r.json()) as WorkflowSaveResponse;
   }
 
   async createRun(body: RunRequestBody): Promise<RunResponse> {

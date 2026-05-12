@@ -58,3 +58,53 @@ class RunResponse(BaseModel):
     status: RunStatus
     results: dict[str, StepResultPayload]
     audit_log: str
+
+
+class ToolParam(BaseModel):
+    """One keyword argument exposed by a registered tool."""
+
+    name: str
+    annotation: str = "any"
+    default: Any = None
+    has_default: bool = False
+    required: bool = True
+
+
+class ToolSummary(BaseModel):
+    """A registered tool with its kwarg signature for the UI palette."""
+
+    name: str
+    module: str
+    doc: str | None = None
+    params: list[ToolParam] = Field(default_factory=list)
+
+
+class WorkflowDraftStep(BaseModel):
+    """One step in a workflow being authored from the UI."""
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    id: str
+    uses: str
+    needs: list[str] = Field(default_factory=list)
+    with_: dict[str, Any] = Field(default_factory=dict, alias="with")
+
+
+class WorkflowDraft(BaseModel):
+    """Inbound shape for POST /workflows: the JSON the UI saves."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    description: str | None = None
+    inputs: dict[str, Any] = Field(default_factory=dict)
+    steps: list[dict[str, Any]]
+    permissions: dict[str, Any] | None = None
+    isolation: dict[str, Any] | None = None
+
+
+class WorkflowSaveResponse(BaseModel):
+    """Outbound shape for POST /workflows."""
+
+    name: str
+    path: str

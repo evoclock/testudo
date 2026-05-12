@@ -22,6 +22,9 @@ Electron main process reads it from there.
 
 from __future__ import annotations
 
+import inspect
+import json
+import re
 import secrets
 from pathlib import Path
 
@@ -40,6 +43,10 @@ from testudo.server.models import (
     RunRequest,
     RunResponse,
     StepResultPayload,
+    ToolParam,
+    ToolSummary,
+    WorkflowDraft,
+    WorkflowSaveResponse,
     WorkflowStepSummary,
     WorkflowSummary,
 )
@@ -159,4 +166,102 @@ def create_app(
             )
         return runs[run_id]
 
+    @app.get(
+        "/tools",
+        response_model=list[ToolSummary],
+        dependencies=[Depends(auth)],
+    )
+    def list_tools() -> list[ToolSummary]:
+        from testudo.orchestrator.registry import DEFAULT_REGISTRY
+
+        out: list[ToolSummary] = []
+        for name in sorted(DEFAULT_REGISTRY._tools):
+            fn = DEFAULT_REGISTRY._tools[name]
+            try:
+                sig = inspect.signature(fn)
+            except (TypeError, ValueError):
+                continue
+            params: list[ToolParam] = []
+            for p_name, param in sig.parameters.items():
+                if p_name in {"_ctx", "ctx"} or p_name.startswith("**"):
+                    continue
+                if param.kind in {
+                    inspect.Parameter.VAR_POSITIONAL,
+                    inspect.Parameter.VAR_KEYWORD,
+                }:
+                    continue
+                has_default = param.default is not inspect.Parameter.empty
+                params.append(
+                    ToolParam(
+                        name=p_name,
+                        annotation=_annotation_str(param.annotation),
+                        default=param.default if has_default else None,
+                        has_default=has_default,
+                        required=not has_default,
+                    )
+                )
+            out.append(
+                ToolSummary(
+                    name=name,
+                    module=getattr(fn, "__module__", "?"),
+                    doc=(inspect.getdoc(fn) or None),
+                    params=params,
+                )
+            )
+        return out
+
+    @app.post(
+        "/workflows",
+        response_model=WorkflowSaveResponse,
+        dependencies=[Depends(auth)],
+    )
+    def save_workflow(draft: WorkflowDraft) -> WorkflowSaveResponse:
+        from testudo.orchestrator import load_workflow as _load_workflow
+
+        if not _safe_workflow_name(draft.name):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="workflow name must be kebab-case alphanumerics, 1-80 chars",
+            )
+
+        workflows_root.mkdir(parents=True, exist_ok=True)
+        target = (workflows_root / f"{draft.name}.json").resolve()
+        try:
+            target.relative_to(workflows_root)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"workflow name resolves outside workflows root: {exc}",
+            ) from exc
+
+        payload = draft.model_dump(by_alias=True, exclude_none=True)
+        target.write_text(
+            json.dumps(payload, indent=2, sort_keys=False) + "\n",
+            encoding="utf-8",
+        )
+
+        try:
+            _load_workflow(target)
+        except Exception as exc:
+            target.unlink(missing_ok=True)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"workflow draft did not validate after save: {exc}",
+            ) from exc
+
+        return WorkflowSaveResponse(name=draft.name, path=str(target))
+
     return app
+
+
+_SAFE_NAME = re.compile(r"^[a-z0-9][a-z0-9-]{0,79}$")
+
+
+def _safe_workflow_name(name: str) -> bool:
+    return bool(_SAFE_NAME.match(name))
+
+
+def _annotation_str(annotation: object) -> str:
+    if annotation is inspect.Parameter.empty:
+        return "any"
+    return getattr(annotation, "__name__", None) or str(annotation)

@@ -10,6 +10,7 @@ const TABS: Array<{ id: Mode; label: string; hint: string }> = [
   { id: "url", label: "URL", hint: "Fetch an HTTPS resource" },
   { id: "database", label: "Database", hint: "DuckDB now, Databricks pending" },
   { id: "workflow", label: "Workflow", hint: "Run an arbitrary workflow.json" },
+  { id: "compose", label: "Compose", hint: "Author a workflow visually" },
 ];
 
 export function ModeTabs({ active, onSelect }: Props) {
