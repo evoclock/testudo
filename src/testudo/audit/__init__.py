@@ -1,15 +1,19 @@
 """Testudo audit package.
 
-Purpose: structured audit logging. Writes one JSONL record per workflow invocation
-(and one per step) capturing PID, parameters, stdio, runtime, exit status, and any
-permission decisions taken during execution.
+Purpose: structured audit logging. Writes one JSONL record per event (workflow
+start/end, step start/end, permission decision, error) so a run can be
+reconstructed from the log alone.
 
-Inputs: events from ``runtime/``, ``orchestrator/``, ``permissions/``, and the
+Inputs: ``AuditEvent`` instances from the orchestrator, runtime, and
 in-container subsystems.
 
-Outputs: a JSONL audit log file (default ``runs/<run-id>/audit.jsonl``) and
-optionally a streaming sink (host-side aggregator, future).
+Outputs: a JSONL audit log file at ``runs/<run-id>/audit.jsonl`` by default.
 
-Assumptions: audit is append-only and write-through; the runtime considers a step
+Assumptions: append-only and write-through; the runtime considers a step
 complete only after its audit record has been flushed.
 """
+
+from testudo.audit.events import AuditEvent, EventType
+from testudo.audit.log import AuditLog
+
+__all__ = ["AuditEvent", "AuditLog", "EventType"]
