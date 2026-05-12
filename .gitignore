@@ -62,3 +62,9 @@ pipeline_output/codebase_inventory.jsonl
 *.pem
 *.key
 .secrets/
+
+# Agent / dev tooling config (per-user, do not ship)
+CLAUDE.md
+.claude/
+.cursor/
+.windsurf/

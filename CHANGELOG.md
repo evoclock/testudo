@@ -6,7 +6,10 @@ All notable changes to this project will be documented in this file. Format foll
 
 ### v0.1.5 follow-ups (2026-05-12, post-tag)
 
-- **`testudo ui` is now turnkey**: one command launches the bridge, generates a token, polls `/health`, then spawns the Electron renderer with the token wired through. Ctrl-C cleans up both processes. `--no-renderer` flag for bridge-only mode.
+- **Bridge lifecycle is now in the UI**: Electron main process owns the `testudo serve` subprocess via `BridgeManager`. Renderer header gets **Start bridge** / **Stop bridge** buttons + a coloured status badge. Closing the window kills the bridge. Token never reaches renderer scope except through the explicit `bridge:status` IPC return value.
+- **`GET /env-check` bridge endpoint**: probes Ollama at `TESTUDO_OLLAMA_URL` and reports `{ollama_running, ollama_models, databricks_env_set, file_ops_extra_installed, databricks_extra_installed}`. UI header shows badges (`ollama up/down`, `databricks ready/n/a`) with detail tooltips. Refactored as a module-level `_probe_ollama(url)` helper so tests can `monkeypatch.setattr` without httpx-mocking gymnastics.
+- **Recommended model picker in File mode**: four cards for `mistral` (default), `minimax-m2.5`, `jan-code-4b`, `chandra-ocr-2`. Each card flips to `installed` (green) or `pull` (grey) based on the env-check response. Free-text field below for any other model. workflow-pdf-summarise default model changed from `minimax-m2.5` to `mistral`.
+- **`testudo ui` alternative CLI**: one command launches the bridge + renderer with a shared token. Ctrl-C cleans up both. `--no-renderer` flag for bridge-only mode.
 - **Ollama model adapter**: `testudo.models.ollama_chat` POSTs to a local Ollama daemon and routes the response through `sanitise_output` before returning. Default base URL `http://localhost:11434`, override via `TESTUDO_OLLAMA_URL`.
 - **DAG composition mode** in the UI (new "Compose" tab): tool palette down the left, editable React Flow canvas, node inspector with `with:` param editing, save via `POST /workflows`. New `GET /tools` bridge endpoint introspects `DEFAULT_REGISTRY` via Python `inspect` and returns each tool's kwarg signature with type annotations and defaults.
 - **UI mode picker** (five tabs): File / URL / Database / Workflow / Compose. File mode runs `pdf-summarise` (extract -> ollama -> sanitise -> write). DAG panel restored under each mode form; nodes coloured by post-run status.
@@ -18,7 +21,8 @@ All notable changes to this project will be documented in this file. Format foll
 - **Env templates** committed in repo root: `.env.testudo.example`, `.env.databricks.example`, `.env.ollama.example`. `.gitignore` updated so real `.env.*` files stay private while `.env.*.example` is tracked.
 - **Logo** wired into the Electron header and the README from `assets/testudo.png`.
 - **Google Drive (private)** dropped from scope. Public link-shared Drive files reachable via `connectors.https_get` with the direct-download URL.
-- **Quality**: 312 tests passing (was 279), ruff clean, both Electron tsconfigs typecheck clean, 0 npm vulnerabilities. Electron toolchain bumped to electron ^41, electron-vite ^5, vite ^7, plugin-react ^5.
+- **CLAUDE.md untracked**: added to `.gitignore` (along with `.claude/`, `.cursor/`, `.windsurf/`). Per-user agent tooling config, not shipped.
+- **Quality**: 317 tests passing (was 279), ruff clean, both Electron tsconfigs typecheck clean, 0 npm vulnerabilities. Electron toolchain bumped to electron ^41, electron-vite ^5, vite ^7, plugin-react ^5.
 
 ### Deferred to v0.2
 

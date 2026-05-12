@@ -58,15 +58,26 @@ Larger pipelines run on [Hillstar](https://github.com/evoclock/hillstar-orchestr
                        │  Electron renderer (TS + React)              │
                        │  Five modes: File / URL / Database /         │
                        │  Workflow / Compose                          │
+                       │  Header: Start/Stop bridge + ollama up/down  │
+                       │  + databricks ready/n/a badges + logo        │
                        │  DAG panel renders the staged workflow's     │
                        │  step graph; nodes coloured by run status    │
                        └──────────────┬───────────────────────────────┘
-                                      │ window.testudo (preload contextBridge)
+                                      │ window.testudo.bridge.{status,start,stop}
+                                      │ (preload contextBridge -- token never
+                                      │  reaches renderer except via status())
+                                      ▼
+                       ┌──────────────────────────────────────────────┐
+                       │  Electron main (Node)                        │
+                       │  BridgeManager owns the testudo serve        │
+                       │  subprocess: spawn, capture token from       │
+                       │  stderr, poll /health, SIGTERM on quit       │
+                       └──────────────┬───────────────────────────────┘
                                       ▼
                        ┌──────────────────────────────────────────────┐
                        │  FastAPI bridge (testudo serve)              │
                        │  Bearer auth + in-house rate limiter         │
-                       │  GET /workflows  GET /tools                  │
+                       │  GET /workflows  GET /tools  GET /env-check  │
                        │  POST /runs     POST /workflows  ...         │
                        └──────────────┬───────────────────────────────┘
                                       ▼
@@ -186,7 +197,7 @@ workflow step (uses: models.ollama_chat)
    {decision, content, findings, raw_length, sanitised_length}
 ```
 
-The default base URL is `http://localhost:11434` (overridable via `TESTUDO_OLLAMA_URL`). Default model in the bundled `workflow-pdf-summarise` is `minimax-m2.5`; any model accessible via `ollama list` is valid. v0.2 adds adapters for other providers behind the same `models.*` namespace.
+The default base URL is `http://localhost:11434` (overridable via `TESTUDO_OLLAMA_URL`). Default model in the bundled `workflow-pdf-summarise` is `mistral`; the File-mode UI surfaces four recommended models (`mistral`, `minimax-m2.5`, `jan-code-4b`, `chandra-ocr-2`) plus a free-text field for any other model accessible via `ollama list`. The bridge's `GET /env-check` endpoint reports which of the four are currently installed locally so the UI can mark each one `installed` or `pull`. v0.2 adds adapters for other providers behind the same `models.*` namespace.
 
 ## UI modes (Electron renderer)
 

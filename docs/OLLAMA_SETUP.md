@@ -33,29 +33,33 @@ ollama serve   # starts the daemon on http://localhost:11434
 The daemon listens on `127.0.0.1:11434` by default. Leave it running
 (or run as a systemd service on Linux; `systemctl --user enable --now ollama`).
 
-## 2. Pull a model
+## 2. Pull the recommended models
 
-Testudo's `workflow-pdf-summarise.json` defaults to `minimax-m2.5`. Pull it
-once:
-
-```bash
-ollama pull minimax-m2.5
-```
-
-You can pull any other model the same way and pass its name as the
-`model` input to the workflow:
+Testudo's File mode surfaces four models in the picker. Pull whichever
+you intend to use:
 
 ```bash
-ollama pull llama3.2
-ollama pull qwen2.5
-ollama pull mistral
+ollama pull mistral          # general-purpose default in the UI
+ollama pull minimax-m2.5     # long-context, careful summaries
+ollama pull jan-code-4b      # small / fast; good for code-heavy tasks
+ollama pull chandra-ocr-2    # OCR over scanned documents
 ```
+
+Any other model on the Ollama registry works too; pass its name as the
+`model` input to the workflow. The UI's picker has a free-text field
+under the four buttons for that case.
 
 List what is on disk:
 
 ```bash
 ollama list
 ```
+
+The Electron app's header shows an `ollama up` / `ollama down` badge
+once the bridge is online. Hovering over it shows the list of models
+the daemon reports installed; the File mode picker marks each
+recommended model with `installed` (green) or `pull` (grey) so you
+can tell which ones still need `ollama pull`.
 
 ## 3. Point testudo at Ollama
 

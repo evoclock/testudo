@@ -108,3 +108,20 @@ class WorkflowSaveResponse(BaseModel):
 
     name: str
     path: str
+
+
+class EnvCheckResponse(BaseModel):
+    """Snapshot of the bridge's runtime environment.
+
+    The renderer polls this once per launch (and on demand) so the user
+    knows whether the LLM adapter, the Databricks adapter, etc. can
+    actually run before they try a workflow that uses them.
+    """
+
+    ollama_url: str
+    ollama_running: bool
+    ollama_models: list[str] = Field(default_factory=list)
+    ollama_error: str | None = None
+    databricks_env_set: bool = False
+    file_ops_extra_installed: bool = False
+    databricks_extra_installed: bool = False

@@ -55,16 +55,23 @@ v0.2 supplemental for higher recall on names / places / organisations.
   Regex Fails for PII Detection in Unstructured Text".
 - Behind a `[sanitisers]` extra so the runtime stays light.
 
-## Priority 3 -- Electron renderer bring-up
+## Priority 3 -- renderer polish
 
-The TS / React scaffold is in place. Next:
+The TS / React renderer is up, the bridge lifecycle is in-app
+(BridgeManager + Start/Stop button), env-check tells the user when
+Ollama is reachable. Next:
 
-- Run `npm install` (network).
-- `npm run dev` to validate the renderer + main process boot.
-- Confirm `window.testudo.getBridgeConfig()` returns a usable URL +
-  token after `testudo serve` is running.
-- Add Vitest + Playwright smoke test (was listed as deferred to
-  v0.1.5; staying deferred to keep this sprint scoped).
+- Add a Vitest + Playwright smoke test (mocks `window.testudo` and
+  drives the five tabs).
+- Live run progress: stream step status as the orchestrator runs
+  (today we colour nodes post-run only).
+- Surface env-check findings inline in the offending mode (e.g. File
+  mode should hard-fail with a Start-Ollama hint when ollama_running
+  is false, rather than letting the run start and the LLM call
+  return a 500).
+- Packaged installer: `electron-builder` build that produces a
+  .AppImage / .dmg / .exe so end users can double-click to launch
+  instead of `npm run dev`.
 
 ## Priority 4 -- v0.2 deferred (carry forward)
 
@@ -92,6 +99,11 @@ exhaustive list. Highlights:
 - Scan-before-permit gate using the in-house AgentScanner.
 - FastAPI in-house token-bucket rate limiter.
 - Electron TS / React / electron-vite migration (vanilla JS removed).
+- Bridge lifecycle inside the UI (Start / Stop in header).
+- `testudo ui` turnkey CLI launcher.
+- `GET /env-check` endpoint + UI badges for Ollama + Databricks readiness.
+- File-mode model picker for mistral / minimax-m2.5 / jan-code-4b / chandra-ocr-2.
+- DAG composition mode (Compose tab) with `GET /tools` + `POST /workflows`.
 
 ## Open user questions
 

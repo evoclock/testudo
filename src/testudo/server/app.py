@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import inspect
 import json
+import os
 import re
 import secrets
 from pathlib import Path
@@ -39,6 +40,7 @@ from testudo.orchestrator import (
 )
 from testudo.server.auth import TokenAuth, generate_token
 from testudo.server.models import (
+    EnvCheckResponse,
     HealthResponse,
     RunRequest,
     RunResponse,
@@ -167,6 +169,14 @@ def create_app(
         return runs[run_id]
 
     @app.get(
+        "/env-check",
+        response_model=EnvCheckResponse,
+        dependencies=[Depends(auth)],
+    )
+    def env_check() -> EnvCheckResponse:
+        return _env_check()
+
+    @app.get(
         "/tools",
         response_model=list[ToolSummary],
         dependencies=[Depends(auth)],
@@ -259,6 +269,80 @@ _SAFE_NAME = re.compile(r"^[a-z0-9][a-z0-9-]{0,79}$")
 
 def _safe_workflow_name(name: str) -> bool:
     return bool(_SAFE_NAME.match(name))
+
+
+def _probe_ollama(url: str) -> tuple[bool, list[str], str | None]:
+    """Hit the configured Ollama daemon's /api/tags endpoint.
+
+    Returns ``(running, models, error_or_None)``. Pulled out as a
+    module-level function so tests can monkeypatch it directly.
+    """
+    import httpx
+
+    try:
+        with httpx.Client(timeout=2.0) as client:
+            r = client.get(f"{url.rstrip('/')}/api/tags")
+            r.raise_for_status()
+            data = r.json()
+    except Exception as exc:
+        return False, [], f"{type(exc).__name__}: {exc}"
+
+    models: list[str] = []
+    for model in data.get("models", []):
+        name = model.get("name") or model.get("model")
+        if isinstance(name, str):
+            models.append(name)
+    return True, models, None
+
+
+def _env_check() -> EnvCheckResponse:
+    """Inspect the runtime environment for adapter readiness.
+
+    Pings the configured Ollama daemon, checks whether the Databricks
+    env vars are set, and reports which optional extras are installed.
+    The renderer surfaces the result so the user knows whether a given
+    workflow has the deps it needs before they hit Run.
+    """
+    ollama_url = os.environ.get("TESTUDO_OLLAMA_URL", "http://localhost:11434")
+    ollama_running, ollama_models, ollama_error = _probe_ollama(ollama_url)
+
+    databricks_env_set = all(
+        os.environ.get(key)
+        for key in (
+            "DATABRICKS_SERVER_HOSTNAME",
+            "DATABRICKS_HTTP_PATH",
+            "DATABRICKS_TOKEN",
+        )
+    )
+
+    try:
+        import pypdf  # noqa: F401
+
+        try:
+            import docx  # noqa: F401
+
+            file_ops_installed = True
+        except ImportError:
+            file_ops_installed = False
+    except ImportError:
+        file_ops_installed = False
+
+    try:
+        import databricks.sql  # noqa: F401
+
+        databricks_installed = True
+    except ImportError:
+        databricks_installed = False
+
+    return EnvCheckResponse(
+        ollama_url=ollama_url,
+        ollama_running=ollama_running,
+        ollama_models=sorted(ollama_models),
+        ollama_error=ollama_error,
+        databricks_env_set=databricks_env_set,
+        file_ops_extra_installed=file_ops_installed,
+        databricks_extra_installed=databricks_installed,
+    )
 
 
 def _annotation_str(annotation: object) -> str:

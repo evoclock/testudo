@@ -76,6 +76,16 @@ export interface WorkflowSaveResponse {
   path: string;
 }
 
+export interface EnvCheck {
+  ollama_url: string;
+  ollama_running: boolean;
+  ollama_models: string[];
+  ollama_error: string | null;
+  databricks_env_set: boolean;
+  file_ops_extra_installed: boolean;
+  databricks_extra_installed: boolean;
+}
+
 export class BridgeClient {
   constructor(private readonly url: string, private readonly token: string) {}
 
@@ -102,6 +112,12 @@ export class BridgeClient {
     const r = await fetch(`${this.url}/tools`, { headers: this.headers() });
     if (!r.ok) throw new Error(`/tools ${r.status}`);
     return (await r.json()) as ToolSummary[];
+  }
+
+  async envCheck(): Promise<EnvCheck> {
+    const r = await fetch(`${this.url}/env-check`, { headers: this.headers() });
+    if (!r.ok) throw new Error(`/env-check ${r.status}`);
+    return (await r.json()) as EnvCheck;
   }
 
   async saveWorkflow(draft: WorkflowDraft): Promise<WorkflowSaveResponse> {

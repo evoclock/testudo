@@ -9,6 +9,7 @@ import { WorkflowGraph } from "./components/WorkflowGraph";
 import { WorkflowPanel } from "./components/WorkflowPanel";
 import {
   BridgeClient,
+  type EnvCheck,
   type RunResponse,
   type WorkflowSummary,
 } from "./lib/api";
@@ -23,6 +24,7 @@ export default function App() {
   const [bridgeState, setBridgeState] = useState<BridgeUiState>("stopped");
   const [bridgeError, setBridgeError] = useState<string | null>(null);
   const [bridgePort, setBridgePort] = useState<number | null>(null);
+  const [envCheck, setEnvCheck] = useState<EnvCheck | null>(null);
   const [mode, setMode] = useState<Mode>("file");
   const [busy, setBusy] = useState(false);
   const [entries, setEntries] = useState<LogEntry[]>([
@@ -54,6 +56,11 @@ export default function App() {
         const h = await c.health();
         setVersion(h.version);
         await refreshWorkflows(c);
+        try {
+          setEnvCheck(await c.envCheck());
+        } catch {
+          setEnvCheck(null);
+        }
         setBridgeState("online");
         setBridgeError(null);
       } catch (err) {
@@ -102,6 +109,7 @@ export default function App() {
     setEntries((e) => [...e, { kind: "info", text: "Stopping bridge..." }]);
     const status = await window.testudo.bridge.stop();
     await adoptStatus(status);
+    setEnvCheck(null);
     setEntries((e) => [...e, { kind: "system", text: "Bridge stopped." }]);
   };
 
@@ -253,8 +261,14 @@ export default function App() {
         return (
           <FilePanel
             busy={busy}
-            onRun={({ filePath, outputPath, note }) =>
-              runMode({ filePath, outputPath }, `File: ${filePath}`, note || undefined)
+            ollamaAvailable={envCheck?.ollama_running ?? false}
+            installedModels={envCheck?.ollama_models ?? []}
+            onRun={({ filePath, outputPath, model, note }) =>
+              runMode(
+                { filePath, outputPath, model },
+                `File (${model}): ${filePath}`,
+                note || undefined,
+              )
             }
           />
         );
@@ -325,6 +339,38 @@ export default function App() {
         {headerStatusBadge()}
         {version && bridgeState === "online" && (
           <span className="text-xs text-muted">bridge v{version}</span>
+        )}
+        {envCheck && bridgeState === "online" && (
+          <>
+            <span
+              title={
+                envCheck.ollama_running
+                  ? `Ollama up at ${envCheck.ollama_url}\nModels: ${envCheck.ollama_models.join(", ") || "(none pulled)"}`
+                  : `Ollama offline at ${envCheck.ollama_url}\n${envCheck.ollama_error ?? "no error reported"}\nFile mode (LLM summarise) will fail until ollama serve is running.`
+              }
+              className={`px-2 py-0.5 rounded text-[11px] ${
+                envCheck.ollama_running
+                  ? "bg-green-700 text-white"
+                  : "bg-amber-700 text-white"
+              }`}
+            >
+              ollama {envCheck.ollama_running ? "up" : "down"}
+            </span>
+            <span
+              title={
+                envCheck.databricks_env_set
+                  ? "DATABRICKS_SERVER_HOSTNAME / HTTP_PATH / TOKEN are exported"
+                  : "DATABRICKS_* env vars not set; Database mode against Databricks will be unavailable"
+              }
+              className={`px-2 py-0.5 rounded text-[11px] ${
+                envCheck.databricks_env_set
+                  ? "bg-green-700 text-white"
+                  : "bg-bg text-muted border border-border"
+              }`}
+            >
+              databricks {envCheck.databricks_env_set ? "ready" : "n/a"}
+            </span>
+          </>
         )}
         <div className="flex-1" />
         {bridgeState === "online" && (

@@ -10,7 +10,8 @@
     "model": {
       "type": "string",
       "required": false,
-      "default": "minimax-m2.5"
+      "default": "mistral",
+      "description": "Ollama model name. Recommended: mistral (general), minimax-m2.5 (long-context), jan-code-4b (small/fast/code), chandra-ocr-2 (OCR)."
     },
     "system_prompt": {
       "type": "string",
