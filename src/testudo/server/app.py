@@ -143,6 +143,16 @@ def create_app(
                 detail=f"Failed to load workflow: {exc}",
             ) from exc
 
+        # Apply workflow input defaults for any key the caller did not
+        # supply. Required because the orchestrator's reference resolver
+        # has no access to wf.inputs[key].default; ${inputs.X} fails if
+        # X is absent regardless of the schema-level default.
+        merged_inputs: dict[str, object] = {}
+        for key, spec in wf.inputs.items():
+            if spec.default is not None:
+                merged_inputs[key] = spec.default
+        merged_inputs.update(request.inputs)
+
         run_id = request.run_id or secrets.token_hex(6)
         run_dir = runs_root / run_id
         run_dir.mkdir(parents=True, exist_ok=True)
@@ -151,7 +161,7 @@ def create_app(
         executor = Executor(audit=audit)
         permissions = resolve_permissions(wf)
 
-        results = executor.run(wf, request.inputs, permissions, run_id=run_id)
+        results = executor.run(wf, merged_inputs, permissions, run_id=run_id)
 
         any_error = any(r.error is not None for r in results.values())
         response = RunResponse(
