@@ -35,31 +35,59 @@ The daemon listens on `127.0.0.1:11434` by default. Leave it running
 
 ## 2. Pull the recommended models
 
-Testudo's File mode surfaces four models in the picker. Pull whichever
-you intend to use:
+Testudo's File mode picker groups seven models by purpose. Pull
+whichever you plan to use:
+
+### General
 
 ```bash
-ollama pull mistral          # general-purpose default in the UI
-ollama pull minimax-m2.5     # long-context, careful summaries
-ollama pull jan-code-4b      # small / fast; good for code-heavy tasks
-ollama pull chandra-ocr-2    # OCR over scanned documents
+ollama pull minimax-m2.7                  # default; long context, cloud-served
+ollama pull mistral-large-3               # general-purpose
+ollama pull qwen3.5                       # general-purpose alternative
 ```
 
-Any other model on the Ollama registry works too; pass its name as the
-`model` input to the workflow. The UI's picker has a free-text field
-under the four buttons for that case.
+### Code
 
-List what is on disk:
+```bash
+ollama pull qwen3-coder-next              # code, larger context
+ollama pull fredrezones55/Jan-code        # small / fast; short coding tasks
+```
+
+### Specialised
+
+```bash
+ollama pull fredrezones55/chandra-ocr-2   # OCR over scanned documents
+ollama pull mathstral                     # maths-leaning reasoning
+```
+
+Any other model on the Ollama registry works too; the UI's picker has
+a free-text field under the buttons for arbitrary names. List what is
+on disk with:
 
 ```bash
 ollama list
 ```
 
+### Cloud-served vs local-pulled
+
+`minimax-m2.7` ships as a cloud-served model on Ollama. The Ollama
+daemon handles the auth handshake transparently once you have signed
+in (`ollama signin`). The model name in the API call is the same as
+for local models, so testudo does not need to know the difference.
+
+If you'd rather run a local-only model as the default, change the
+File-tab pick to `mistral-large-3` (downloads + runs locally) or pass
+`--model mistral-large-3` to `testudo run examples/workflow-pdf-summarise.json`.
+
+### How the UI reflects what you have installed
+
 The Electron app's header shows an `ollama up` / `ollama down` badge
 once the bridge is online. Hovering over it shows the list of models
-the daemon reports installed; the File mode picker marks each
-recommended model with `installed` (green) or `pull` (grey) so you
-can tell which ones still need `ollama pull`.
+the daemon reports installed. The File mode picker marks each
+recommended model with a green `installed` chip or a grey `pull` chip
+so you know which ones still need `ollama pull`. Cloud-served models
+appear under their canonical name (`minimax-m2.7`) once you have
+signed in to Ollama.
 
 ## 3. Point testudo at Ollama
 

@@ -10,8 +10,8 @@
     "model": {
       "type": "string",
       "required": false,
-      "default": "mistral",
-      "description": "Ollama model name. Recommended: mistral (general), minimax-m2.5 (long-context), jan-code-4b (small/fast/code), chandra-ocr-2 (OCR)."
+      "default": "minimax-m2.7",
+      "description": "Ollama model name. Recommended: minimax-m2.7 (default; long-context, cloud-served), mistral-large-3 (general), qwen3.5 (general alternative), qwen3-coder-next (code), fredrezones55/Jan-code (small/fast code), fredrezones55/chandra-ocr-2 (OCR), mathstral (math)."
     },
     "system_prompt": {
       "type": "string",

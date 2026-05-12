@@ -18,7 +18,7 @@ export const MODE_BINDINGS: Record<Exclude<Mode, "workflow" | "compose">, ModeBi
     workflowName: "pdf-summarise-v015",
     buildInputs: (form) => ({
       pdf_path: form.filePath,
-      model: form.model ?? "mistral",
+      model: form.model ?? "minimax-m2.7",
       system_prompt: form.systemPrompt ?? undefined,
       output_path: form.outputPath ?? "/tmp/testudo-file-summary.md",
     }),

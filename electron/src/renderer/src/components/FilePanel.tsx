@@ -1,11 +1,73 @@
 import { useState } from "react";
 
-export const RECOMMENDED_MODELS: Array<{ id: string; label: string; hint: string }> = [
-  { id: "mistral", label: "mistral", hint: "general-purpose default" },
-  { id: "minimax-m2.5", label: "minimax-m2.5", hint: "long-context, careful summaries" },
-  { id: "jan-code-4b", label: "jan-code-4b", hint: "small / fast; code-leaning" },
-  { id: "chandra-ocr-2", label: "chandra-ocr-2", hint: "OCR over scanned docs" },
+export interface RecommendedModel {
+  id: string;
+  label: string;
+  hint: string;
+  pullCommand: string;
+}
+
+export const MODEL_GROUPS: Array<{ title: string; models: RecommendedModel[] }> = [
+  {
+    title: "General",
+    models: [
+      {
+        id: "minimax-m2.7",
+        label: "minimax-m2.7",
+        hint: "default. long context, careful summaries (cloud-served)",
+        pullCommand: "ollama pull minimax-m2.7",
+      },
+      {
+        id: "mistral-large-3",
+        label: "mistral-large-3",
+        hint: "general-purpose",
+        pullCommand: "ollama pull mistral-large-3",
+      },
+      {
+        id: "qwen3.5",
+        label: "qwen3.5",
+        hint: "general-purpose alternative",
+        pullCommand: "ollama pull qwen3.5",
+      },
+    ],
+  },
+  {
+    title: "Code",
+    models: [
+      {
+        id: "qwen3-coder-next",
+        label: "qwen3-coder-next",
+        hint: "code-leaning, larger context",
+        pullCommand: "ollama pull qwen3-coder-next",
+      },
+      {
+        id: "fredrezones55/Jan-code",
+        label: "Jan-code",
+        hint: "small / fast; good for short coding tasks",
+        pullCommand: "ollama pull fredrezones55/Jan-code",
+      },
+    ],
+  },
+  {
+    title: "Specialised",
+    models: [
+      {
+        id: "fredrezones55/chandra-ocr-2",
+        label: "chandra-ocr-2",
+        hint: "OCR over scanned documents",
+        pullCommand: "ollama pull fredrezones55/chandra-ocr-2",
+      },
+      {
+        id: "mathstral",
+        label: "mathstral",
+        hint: "maths-leaning reasoning",
+        pullCommand: "ollama pull mathstral",
+      },
+    ],
+  },
 ];
+
+export const DEFAULT_MODEL = "minimax-m2.7";
 
 interface Props {
   busy: boolean;
@@ -22,7 +84,7 @@ interface Props {
 export function FilePanel({ busy, ollamaAvailable, installedModels, onRun }: Props) {
   const [filePath, setFilePath] = useState<string | null>(null);
   const [outputPath, setOutputPath] = useState("");
-  const [model, setModel] = useState("mistral");
+  const [model, setModel] = useState(DEFAULT_MODEL);
   const [note, setNote] = useState("");
 
   const pick = async () => {
@@ -69,46 +131,55 @@ export function FilePanel({ busy, ollamaAvailable, installedModels, onRun }: Pro
           Model{" "}
           {!ollamaAvailable && (
             <span className="text-amber-400 normal-case">
-              (ollama offline — start `ollama serve` for this to work)
+              (ollama offline; start `ollama serve` for this to work)
             </span>
           )}
         </label>
-        <div className="grid grid-cols-2 gap-2">
-          {RECOMMENDED_MODELS.map((m) => {
-            const installed = isInstalled(m.id);
-            const selected = model === m.id;
-            return (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => setModel(m.id)}
-                className={`text-left px-3 py-2 rounded border text-sm ${
-                  selected
-                    ? "border-accent bg-bg"
-                    : "border-border bg-bg hover:border-accent"
-                }`}
-                title={
-                  installed
-                    ? `Installed in your local Ollama`
-                    : `Not installed locally. Run \`ollama pull ${m.id}\` before using this option.`
-                }
-              >
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-text">{m.label}</span>
-                  <span
-                    className={`text-[10px] px-1.5 rounded ${
-                      installed
-                        ? "bg-green-700 text-white"
-                        : "bg-bg text-muted border border-border"
-                    }`}
-                  >
-                    {installed ? "installed" : "pull"}
-                  </span>
-                </div>
-                <div className="text-xs text-muted">{m.hint}</div>
-              </button>
-            );
-          })}
+        <div className="space-y-3">
+          {MODEL_GROUPS.map((group) => (
+            <div key={group.title}>
+              <div className="text-[10px] uppercase tracking-wider text-muted/80 mb-1">
+                {group.title}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {group.models.map((m) => {
+                  const installed = isInstalled(m.id);
+                  const selected = model === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setModel(m.id)}
+                      className={`text-left px-3 py-2 rounded border text-sm ${
+                        selected
+                          ? "border-accent bg-bg"
+                          : "border-border bg-bg hover:border-accent"
+                      }`}
+                      title={
+                        installed
+                          ? `Installed in your local Ollama`
+                          : `Not installed locally. Run: ${m.pullCommand}`
+                      }
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-text">{m.label}</span>
+                        <span
+                          className={`text-[10px] px-1.5 rounded ${
+                            installed
+                              ? "bg-green-700 text-white"
+                              : "bg-bg text-muted border border-border"
+                          }`}
+                        >
+                          {installed ? "installed" : "pull"}
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted">{m.hint}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
         <input
           type="text"
