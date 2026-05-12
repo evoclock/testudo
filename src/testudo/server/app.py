@@ -30,6 +30,7 @@ import secrets
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 
 from testudo import __version__, _loaded  # noqa: F401  - registers built-in tools
 from testudo.audit import AuditLog
@@ -73,6 +74,17 @@ def create_app(
     workflows_root = (workflows_root or Path("workflows")).resolve()
 
     app = FastAPI(title="Testudo", version=__version__)
+    # Allow the Electron renderer (vite dev on :5173, or file:// in
+    # production) to call the bridge across origins. Auth is still
+    # bearer-token gated; the bridge listens only on 127.0.0.1 so even
+    # an open allow-list cannot be reached from off-host.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     app.add_middleware(RateLimitMiddleware, limiter=rate_limit or RateLimiter())
     auth = TokenAuth(token=token or generate_token())
     runs: dict[str, RunResponse] = {}
