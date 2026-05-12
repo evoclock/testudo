@@ -37,6 +37,11 @@ _DEFAULT_ALLOWED_CONTENT_TYPES: tuple[str, ...] = (
     "application/json",
     "application/yaml",
     "application/x-yaml",
+    # Google Drive serves shared files as octet-stream regardless of the
+    # actual format. Body is still decoded as text at the StagedInput
+    # layer; downstream connectors.extract_document handles structured
+    # formats.
+    "application/octet-stream",
 )
 
 

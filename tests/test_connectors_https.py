@@ -27,6 +27,19 @@ def test_fetch_https_returns_staged_input_on_200() -> None:
     assert staged.metadata["host"] == "example.com"
 
 
+def test_fetch_https_accepts_octet_stream_for_drive_compat() -> None:
+    """Regression: Drive serves shared files as octet-stream; must accept."""
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            content=b"# markdown body that drive served as octet-stream\n",
+            headers={"content-type": "application/octet-stream"},
+        )
+
+    staged = fetch_https("https://example.com/x", client=_make_client(handler))
+    assert "markdown body" in staged.content
+
+
 def test_fetch_https_rejects_non_https_scheme() -> None:
     with pytest.raises(ValueError, match="HTTPS"):
         fetch_https("http://example.com/x")
