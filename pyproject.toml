@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "testudo"
-version = "0.0.1"
+version = "0.1.5"
 description = "Dockerised agent runtime with declarative permissioning, audit logging, rollback semantics, and an embedded lightweight orchestrator."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -67,6 +67,10 @@ serve = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "python-multipart>=0.0.12",
+]
+file_ops = [
+    "pypdf>=4.0",
+    "python-docx>=1.1",
 ]
 
 [project.scripts]

@@ -10,4 +10,4 @@ Outputs: ``__version__`` symbol; eventually the public API.
 Assumptions: Python 3.11+; Docker available on the host for runtime invocation.
 """
 
-__version__ = "0.0.1"
+__version__ = "0.1.5"

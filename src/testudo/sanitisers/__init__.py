@@ -23,12 +23,24 @@ orchestrator's ``DEFAULT_REGISTRY``.
 from testudo.sanitisers import tools  # noqa: F401  - registers sanitiser tools
 from testudo.sanitisers.agent_scanner import AgentScanner, ScanResult
 from testudo.sanitisers.injection import detect_injection, sanitise_injection
+from testudo.sanitisers.output import sanitise_input, sanitise_output
 from testudo.sanitisers.pii import detect_pii, redact_pii, sanitise_pii
 from testudo.sanitisers.result import (
     Decision,
     Finding,
     SanitisationResult,
     Severity,
+)
+from testudo.sanitisers.threat import (
+    detect_mcp_threats,
+    detect_owasp,
+    detect_threats,
+    sanitise_threat,
+)
+from testudo.sanitisers.unicode_payload import (
+    detect_hidden,
+    sanitise_hidden,
+    strip_hidden,
 )
 
 __all__ = [
@@ -38,9 +50,18 @@ __all__ = [
     "SanitisationResult",
     "ScanResult",
     "Severity",
+    "detect_hidden",
     "detect_injection",
+    "detect_mcp_threats",
+    "detect_owasp",
     "detect_pii",
+    "detect_threats",
     "redact_pii",
+    "sanitise_hidden",
     "sanitise_injection",
+    "sanitise_input",
+    "sanitise_output",
     "sanitise_pii",
+    "sanitise_threat",
+    "strip_hidden",
 ]

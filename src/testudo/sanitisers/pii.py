@@ -26,10 +26,12 @@ Limitations (v0.1 — regex only):
 - False-positive rate scales with prose: the date-of-birth and IPv4
   patterns in particular flag any matching string regardless of
   surrounding context.
-- Single-language patterns: most patterns target en-GB / en-US PII.
-  Other locales will under-match. The trackingplan/pii-regex-library
-  catalogue covers EU/CA/MX, and porting more locales is planned for
-  v0.2.
+- Country coverage is breadth-first via ``COUNTRY_PII_PATTERNS``: ~50
+  countries (Canada SIN, Brazil CPF/CNPJ, India Aadhaar/PAN, Singapore
+  NRIC/FIN, Australia TFN/Medicare/ABN, Spain DNI/NIE, France INSEE,
+  Germany Steuer-ID, etc.). Several patterns match plain digit runs
+  (Netherlands BSN ``\\d{9}``, Bangladesh NID ``\\d{10,17}``); the
+  v0.2 NER hybrid is what disambiguates these.
 
 The v0.2 plan (under the ``[sanitisers]`` extra) adds spaCy NER for
 named entities, Microsoft Presidio for context-aware detection, and a
@@ -47,13 +49,8 @@ detector.
 
 from __future__ import annotations
 
-from testudo.sanitisers.patterns import (
-    INTERNATIONAL_PII_PATTERNS,
-    UK_PII_PATTERNS,
-)
+from testudo.sanitisers.patterns import ALL_PII_PATTERNS
 from testudo.sanitisers.result import Finding, SanitisationResult, Severity
-
-ALL_PII_PATTERNS = UK_PII_PATTERNS + INTERNATIONAL_PII_PATTERNS
 
 
 def detect_pii(content: str) -> list[Finding]:
@@ -76,13 +73,37 @@ def detect_pii(content: str) -> list[Finding]:
 
 
 def redact_pii(content: str) -> tuple[str, list[Finding]]:
-    """Detect PII and replace matches with ``[REDACTED-<short label>]`` markers."""
+    """Detect PII and replace matches with ``[REDACTED-<short label>]`` markers.
+
+    Single-pass: every pattern matches against the *original* content; the
+    earliest non-overlapping match wins. This prevents one substitution's
+    output (e.g. ``[REDACTED-EMAIL-ADDRESS]``) from accidentally matching a
+    later, broader pattern (e.g. BIC/SWIFT against the ``REDACTED`` token).
+    """
     findings = detect_pii(content)
-    cleaned = content
+
+    matches: list[tuple[int, int, str]] = []
     for label, pattern in ALL_PII_PATTERNS:
-        marker = f"[REDACTED-{_short_label(label)}]"
-        cleaned = pattern.sub(marker, cleaned)
-    return cleaned, findings
+        for m in pattern.finditer(content):
+            matches.append((m.start(), m.end(), label))
+
+    matches.sort(key=lambda x: (x[0], -(x[1] - x[0])))
+
+    selected: list[tuple[int, int, str]] = []
+    last_end = -1
+    for start, end, label in matches:
+        if start >= last_end:
+            selected.append((start, end, label))
+            last_end = end
+
+    parts: list[str] = []
+    cursor = 0
+    for start, end, label in selected:
+        parts.append(content[cursor:start])
+        parts.append(f"[REDACTED-{_short_label(label)}]")
+        cursor = end
+    parts.append(content[cursor:])
+    return "".join(parts), findings
 
 
 def sanitise_pii(content: str, *, redact: bool = False) -> SanitisationResult:

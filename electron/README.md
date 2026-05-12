@@ -1,19 +1,48 @@
 # Testudo Electron shell
 
-Minimal Electron UI for Testudo: chat box, file-upload panel, output panel. Calls back into the Python CLI for actual workflow execution; the Electron process does no orchestration of its own.
+TypeScript + React + electron-vite renderer. Wires to the testudo
+FastAPI bridge via the preload `contextBridge`. The renderer never sees
+Node or Electron globals; it only sees the typed `window.testudo` API
+defined in `src/preload/index.ts`.
 
-## v0.1 surface
+## Layout
 
-- Chat box: free-form prompt entry; submitted prompts trigger a workflow run.
-- File upload: local file picker; uploaded file is staged into the workflow's `inputs/`.
-- Output panel: renders the structured chat response from the workflow's last step plus a download link for any file outputs.
+- `src/main/` -- main process (Node + Electron). Spawns the FastAPI
+  bridge, opens file dialogs, exposes the bridge URL and token via IPC.
+- `src/preload/` -- contextBridge surface. The single seam between
+  renderer and main.
+- `src/renderer/` -- React 18 + Tailwind + React Flow. Sandboxed
+  browser context.
 
-## Running locally (when v0.1 lands)
+## Build / run
+
+The toolchain is electron-vite (Vite under the hood). One command:
 
 ```bash
-cd electron
 npm install
-npm start
+npm run dev
 ```
 
-The shell expects a `testudo` CLI on PATH and a Docker daemon reachable from the host.
+`npm install` is a network fetch (intentionally not run during the
+in-house bring-up). After install, `npm run dev` starts the renderer
+on Vite's dev server and launches the Electron main process pointing
+at it. `npm run build` produces a packaged `out/` dir.
+
+## Bridge wiring
+
+The main process reads `TESTUDO_BRIDGE_URL` and `TESTUDO_BRIDGE_TOKEN`
+from its environment and forwards them to the renderer via
+`window.testudo.getBridgeConfig()`. Defaults are `http://127.0.0.1:8765`
+and `""` (empty token). Start the bridge with:
+
+```bash
+testudo serve
+# prints the bearer token to stderr; export it as TESTUDO_BRIDGE_TOKEN
+# before launching the Electron app for end-to-end auth.
+```
+
+## Type safety
+
+Two tsconfigs (`tsconfig.node.json`, `tsconfig.web.json`) keep main /
+preload (Node lib) separate from renderer (DOM lib). Run
+`npm run typecheck` to validate both surfaces.

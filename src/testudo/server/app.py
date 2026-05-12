@@ -42,6 +42,7 @@ from testudo.server.models import (
     StepResultPayload,
     WorkflowSummary,
 )
+from testudo.server.rate_limit import RateLimiter, RateLimitMiddleware
 
 
 def create_app(
@@ -49,6 +50,7 @@ def create_app(
     runs_root: Path,
     workflows_root: Path | None = None,
     token: str | None = None,
+    rate_limit: RateLimiter | None = None,
 ) -> FastAPI:
     """Build a FastAPI app for the testudo bridge.
 
@@ -61,6 +63,7 @@ def create_app(
     workflows_root = (workflows_root or Path("workflows")).resolve()
 
     app = FastAPI(title="Testudo", version=__version__)
+    app.add_middleware(RateLimitMiddleware, limiter=rate_limit or RateLimiter())
     auth = TokenAuth(token=token or generate_token())
     runs: dict[str, RunResponse] = {}
 

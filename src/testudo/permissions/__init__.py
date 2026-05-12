@@ -31,6 +31,14 @@ from testudo.permissions.model import (
     Permissions,
     ProcessPermissions,
 )
+from testudo.permissions.scan import (
+    ScanRejected,
+    evaluate_scan,
+    require_filesystem_read_scanned,
+    require_filesystem_write_scanned,
+    scan_artifact,
+    should_scan,
+)
 
 __all__ = [
     "FilesystemPermissions",
@@ -38,13 +46,19 @@ __all__ = [
     "PermissionDenied",
     "Permissions",
     "ProcessPermissions",
+    "ScanRejected",
     "check_filesystem_read",
     "check_filesystem_write",
     "check_network_egress",
     "check_process_spawn",
+    "evaluate_scan",
     "load_permissions",
     "require_filesystem_read",
+    "require_filesystem_read_scanned",
     "require_filesystem_write",
+    "require_filesystem_write_scanned",
     "require_network_egress",
     "require_process_spawn",
+    "scan_artifact",
+    "should_scan",
 ]

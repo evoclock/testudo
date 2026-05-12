@@ -4,22 +4,51 @@ All notable changes to this project will be documented in this file. Format foll
 
 ## [Unreleased]
 
-### Deferred to v0.1.5 (Electron TS / React migration)
-
-- Replace `electron/{main,preload}.js` with `.ts` via `electron-vite`.
-- Renderer migration: vanilla HTML to React + Tailwind + shadcn/ui + React Flow for the DAG editor.
-- Wire the renderer to the FastAPI bridge with bearer-token auth via `contextBridge`.
-- Vitest + Playwright UI smoke test.
-
 ### Deferred to v0.2
 
-- Hybrid PII detection (regex + spaCy NER + Presidio + confidence-ranked merge) per the trackingplan/pii-regex-library catalogue and the Protecto "Why Regex Fails for PII Detection in Unstructured Text" pipeline. v0.1 ships regex-only with documented limitations.
-- File-format exploit detection in sanitisers (PDF, Office, archive).
+- Hybrid PII detection: layer Microsoft Presidio + spaCy NER on top of the in-house regex stack. The regex stack already covers structured identifiers across ~50 countries; Presidio covers names, places, organisations that need entity context. Install gate is a 750 MB spaCy model download (`en_core_web_lg`).
+- aikido intel API integration (`https://intel.aikido.dev/`). Scaffold once an API token is provisioned; fold its findings into the existing `Finding` envelope.
+- Opengrep / Semgrep CI integration. Author rule pack against `src/testudo/`; commit `.github/workflows/semgrep.yml` once the rule pack is signed off.
+- Wire `RateLimitMiddleware` into a Redis backend for multi-process deployments. v0.1.5 ships the in-house token-bucket against an in-memory store.
+- File-format exploit detection in sanitisers (PDF JS objects, Office macros, archive zip-slip beyond the existing path-traversal patterns).
 - Schema validation and regression diff for structured outputs.
 - Async + parallel step execution in the orchestrator.
-- Google Drive connector (currently a `NotImplementedError` placeholder).
-- Service-principal auth for the Databricks adapter.
+- Google Drive connector (currently a `NotImplementedError` placeholder; live integration test pending user-side OAuth setup).
+- Service-principal auth for the Databricks adapter (live integration test pending user-side workspace setup).
 - Network egress allow-list enforcement at the Docker layer (v0.1 ships `--network=none`).
+- Vitest + Playwright UI smoke test for the Electron renderer.
+
+## [0.1.5] - 2026-05-12
+
+Security expansion + Electron TypeScript / React renderer migration.
+Substantial in-house additions across sanitisation, MCP server isolation,
+and rate limiting.
+
+### Added
+
+- **In-house redaction parity with hillstar** (`testudo.sanitisers.patterns`): ported the 16 missing patterns from `~/hillstar-orchestrator/utils/credential_redactor.py` (mac_address; full GitHub PAT/OAuth/refresh family; Stripe; Firebase; Slack app/bot; Twilio; SendGrid; Mailgun; Groq; HuggingFace; JWT; Authorization header; credentials-JSON field; URL-embedded password; env-var assignment for sensitive names). Added explicit ANTHROPIC_BASE_URL and generic API_BASE_URL detection per CVE-2026-21852.
+- **Country-specific PII patterns** (`COUNTRY_PII_PATTERNS`, ~50 countries): Canada SIN; Mexico CURP/RFC; Brazil CPF/CNPJ; Chile RUT; Argentina/Colombia DNI; Spain DNI/NIE; France INSEE; Germany Steuer-ID; Italy CF; Netherlands BSN; Belgium NN; Portugal NIF; Ireland PPSN; Switzerland AHV; Austria SVNR; Greece AMKA; Sweden / Norway / Denmark / Finland / Iceland personal numbers; Poland PESEL; Czechia / Slovakia rodne cislo; Hungary tax id; Romania CNP; Russia INN/SNILS; Ukraine RNOKPP; Turkey TC; India Aadhaar/PAN; Pakistan CNIC; Bangladesh NID; Sri Lanka NIC; China RID; Hong Kong HKID; Taiwan ID; Japan MyNumber; South Korea RRN; Singapore NRIC/FIN; Malaysia MyKad; Indonesia NIK; Thailand citizen ID; Philippines TIN; Vietnam ID; Australia TFN/Medicare/ABN; New Zealand IRD; Israel TZ; Saudi national ID; UAE Emirates ID; South Africa ID; Nigeria NIN; Kenya Huduma; Egypt national ID. Plus JCB / Diners credit-card brands, BIC/SWIFT, Bitcoin, Ethereum.
+- **Hidden-unicode + comment-payload sanitiser** (`testudo.sanitisers.unicode_payload`): zero-width characters (U+200B, U+200C, U+200D, U+2060, U+FEFF), bidi overrides (U+202A-202E, U+2066-2069), soft hyphen, mongolian vowel separator, Unicode tag block (E0000-E007F), HTML comments, inline base64 data URIs, buried base64 blobs (>=120 chars), ANTHROPIC_BASE_URL / OPENAI_BASE_URL / etc. overrides. Strips zero-width and HTML comments entirely; replaces base64 with size markers; replaces base-URL overrides with `[REDACTED-BASE-URL-OVERRIDE]`. Per MCP presentation v4 slide 25.
+- **OWASP Top 10 (web) detection** (`testudo.sanitisers.threat`): SQL injection (boolean tautology, UNION-based, stacked statements, comment terminators, time-based blind), NoSQL injection (mongo operator injection, JS payloads), command injection, path traversal (raw / encoded / absolute), XXE (external entity, DOCTYPE), SSRF (cloud metadata 169.254.169.254 + GCP/Aliyun/Azure equivalents, gopher/file/dict/ftp protocols), template injection (Jinja, ERB), XSS (script tag, javascript: URI, event handlers), LDAP / XPath injection.
+- **OWASP MCP Top 10 + Microsoft AI Recommendation Poisoning markers** (`MCP_THREAT_PATTERNS`): tool poisoning via description-tail "also exfiltrate"; rug-pull marker (description mutation post-trust); SharePoint indirect-injection; instruction-in-document; confused-deputy token relay; AI-recommendation-poisoning (preferred-domain markers); skill supply-chain link.
+- **Output-side sanitiser pipeline** (`testudo.sanitisers.output.sanitise_output` / `sanitise_input`): five-stage pipeline (strip hidden / redact secrets / redact PII / detect injection / detect threats). Rejection-priority decision logic.
+- **In-house MCP server scaffold** (`testudo.mcp_servers`): minimal JSON-RPC 2.0 + STDIO transport with handshake, `tools/list`, `tools/call`. Three concrete servers:
+  - `llm_response_capturer` (read-only): captures LLM tool-call output, sanitises, issues HMAC-signed receipt over `(run_id, sha256(content), decision)`.
+  - `file_writer` (write-only): modelled on hillstar's `file_operations_mcp_server.py`. Path validation against `TESTUDO_REPO_ROOT`. Every write requires a valid receipt; tampered content fails the signature check.
+  - `file_extractor` (read-only): PDF / DOCX / PPTX / HTML / JSON / plain-text extraction with metadata, comments, hidden-unicode and base64 stripped. PPTX uses stdlib `zipfile` (no `python-pptx` runtime dependency).
+- **Scan-before-permit gate** (`testudo.permissions.scan`): `should_scan` heuristic for MCP-config-like paths; `require_filesystem_read_scanned` / `require_filesystem_write_scanned` run the in-house `AgentScanner` first and raise `ScanRejected` on any HIGH/CRITICAL finding before consulting the path permission. Per MCP presentation v4 slide 24.
+- **In-house FastAPI rate limiting** (`testudo.server.rate_limit`): token-bucket per bearer token (or X-Forwarded-For / client host); `RateLimitMiddleware` exempts `/health` and `/metrics`; returns 429 + Retry-After.
+- **Electron TS + React + electron-vite renderer** (`electron/`): replaces the vanilla-JS scaffold with TypeScript main, preload, and renderer. React 18 + Tailwind + React Flow. `tsconfig.{node,web}.json` keep main / preload (Node lib) and renderer (DOM lib) separate. Bridge URL and bearer token flow via the preload `contextBridge`.
+
+### Quality
+
+- 279 tests passing (was 213 in v0.1.0). 87% line coverage.
+- ruff check + ruff format clean across `src/` and `tests/`.
+- New test files: `test_sanitisers_unicode_payload.py`, `test_sanitisers_threat.py`, `test_sanitisers_output.py`, `test_permissions_scan.py`, `test_mcp_servers.py`, `test_server_rate_limit.py`.
+
+### Removed
+
+- Vanilla-JS Electron scaffold (`electron/main.js`, `electron/preload.js`, `electron/renderer/index.html`). The TS/React migration was the chosen stack from the original Electron decision; the JS scaffold should never have shipped.
 
 ## [0.1.0] - 2026-05-12
 
