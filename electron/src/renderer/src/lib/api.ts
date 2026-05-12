@@ -134,7 +134,8 @@ export class BridgeClient {
   }
 }
 
-export async function makeBridgeClient(): Promise<BridgeClient> {
-  const config = await window.testudo.getBridgeConfig();
-  return new BridgeClient(config.url, config.token);
+export async function makeBridgeClient(): Promise<BridgeClient | null> {
+  const status = await window.testudo.bridge.status();
+  if (!status.running || !status.url || !status.token) return null;
+  return new BridgeClient(status.url, status.token);
 }

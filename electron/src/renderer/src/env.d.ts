@@ -6,22 +6,32 @@
  * tsconfig.web.json's `include` is scoped to `src/renderer/src/**`, so the
  * preload's `index.d.ts` is invisible to the renderer compiler. The shape
  * declared here mirrors `TestudoAPI` in `src/preload/index.ts`; keep them
- * in sync (single source of truth would mean a `src/shared/` directory
- * visible to both tsconfigs, deferred until the surface grows).
+ * in sync.
  */
 
-interface BridgeConfig {
-  url: string;
-  token: string;
+interface BridgeStatus {
+  running: boolean;
+  url: string | null;
+  token: string | null;
+  port: number | null;
+  pid: number | null;
+  error: string | null;
+}
+
+interface BridgeStartOptions {
+  port?: number;
+  host?: string;
+  workflowsDir?: string;
+  runsDir?: string;
 }
 
 interface TestudoAPI {
-  getBridgeConfig: () => Promise<BridgeConfig>;
+  bridge: {
+    status: () => Promise<BridgeStatus>;
+    start: (opts?: BridgeStartOptions) => Promise<BridgeStatus>;
+    stop: () => Promise<BridgeStatus>;
+  };
   openFile: () => Promise<string | null>;
-  spawnServe: (args: {
-    workflowsRoot: string;
-    runsRoot: string;
-  }) => Promise<{ pid: number }>;
 }
 
 interface Window {

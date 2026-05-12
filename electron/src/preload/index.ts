@@ -3,26 +3,42 @@
  *
  * The only seam between renderer (sandboxed, browser-context) and main
  * (Node, Electron). The renderer never imports `electron` or `node:*`;
- * it only sees the typed API exposed via contextBridge here.
+ * it only sees the typed `window.testudo` API exposed via contextBridge.
  */
 import { contextBridge, ipcRenderer } from "electron";
 
-export interface BridgeConfig {
-  url: string;
-  token: string;
+export interface BridgeStatus {
+  running: boolean;
+  url: string | null;
+  token: string | null;
+  port: number | null;
+  pid: number | null;
+  error: string | null;
+}
+
+export interface BridgeStartOptions {
+  port?: number;
+  host?: string;
+  workflowsDir?: string;
+  runsDir?: string;
 }
 
 export interface TestudoAPI {
-  getBridgeConfig: () => Promise<BridgeConfig>;
+  bridge: {
+    status: () => Promise<BridgeStatus>;
+    start: (opts?: BridgeStartOptions) => Promise<BridgeStatus>;
+    stop: () => Promise<BridgeStatus>;
+  };
   openFile: () => Promise<string | null>;
-  spawnServe: (args: { workflowsRoot: string; runsRoot: string }) => Promise<{ pid: number }>;
 }
 
 const api: TestudoAPI = {
-  getBridgeConfig: () => ipcRenderer.invoke("testudo:bridgeConfig") as Promise<BridgeConfig>,
+  bridge: {
+    status: () => ipcRenderer.invoke("bridge:status") as Promise<BridgeStatus>,
+    start: (opts) => ipcRenderer.invoke("bridge:start", opts ?? {}) as Promise<BridgeStatus>,
+    stop: () => ipcRenderer.invoke("bridge:stop") as Promise<BridgeStatus>,
+  },
   openFile: () => ipcRenderer.invoke("testudo:openFile") as Promise<string | null>,
-  spawnServe: (args) =>
-    ipcRenderer.invoke("testudo:spawnServe", args) as Promise<{ pid: number }>,
 };
 
 contextBridge.exposeInMainWorld("testudo", api);

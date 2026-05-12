@@ -1,17 +1,19 @@
 # Testudo Electron shell
 
-TypeScript + React + electron-vite renderer. Wires to the testudo
-FastAPI bridge via the preload `contextBridge`. The renderer never
-sees Node or Electron globals; it only sees the typed `window.testudo`
-API defined in `src/preload/index.ts`.
+TypeScript + React + electron-vite renderer. Owns the FastAPI bridge
+subprocess lifecycle: a Start / Stop button in the header spawns and
+kills the bridge from inside the app. Closing the window cleans up
+automatically.
 
 ## Layout
 
-- `src/main/` -- main process (Node + Electron). Reads the bridge
-  URL + token from env, opens file dialogs, exposes them to the
-  renderer via IPC.
-- `src/preload/` -- contextBridge surface. The single seam between
-  renderer and main.
+- `src/main/`
+  - `index.ts` -- BrowserWindow + IPC handlers.
+  - `bridge.ts` -- `BridgeManager` class that owns the `testudo serve`
+    subprocess. Token + URL live here; the renderer only sees them
+    via `bridge:status` IPC return values.
+- `src/preload/` -- contextBridge surface. Exposes `window.testudo`
+  with `bridge.{status, start, stop}` and `openFile`.
 - `src/renderer/` -- React 18 + Tailwind + React Flow. Sandboxed
   browser context.
 
@@ -21,46 +23,63 @@ API defined in `src/preload/index.ts`.
 npm install
 ```
 
-## Recommended run path (turnkey)
-
-From the repo root, with the Python side already installed:
+You also need the Python side installed (run from the repo root):
 
 ```bash
-testudo ui
+uv pip install -e ".[serve]"
 ```
 
-That command generates a fresh bearer token, starts the bridge in the
-background, waits for `/health`, then spawns this app with the token
-wired through. Ctrl-C tears down both processes.
-
-## Manual run (for debugging the renderer in isolation)
+## Run
 
 ```bash
-# terminal 1 -- bridge
-testudo serve --port 8000 --workflows-dir ../examples
-# stderr: "[testudo] bearer token: <random-url-safe>"
-
-# terminal 2 -- this renderer
-export TESTUDO_BRIDGE_URL=http://127.0.0.1:8000
-export TESTUDO_BRIDGE_TOKEN=<paste-the-token>
 npm run dev
 ```
 
-The main process reads `TESTUDO_BRIDGE_URL` (default
-`http://127.0.0.1:8000`) and `TESTUDO_BRIDGE_TOKEN` (no default) from
-its environment and forwards them to the renderer via
-`window.testudo.getBridgeConfig()`.
+The Electron window opens with the bridge **stopped**. Click **Start
+bridge** in the header. The main process:
+
+1. Resolves the `testudo` binary (looks for `<repo>/.venv/bin/testudo`,
+   then PATH).
+2. Spawns it as `testudo serve --port 8000 --workflows-dir <repo>/examples`.
+3. Captures the bearer-token line from its stderr.
+4. Polls `/health` until the bridge responds.
+5. Reports `{running, url, token, port}` to the renderer via the
+   `bridge:status` IPC channel.
+
+The renderer builds its FastAPI client against those values. Close
+the window or click **Stop bridge** to tear the subprocess down.
 
 ## Scripts
 
 ```bash
 npm run dev          # vite dev server + electron main
 npm run build        # packaged out/ directory
-npm run typecheck    # tsc --noEmit on both Node and DOM surfaces
+npm run typecheck    # tsc --noEmit on Node and DOM surfaces
 ```
+
+## Two-terminal flow (debugging only)
+
+If you want to inspect the renderer against a bridge running in a
+separate process (e.g. to attach a debugger to uvicorn):
+
+```bash
+# terminal 1
+testudo serve --port 8000 --workflows-dir ../examples
+
+# terminal 2 (env vars short-circuit the in-app Start button)
+export TESTUDO_BRIDGE_URL=http://127.0.0.1:8000
+export TESTUDO_BRIDGE_TOKEN=<paste-the-token>
+npm run dev
+```
+
+When the env vars are set the renderer adopts the existing bridge
+on launch instead of starting one itself.
 
 ## Type safety
 
-Two tsconfigs (`tsconfig.node.json`, `tsconfig.web.json`) keep main +
-preload (Node lib) separate from renderer (DOM lib). Run
-`npm run typecheck` to validate both.
+Two tsconfigs:
+
+- `tsconfig.node.json` -- main + preload (Node lib).
+- `tsconfig.web.json` -- renderer (DOM lib).
+
+`npm run typecheck` runs both.

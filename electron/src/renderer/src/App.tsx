@@ -8,59 +8,102 @@ import { UrlPanel } from "./components/UrlPanel";
 import { WorkflowGraph } from "./components/WorkflowGraph";
 import { WorkflowPanel } from "./components/WorkflowPanel";
 import {
-  type BridgeClient,
+  BridgeClient,
   type RunResponse,
   type WorkflowSummary,
-  makeBridgeClient,
 } from "./lib/api";
 import { MODE_BINDINGS, type Mode, buildRunRequest } from "./lib/modes";
+
+type BridgeUiState = "stopped" | "starting" | "online" | "stopping" | "error";
 
 export default function App() {
   const [client, setClient] = useState<BridgeClient | null>(null);
   const [version, setVersion] = useState<string>("");
   const [workflows, setWorkflows] = useState<WorkflowSummary[]>([]);
-  const [bridgeStatus, setBridgeStatus] = useState<
-    "connecting" | "online" | "offline"
-  >("connecting");
+  const [bridgeState, setBridgeState] = useState<BridgeUiState>("stopped");
+  const [bridgeError, setBridgeError] = useState<string | null>(null);
+  const [bridgePort, setBridgePort] = useState<number | null>(null);
   const [mode, setMode] = useState<Mode>("file");
   const [busy, setBusy] = useState(false);
   const [entries, setEntries] = useState<LogEntry[]>([
     {
       kind: "info",
       text:
-        "Welcome. Pick a mode above (File, URL, Database, or Workflow), fill in the inputs, and hit Run. Findings and audit-log paths appear here.",
+        'Welcome. Click "Start bridge" in the header to bring the FastAPI bridge up. Once it reports online, pick a mode (File / URL / Database / Workflow / Compose) and run.',
     },
   ]);
+
+  const refreshWorkflows = useCallback(async (c: BridgeClient) => {
+    const wf = await c.listWorkflows();
+    setWorkflows(wf);
+  }, []);
+
+  const adoptStatus = useCallback(
+    async (status: BridgeStatus) => {
+      if (!status.running || !status.url || !status.token) {
+        setClient(null);
+        setBridgeState(status.error ? "error" : "stopped");
+        setBridgeError(status.error);
+        setBridgePort(null);
+        return;
+      }
+      const c = new BridgeClient(status.url, status.token);
+      setClient(c);
+      setBridgePort(status.port);
+      try {
+        const h = await c.health();
+        setVersion(h.version);
+        await refreshWorkflows(c);
+        setBridgeState("online");
+        setBridgeError(null);
+      } catch (err) {
+        setBridgeState("error");
+        setBridgeError((err as Error).message);
+      }
+    },
+    [refreshWorkflows],
+  );
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      try {
-        const c = await makeBridgeClient();
-        if (cancelled) return;
-        setClient(c);
-        const h = await c.health();
-        const wf = await c.listWorkflows();
-        if (cancelled) return;
-        setVersion(h.version);
-        setWorkflows(wf);
-        setBridgeStatus("online");
-      } catch (err) {
-        if (cancelled) return;
-        setBridgeStatus("offline");
-        setEntries((e) => [
-          ...e,
-          {
-            kind: "error",
-            text: `Bridge unreachable: ${(err as Error).message}. Confirm testudo serve is running on the configured port and TESTUDO_BRIDGE_TOKEN is exported.`,
-          },
-        ]);
-      }
+      const status = await window.testudo.bridge.status();
+      if (!cancelled) await adoptStatus(status);
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [adoptStatus]);
+
+  const startBridge = async () => {
+    setBridgeState("starting");
+    setBridgeError(null);
+    setEntries((e) => [...e, { kind: "info", text: "Starting bridge..." }]);
+    const status = await window.testudo.bridge.start();
+    await adoptStatus(status);
+    if (status.running) {
+      setEntries((e) => [
+        ...e,
+        { kind: "system", text: `Bridge online on ${status.url}.` },
+      ]);
+    } else {
+      setEntries((e) => [
+        ...e,
+        {
+          kind: "error",
+          text: `Bridge failed to start: ${status.error ?? "unknown error"}`,
+        },
+      ]);
+    }
+  };
+
+  const stopBridge = async () => {
+    setBridgeState("stopping");
+    setEntries((e) => [...e, { kind: "info", text: "Stopping bridge..." }]);
+    const status = await window.testudo.bridge.stop();
+    await adoptStatus(status);
+    setEntries((e) => [...e, { kind: "system", text: "Bridge stopped." }]);
+  };
 
   const knownWorkflowNames = useMemo(
     () => workflows.map((w) => w.name).join(", "),
@@ -90,7 +133,7 @@ export default function App() {
     if (!client) {
       setEntries((e) => [
         ...e,
-        { kind: "error", text: "Bridge client not ready yet." },
+        { kind: "error", text: "Bridge offline; click Start in the header first." },
       ]);
       return;
     }
@@ -113,10 +156,7 @@ export default function App() {
     } catch (err) {
       setEntries((e) => [
         ...e,
-        {
-          kind: "error",
-          text: `Run failed: ${(err as Error).message}`,
-        },
+        { kind: "error", text: `Run failed: ${(err as Error).message}` },
       ]);
     } finally {
       setBusy(false);
@@ -161,23 +201,50 @@ export default function App() {
     );
   };
 
+  const onWorkflowSaved = useCallback(
+    async (savedName: string, savedPath: string) => {
+      setEntries((e) => [
+        ...e,
+        {
+          kind: "system",
+          text: `Workflow "${savedName}" saved.`,
+          note: `Path: ${savedPath}. Switch to the Workflow tab to run it.`,
+        },
+      ]);
+      if (client) {
+        try {
+          await refreshWorkflows(client);
+        } catch (err) {
+          setEntries((e) => [
+            ...e,
+            {
+              kind: "error",
+              text: `Could not refresh workflow list: ${(err as Error).message}`,
+            },
+          ]);
+        }
+      }
+    },
+    [client, refreshWorkflows],
+  );
+
+  const onComposeError = useCallback((message: string) => {
+    setEntries((e) => [...e, { kind: "error", text: message }]);
+  }, []);
+
   const renderPanel = () => {
-    if (bridgeStatus === "offline") {
+    if (bridgeState !== "online") {
+      const message =
+        bridgeState === "starting"
+          ? "Bridge starting..."
+          : bridgeState === "stopping"
+            ? "Bridge stopping..."
+            : bridgeState === "error"
+              ? `Bridge error: ${bridgeError}`
+              : "Bridge stopped. Click Start in the header.";
       return (
-        <div className="flex flex-col items-center justify-center h-full text-center p-10 text-muted">
-          <div className="text-lg mb-2">Bridge offline.</div>
-          <div className="text-sm max-w-md">
-            Start <code className="text-text">testudo serve --port 8000 --workflows-dir examples</code>{" "}
-            in another terminal, export <code>TESTUDO_BRIDGE_TOKEN</code> with the
-            token it prints, then restart this window.
-          </div>
-        </div>
-      );
-    }
-    if (bridgeStatus === "connecting") {
-      return (
-        <div className="flex items-center justify-center h-full text-muted">
-          Connecting to bridge...
+        <div className="flex items-center justify-center h-full text-muted text-center p-8">
+          {message}
         </div>
       );
     }
@@ -234,52 +301,56 @@ export default function App() {
     }
   };
 
-  const onWorkflowSaved = useCallback(
-    async (savedName: string, savedPath: string) => {
-      setEntries((e) => [
-        ...e,
-        {
-          kind: "system",
-          text: `Workflow "${savedName}" saved.`,
-          note: `Path: ${savedPath}. Switch to the Workflow tab to run it.`,
-        },
-      ]);
-      if (client) {
-        try {
-          const wf = await client.listWorkflows();
-          setWorkflows(wf);
-        } catch (err) {
-          setEntries((e) => [
-            ...e,
-            {
-              kind: "error",
-              text: `Could not refresh workflow list: ${(err as Error).message}`,
-            },
-          ]);
-        }
-      }
-    },
-    [client],
-  );
-
-  const onComposeError = useCallback((message: string) => {
-    setEntries((e) => [...e, { kind: "error", text: message }]);
-  }, []);
+  const headerStatusBadge = () => {
+    const colour =
+      bridgeState === "online"
+        ? "bg-green-700 text-white"
+        : bridgeState === "starting" || bridgeState === "stopping"
+          ? "bg-yellow-600 text-black"
+          : bridgeState === "error"
+            ? "bg-red-700 text-white"
+            : "bg-bg text-muted border border-border";
+    const text =
+      bridgeState === "online"
+        ? `online ${bridgePort ? `:${bridgePort}` : ""}`
+        : bridgeState;
+    return <span className={`px-2 py-0.5 rounded text-[11px] ${colour}`}>{text}</span>;
+  };
 
   return (
     <div className="grid grid-rows-[56px_1fr] h-full">
       <header className="bg-panel border-b border-border flex items-center px-5 gap-3">
         <img src="./logo.png" alt="Testudo" className="w-8 h-8 rounded object-cover" />
         <div className="font-semibold tracking-wide">Testudo</div>
-        <div className="text-xs text-muted">
-          {bridgeStatus === "online" && `bridge v${version}`}
-          {bridgeStatus === "connecting" && "connecting..."}
-          {bridgeStatus === "offline" && "bridge offline"}
-        </div>
+        {headerStatusBadge()}
+        {version && bridgeState === "online" && (
+          <span className="text-xs text-muted">bridge v{version}</span>
+        )}
         <div className="flex-1" />
-        <div className="text-xs text-muted">
-          {workflows.length} workflow{workflows.length === 1 ? "" : "s"}
-        </div>
+        {bridgeState === "online" && (
+          <span className="text-xs text-muted">
+            {workflows.length} workflow{workflows.length === 1 ? "" : "s"}
+          </span>
+        )}
+        {bridgeState === "online" || bridgeState === "stopping" ? (
+          <button
+            type="button"
+            onClick={stopBridge}
+            disabled={bridgeState === "stopping"}
+            className="px-3 py-1.5 rounded bg-bg border border-border text-sm hover:border-red-500/60 disabled:opacity-40"
+          >
+            Stop bridge
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={startBridge}
+            disabled={bridgeState === "starting"}
+            className="px-3 py-1.5 rounded bg-accent text-white text-sm font-medium disabled:opacity-40"
+          >
+            Start bridge
+          </button>
+        )}
       </header>
 
       <div className="grid grid-cols-2 h-full overflow-hidden">

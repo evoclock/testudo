@@ -104,15 +104,9 @@ testudo run examples/workflow-pdf-debrief.json \
 
 ### Bring up the Electron UI
 
-**One command.** This is the turnkey path -- generates a token, starts the bridge, waits for `/health`, spawns the renderer with the token wired through, and tears both down on Ctrl-C.
+**The renderer owns the bridge lifecycle.** Launch the app, click **Start bridge** in the header, work, click **Stop bridge** (or just close the window).
 
-```bash
-cd /path/to/testudo
-source .venv/bin/activate
-testudo ui
-```
-
-Pre-requisites (one-time):
+#### One-time setup
 
 ```bash
 # Python side
@@ -122,24 +116,40 @@ uv pip install -e ".[serve]"
 cd electron && npm install && cd ..
 ```
 
-After that, `testudo ui` is the whole launch.
-
-#### Flags
+#### Launch the renderer
 
 ```bash
-testudo ui --port 8000           # bridge port (default 8000)
-testudo ui --workflows-dir DIR   # which workflow JSONs the bridge exposes (default examples/)
-testudo ui --no-renderer         # only start the bridge, skip Electron
+cd electron && npm run dev
 ```
 
-#### Manual two-terminal flow (if you want to debug each side separately)
+The Electron window opens with the bridge **stopped**. In the header:
+
+- **Start bridge** -- main process spawns `testudo serve` as a subprocess, captures the bearer token from its stderr, and forwards it to the renderer via IPC. Status badge goes yellow (`starting`) then green (`online :8000`).
+- **Stop bridge** -- SIGTERM the subprocess; status badge returns to grey.
+- **Close the window** -- bridge subprocess is killed automatically; no orphans.
+
+The bridge token never appears in renderer-inspectable scope; it lives in the Electron main process and is only released to the renderer through the explicit `window.testudo.bridge.status()` IPC return value.
+
+#### Alternative: CLI-driven turnkey (`testudo ui`)
+
+If you prefer a single shell command instead of launching the renderer first:
+
+```bash
+source .venv/bin/activate
+testudo ui                      # spawns bridge AND renderer; Ctrl-C tears both down
+testudo ui --port 9000          # custom bridge port
+testudo ui --no-renderer        # bridge-only mode
+```
+
+#### Manual two-terminal flow (renderer-in-isolation debugging)
 
 ```bash
 # terminal 1 -- bridge
 testudo serve --port 8000 --workflows-dir examples
 # stderr: "[testudo] bearer token: <random-url-safe>"
 
-# terminal 2 -- electron
+# terminal 2 -- renderer (env vars pre-load the token so the in-app
+# Start button is unnecessary)
 export TESTUDO_BRIDGE_URL=http://127.0.0.1:8000
 export TESTUDO_BRIDGE_TOKEN=<paste-token>
 cd electron && npm run dev
