@@ -41,7 +41,7 @@ export function WorkflowPanel({ workflows, busy, onRun, onSelectionChange }: Pro
         seed[key] = spec.default;
       } else if (spec.type === "file" && key.includes("output")) {
         // Pre-fill an output path so the user doesn't have to invent one
-        seed[key] = `/tmp/testudo-${selected.name}.md`;
+        seed[key] = `/home/jgamboa/testudo/outputs-ui/testudo-${selected.name}.md`;
       } else if (spec.type === "array") {
         seed[key] = [];
       }
@@ -55,7 +55,7 @@ export function WorkflowPanel({ workflows, busy, onRun, onSelectionChange }: Pro
     if (spec.type === "integer" || spec.type === "number") return "0";
     if (key === "query") return "SELECT * FROM samples.bakehouse.sales_transactions LIMIT 10";
     if (key === "url") return "https://example.com/file.md";
-    if (key.includes("path")) return "/tmp/testudo-output.md";
+    if (key.includes("path")) return "/home/jgamboa/testudo/outputs-ui/testudo-output.md";
     return spec.required ? "(required)" : "(optional)";
   };
 

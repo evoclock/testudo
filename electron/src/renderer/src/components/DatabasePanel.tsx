@@ -51,7 +51,9 @@ export function DatabasePanel({ busy, databricksReady, onRun }: Props) {
   const [query, setQuery] = useState(
     databricksReady ? DATABRICKS_QUERY_DEFAULT : DUCKDB_QUERY_DEFAULT,
   );
-  const [outputPath, setOutputPath] = useState("/tmp/testudo-db-results.md");
+  const [outputPath, setOutputPath] = useState(
+    "/home/jgamboa/testudo/outputs-ui/testudo-db-results.md",
+  );
   const [note, setNote] = useState("");
 
   // If env-check arrives after mount and reports Databricks ready, flip the

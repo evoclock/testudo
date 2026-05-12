@@ -20,14 +20,14 @@ export const MODE_BINDINGS: Record<Exclude<Mode, "workflow" | "compose">, ModeBi
       pdf_path: form.filePath,
       model: form.model ?? "minimax-m2.7:cloud",
       system_prompt: form.systemPrompt ?? undefined,
-      output_path: form.outputPath ?? "/tmp/testudo-file-summary.md",
+      output_path: form.outputPath ?? "/home/jgamboa/testudo/outputs-ui/testudo-file-summary.md",
     }),
   },
   url: {
     workflowName: "url-fetch-v015",
     buildInputs: (form) => ({
       url: form.url,
-      output_path: form.outputPath ?? "/tmp/testudo-url-debrief.md",
+      output_path: form.outputPath ?? "/home/jgamboa/testudo/outputs-ui/testudo-url-debrief.md",
       max_bytes: form.maxBytes ?? 10485760,
     }),
   },
@@ -37,7 +37,7 @@ export const MODE_BINDINGS: Record<Exclude<Mode, "workflow" | "compose">, ModeBi
       database_path: form.databasePath,
       query: form.query,
       parameters: form.parameters ?? [],
-      output_path: form.outputPath ?? "/tmp/testudo-db-results.md",
+      output_path: form.outputPath ?? "/home/jgamboa/testudo/outputs-ui/testudo-db-results.md",
     }),
   },
 };
@@ -47,7 +47,7 @@ const DATABRICKS_BINDING: ModeBinding = {
   buildInputs: (form) => ({
     query: form.query,
     parameters: form.parameters ?? [],
-    output_path: form.outputPath ?? "/tmp/testudo-databricks-results.md",
+    output_path: form.outputPath ?? "/home/jgamboa/testudo/outputs-ui/testudo-databricks-results.md",
   }),
 };
 

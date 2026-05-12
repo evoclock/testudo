@@ -106,7 +106,7 @@ export function FilePanel({ busy, ollamaAvailable, installedModels, onRun }: Pro
       setFilePath(chosen);
       if (!outputPath) {
         const base = chosen.split("/").pop() ?? "doc";
-        setOutputPath(`/tmp/testudo-${base}.debrief.md`);
+        setOutputPath(`/home/jgamboa/testudo/outputs-ui/testudo-${base}.debrief.md`);
       }
     }
   };
@@ -211,7 +211,7 @@ export function FilePanel({ busy, ollamaAvailable, installedModels, onRun }: Pro
           type="text"
           value={outputPath}
           onChange={(e) => setOutputPath(e.target.value)}
-          placeholder="/tmp/testudo-debrief.md"
+          placeholder="/home/jgamboa/testudo/outputs-ui/testudo-debrief.md"
           className="w-full bg-bg border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent"
         />
       </div>

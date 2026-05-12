@@ -54,7 +54,9 @@ function classify(raw: string): UrlVerdict {
 
 export function UrlPanel({ busy, onRun }: Props) {
   const [url, setUrl] = useState("");
-  const [outputPath, setOutputPath] = useState("/tmp/testudo-url-debrief.md");
+  const [outputPath, setOutputPath] = useState(
+    "/home/jgamboa/testudo/outputs-ui/testudo-url-debrief.md",
+  );
   const [maxBytes, setMaxBytes] = useState(10 * 1024 * 1024);
   const [note, setNote] = useState("");
 

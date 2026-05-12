@@ -226,10 +226,35 @@ class Executor:
         inputs: dict[str, Any],
         step_outputs: dict[str, Any],
     ) -> Any:
-        """Recursively resolve ``${...}`` references inside ``value``."""
+        """Recursively resolve ``${...}`` references inside ``value``.
+
+        Two modes for strings:
+
+        - **Exact match** (``"${some.ref}"``): the entire string is a
+          single reference; return the raw resolved value so types are
+          preserved (a list stays a list, a dict stays a dict).
+        - **Interpolation** (``"prefix ${a.b} suffix"``): each ``${...}``
+          inside the string is replaced with ``str(resolved)`` and the
+          surrounding text is kept verbatim. The result is always a
+          string.
+        """
+        import re as _re
+
         if isinstance(value, str):
-            if value.startswith("${") and value.endswith("}"):
+            stripped = value.strip()
+            if (
+                stripped.startswith("${")
+                and stripped.endswith("}")
+                and stripped.count("${") == 1
+                and value == stripped
+            ):
                 return cls._resolve_ref(value[2:-1], inputs, step_outputs)
+            if "${" in value:
+                pattern = _re.compile(r"\$\{([^${}]+)\}")
+                return pattern.sub(
+                    lambda m: str(cls._resolve_ref(m.group(1), inputs, step_outputs)),
+                    value,
+                )
             return value
         if isinstance(value, dict):
             return {k: cls._resolve(v, inputs, step_outputs) for k, v in value.items()}
