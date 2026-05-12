@@ -32,13 +32,28 @@ at it. `npm run build` produces a packaged `out/` dir.
 
 The main process reads `TESTUDO_BRIDGE_URL` and `TESTUDO_BRIDGE_TOKEN`
 from its environment and forwards them to the renderer via
-`window.testudo.getBridgeConfig()`. Defaults are `http://127.0.0.1:8765`
-and `""` (empty token). Start the bridge with:
+`window.testudo.getBridgeConfig()`. Defaults are `http://127.0.0.1:8000`
+(matches `testudo serve --port` default) and `""` (empty token).
+
+Three-step bring-up:
 
 ```bash
-testudo serve
-# prints the bearer token to stderr; export it as TESTUDO_BRIDGE_TOKEN
-# before launching the Electron app for end-to-end auth.
+# terminal 1 -- bridge
+testudo serve --port 8000
+# stderr: "[testudo] bearer token: <random-url-safe-token>"
+
+# terminal 2 -- electron
+export TESTUDO_BRIDGE_URL=http://127.0.0.1:8000
+export TESTUDO_BRIDGE_TOKEN=<paste-the-token>
+cd electron && npm run dev
+```
+
+Or pin the token yourself so you do not have to copy-paste it:
+
+```bash
+testudo serve --token "$(openssl rand -hex 32)"
+# export the same token in the electron shell:
+export TESTUDO_BRIDGE_TOKEN="<same-hex-string>"
 ```
 
 ## Type safety

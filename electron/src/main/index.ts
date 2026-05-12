@@ -16,7 +16,7 @@ const __dirname = dirname(__filename);
 
 let mainWindow: BrowserWindow | null = null;
 
-const BRIDGE_URL = process.env.TESTUDO_BRIDGE_URL ?? "http://127.0.0.1:8765";
+const BRIDGE_URL = process.env.TESTUDO_BRIDGE_URL ?? "http://127.0.0.1:8000";
 const BRIDGE_TOKEN = process.env.TESTUDO_BRIDGE_TOKEN ?? "";
 
 function createWindow(): void {
