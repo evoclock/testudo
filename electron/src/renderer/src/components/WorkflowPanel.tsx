@@ -16,6 +16,103 @@ interface Props {
   onSelectionChange?: (workflowName: string) => void;
 }
 
+interface Starter {
+  label: string;
+  hint: string;
+  inputs: Record<string, unknown>;
+}
+
+/**
+ * Per-workflow "starter" presets. Click one and the form gets pre-filled
+ * with a known-working combination so the user doesn't have to guess at
+ * what query / file / URL / output path to pass.
+ */
+const STARTERS: Record<string, Starter[]> = {
+  "pdf-debrief-v015": [
+    {
+      label: "sample.md (PII redaction)",
+      hint: "Bundled fixture with mock PII; exercises every redaction pattern.",
+      inputs: {
+        pdf_path: "/home/jgamboa/testudo/examples/data/sample.md",
+        output_path: "/home/jgamboa/testudo/outputs-ui/pdf-debrief-sample.md",
+      },
+    },
+  ],
+  "pdf-summarise-v015": [
+    {
+      label: "sample.md → minimax-m2.7:cloud",
+      hint: "Bundled fixture summarised by the cloud-served minimax model.",
+      inputs: {
+        pdf_path: "/home/jgamboa/testudo/examples/data/sample.md",
+        model: "minimax-m2.7:cloud",
+        output_path: "/home/jgamboa/testudo/outputs-ui/pdf-summarise-sample.md",
+      },
+    },
+    {
+      label: "sample.md → mistral (local)",
+      hint: "Same fixture, local 7B mistral. Needs `ollama pull mistral` first.",
+      inputs: {
+        pdf_path: "/home/jgamboa/testudo/examples/data/sample.md",
+        model: "mistral:latest",
+        output_path: "/home/jgamboa/testudo/outputs-ui/pdf-summarise-mistral.md",
+      },
+    },
+  ],
+  "url-fetch-v015": [
+    {
+      label: "GitHub raw markdown (testudo README)",
+      hint: "Fetches a small public markdown over HTTPS.",
+      inputs: {
+        url: "https://raw.githubusercontent.com/evoclock/testudo/main/README.md",
+        output_path: "/home/jgamboa/testudo/outputs-ui/url-fetch-readme.md",
+        max_bytes: 10485760,
+      },
+    },
+  ],
+  "db-query-v015": [
+    {
+      label: "DuckDB demo database (meeting M-001 attendees)",
+      hint: "Requires examples/data/demo.duckdb (run examples/data/seed_demo.py first).",
+      inputs: {
+        database_path: "/home/jgamboa/testudo/examples/data/demo.duckdb",
+        query: "SELECT name, role FROM attendees WHERE meeting_id = 'M-001'",
+        parameters: [],
+        output_path: "/home/jgamboa/testudo/outputs-ui/db-query-attendees.md",
+      },
+    },
+  ],
+  "databricks-query-v015": [
+    {
+      label: "10 sales transactions",
+      hint: "Smallest smoke test against samples.bakehouse.",
+      inputs: {
+        query: "SELECT * FROM samples.bakehouse.sales_transactions LIMIT 10",
+        parameters: [],
+        output_path: "/home/jgamboa/testudo/outputs-ui/databricks-transactions.md",
+      },
+    },
+    {
+      label: "10 customer reviews (sanitiser stress)",
+      hint: "Free-text reviews; good for exercising the PII / injection sanitiser.",
+      inputs: {
+        query: "SELECT review_body FROM samples.bakehouse.media_customer_reviews LIMIT 10",
+        parameters: [],
+        output_path: "/home/jgamboa/testudo/outputs-ui/databricks-reviews.md",
+      },
+    },
+    {
+      label: "Top 10 customers by purchase count",
+      hint: "Joins sales_transactions with sales_customers; tests multi-table queries.",
+      inputs: {
+        query:
+          "SELECT c.first_name, c.last_name, COUNT(t.transactionID) AS purchases FROM samples.bakehouse.sales_transactions t JOIN samples.bakehouse.sales_customers c ON t.customerID = c.customerID GROUP BY c.first_name, c.last_name ORDER BY purchases DESC LIMIT 10",
+        parameters: [],
+        output_path: "/home/jgamboa/testudo/outputs-ui/databricks-top-customers.md",
+      },
+    },
+  ],
+};
+
 export function WorkflowPanel({ workflows, busy, onRun, onSelectionChange }: Props) {
   const [selectedName, setSelectedName] = useState<string>("");
   const [form, setForm] = useState<Record<string, unknown>>({});
@@ -23,6 +120,11 @@ export function WorkflowPanel({ workflows, busy, onRun, onSelectionChange }: Pro
   const selected = useMemo(
     () => workflows.find((w) => w.name === selectedName) ?? null,
     [workflows, selectedName],
+  );
+
+  const starters = useMemo<Starter[]>(
+    () => (selected ? (STARTERS[selected.name] ?? []) : []),
+    [selected],
   );
 
   useEffect(() => {
@@ -40,7 +142,6 @@ export function WorkflowPanel({ workflows, busy, onRun, onSelectionChange }: Pro
       if (spec.default !== undefined) {
         seed[key] = spec.default;
       } else if (spec.type === "file" && key.includes("output")) {
-        // Pre-fill an output path so the user doesn't have to invent one
         seed[key] = `/home/jgamboa/testudo/outputs-ui/testudo-${selected.name}.md`;
       } else if (spec.type === "array") {
         seed[key] = [];
@@ -50,7 +151,7 @@ export function WorkflowPanel({ workflows, busy, onRun, onSelectionChange }: Pro
   }, [selected]);
 
   const placeholderFor = (key: string, spec: InputSpec): string => {
-    if (spec.default !== undefined) return `default: ${JSON.stringify(spec.default)}`;
+    if (spec.default !== undefined) return `default: ${JSON.stringify(spec.default).slice(0, 60)}`;
     if (spec.type === "array") return "[]";
     if (spec.type === "integer" || spec.type === "number") return "0";
     if (key === "query") return "SELECT * FROM samples.bakehouse.sales_transactions LIMIT 10";
@@ -66,6 +167,10 @@ export function WorkflowPanel({ workflows, busy, onRun, onSelectionChange }: Pro
   const pickFor = async (key: string) => {
     const chosen = await window.testudo.openFile();
     if (chosen) updateField(key, chosen);
+  };
+
+  const applyStarter = (starter: Starter) => {
+    setForm((prev) => ({ ...prev, ...starter.inputs }));
   };
 
   const missingRequired = useMemo(() => {
@@ -107,6 +212,30 @@ export function WorkflowPanel({ workflows, busy, onRun, onSelectionChange }: Pro
           <p className="text-xs text-muted mt-2">{selected.description}</p>
         )}
       </div>
+
+      {selected && starters.length > 0 && (
+        <div>
+          <label className="block text-xs uppercase text-muted tracking-wider mb-2">
+            Starter examples (click to pre-fill)
+          </label>
+          <div className="grid grid-cols-1 gap-2">
+            {starters.map((s) => (
+              <button
+                key={s.label}
+                type="button"
+                onClick={() => applyStarter(s)}
+                className="text-left px-3 py-2 rounded bg-bg border border-border hover:border-accent text-sm"
+                title={Object.entries(s.inputs)
+                  .map(([k, v]) => `${k}=${JSON.stringify(v).slice(0, 80)}`)
+                  .join("\n")}
+              >
+                <div className="text-text">{s.label}</div>
+                <div className="text-xs text-muted">{s.hint}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {selected && (
         <div className="flex-1 overflow-y-auto space-y-3">
