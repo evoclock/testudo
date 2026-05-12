@@ -96,7 +96,7 @@ const STARTERS: Record<string, Starter[]> = {
       label: "10 customer reviews (sanitiser stress)",
       hint: "Free-text reviews; good for exercising the PII / injection sanitiser.",
       inputs: {
-        query: "SELECT review_body FROM samples.bakehouse.media_customer_reviews LIMIT 10",
+        query: "SELECT review, review_date FROM samples.bakehouse.media_customer_reviews LIMIT 10",
         parameters: [],
         output_path: "/home/jgamboa/testudo/outputs-ui/databricks-reviews.md",
       },

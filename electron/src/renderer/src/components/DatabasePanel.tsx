@@ -25,7 +25,7 @@ const DATABRICKS_SAMPLE_QUERIES: Array<{ label: string; sql: string }> = [
   },
   {
     label: "Free-text customer reviews (sanitiser exercise)",
-    sql: "SELECT review_body FROM samples.bakehouse.media_customer_reviews LIMIT 10",
+    sql: "SELECT review, review_date FROM samples.bakehouse.media_customer_reviews LIMIT 10",
   },
   {
     label: "Customer purchase counts",

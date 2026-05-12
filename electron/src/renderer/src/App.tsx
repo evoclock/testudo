@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { ComposePanel } from "./components/ComposePanel";
 import { DatabasePanel } from "./components/DatabasePanel";
 import { FilePanel } from "./components/FilePanel";
@@ -361,8 +362,8 @@ export default function App() {
   };
 
   return (
-    <div className="grid grid-rows-[56px_1fr] h-full">
-      <header className="bg-panel border-b border-border flex items-center px-5 gap-3">
+    <div className="flex flex-col h-full">
+      <header className="bg-panel border-b border-border flex items-center px-5 gap-3 h-14 shrink-0">
         <img src="./logo.png" alt="Testudo" className="w-8 h-8 rounded object-cover" />
         <div className="font-semibold tracking-wide">Testudo</div>
         {headerStatusBadge()}
@@ -428,33 +429,37 @@ export default function App() {
         )}
       </header>
 
-      <div className="grid grid-cols-2 h-full overflow-hidden">
-        <div className="flex flex-col h-full border-r border-border overflow-hidden">
+      <PanelGroup direction="horizontal" className="h-full overflow-hidden">
+        <Panel defaultSize={50} minSize={25} className="flex flex-col overflow-hidden">
           <ModeTabs active={mode} onSelect={setMode} />
           <div className="flex-1 overflow-y-auto">{renderPanel()}</div>
-        </div>
-        <div className="grid grid-rows-[3fr_2fr] h-full bg-bg overflow-hidden">
-          <div className="flex flex-col border-b border-border overflow-hidden">
-            <div className="px-5 py-3 border-b border-border bg-panel flex items-center justify-between">
-              <div className="text-xs uppercase tracking-wider text-muted">DAG</div>
-              {stagedWorkflow && (
-                <div className="font-mono text-[11px] text-muted/80">
-                  {stagedWorkflow.name} · {stagedWorkflow.step_count} steps
-                </div>
-              )}
-            </div>
-            <div className="flex-1">
-              <WorkflowGraph workflow={stagedWorkflow} lastRun={lastRun} />
-            </div>
-          </div>
-          <div className="flex flex-col overflow-hidden">
-            <div className="px-5 py-3 border-b border-border bg-panel">
-              <div className="text-xs uppercase tracking-wider text-muted">Activity</div>
-            </div>
-            <ResultLog entries={entries} />
-          </div>
-        </div>
-      </div>
+        </Panel>
+        <PanelResizeHandle className="w-1 bg-border hover:bg-accent transition-colors" />
+        <Panel defaultSize={50} minSize={25}>
+          <PanelGroup direction="vertical" className="h-full bg-bg">
+            <Panel defaultSize={60} minSize={20} className="flex flex-col overflow-hidden">
+              <div className="px-5 py-3 border-b border-border bg-panel flex items-center justify-between">
+                <div className="text-xs uppercase tracking-wider text-muted">DAG</div>
+                {stagedWorkflow && (
+                  <div className="font-mono text-[11px] text-muted/80">
+                    {stagedWorkflow.name} · {stagedWorkflow.step_count} steps
+                  </div>
+                )}
+              </div>
+              <div className="flex-1">
+                <WorkflowGraph workflow={stagedWorkflow} lastRun={lastRun} />
+              </div>
+            </Panel>
+            <PanelResizeHandle className="h-1 bg-border hover:bg-accent transition-colors" />
+            <Panel defaultSize={40} minSize={15} className="flex flex-col overflow-hidden">
+              <div className="px-5 py-3 border-b border-border bg-panel">
+                <div className="text-xs uppercase tracking-wider text-muted">Activity</div>
+              </div>
+              <ResultLog entries={entries} />
+            </Panel>
+          </PanelGroup>
+        </Panel>
+      </PanelGroup>
     </div>
   );
 }
