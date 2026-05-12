@@ -1,15 +1,28 @@
 """Testudo connectors package.
 
-Purpose: input-source adapters. v0.1 ships local file upload and generic HTTPS
-retrieval. v0.2 will add Google Drive, Dropbox, Slack, and Confluence.
+Purpose: input source adapters. v0.1 ships local file ingestion and generic
+HTTPS retrieval; the Google Drive connector is scaffolded for v0.2.
 
-Inputs: a connector specification from the workflow (URI plus auth).
+Inputs: a connector specification from a workflow step.
 
-Outputs: a ``StagedInput`` object that points to the file inside the container's
-read-mounted ``inputs/`` directory and carries provenance metadata for the audit
-log.
+Outputs: a ``StagedInput`` carrying the retrieved content plus provenance
+metadata for the audit log.
 
-Assumptions: all retrieved content passes through ``sanitisers/`` before any
-downstream step consumes it; connectors do not bypass the permission model for
-network egress.
+Side effect: importing this package triggers registration of
+``connectors.local_file``, ``connectors.https_get``, and
+``connectors.google_drive`` (placeholder) in the orchestrator's
+``DEFAULT_REGISTRY``.
 """
+
+from testudo.connectors import tools  # noqa: F401  - registers connector tools
+from testudo.connectors.drive import fetch_drive
+from testudo.connectors.https import fetch_https
+from testudo.connectors.local import fetch_local
+from testudo.connectors.result import StagedInput
+
+__all__ = [
+    "StagedInput",
+    "fetch_drive",
+    "fetch_https",
+    "fetch_local",
+]

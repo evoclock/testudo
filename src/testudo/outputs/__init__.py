@@ -1,16 +1,28 @@
 """Testudo outputs package.
 
-Purpose: output channel adapters. v0.1 ships a file writer (host-readable artefact
-in the rollback layer) and a structured chat-response object the Electron shell
-renders inline. v0.2 adds dashboard embed and webhook fan-out.
+Purpose: output channel adapters. v0.1 ships file (writable rollback layer),
+chat (structured response for the Electron UI), dashboard (component spec),
+and ticket (webhook POST).
 
-Inputs: an output object from the workflow's final step (text, structured data,
-file payload).
+Inputs: an output object from the workflow's final step.
 
-Outputs: persisted artefacts on the host (when the run is committed, not rolled
-back) plus an in-memory representation for the UI.
+Outputs: persisted artefacts on disk (file channel) plus JSON-serialisable
+payloads the host-side renderer consumes via the FastAPI bridge.
 
-Assumptions: outputs are written to a writable layer that can be discarded if the
-workflow rolls back; the audit log records intent-to-write before the file is
-flushed so partial failures are reconstructable.
+Side effect: importing this package registers ``outputs.file``,
+``outputs.chat``, ``outputs.dashboard``, and ``outputs.ticket`` in the
+orchestrator's ``DEFAULT_REGISTRY``.
 """
+
+from testudo.outputs import tools  # noqa: F401  - registers output tools
+from testudo.outputs.chat import write_chat
+from testudo.outputs.dashboard import write_dashboard
+from testudo.outputs.file import write_file
+from testudo.outputs.ticket import create_ticket
+
+__all__ = [
+    "create_ticket",
+    "write_chat",
+    "write_dashboard",
+    "write_file",
+]

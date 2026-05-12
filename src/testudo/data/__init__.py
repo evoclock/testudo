@@ -1,16 +1,25 @@
 """Testudo data package.
 
-Purpose: database and warehouse adapters. v0.1 default is DuckDB for a local,
-zero-config demo path; the Databricks adapter is scaffolded for swap-in via PAT
-auth. Service-principal auth comes in v0.2.
+Purpose: parameterised query adapters. v0.1 default is DuckDB (no daemon,
+no auth, hard dependency); the Databricks adapter is available behind the
+``[databricks]`` extra and uses the same ``QueryResult`` contract.
 
-Inputs: a connection specification from the workflow plus a parameterised query
-or DataFrame operation.
+Inputs: a connection specification plus a parameterised query.
 
-Outputs: query results as either pandas DataFrames or PyArrow tables, with the
-query, parameters, and execution metadata routed to the audit log.
+Outputs: a ``QueryResult`` with rows materialised as a list of dicts plus
+the executed query for the audit trail.
 
-Assumptions: queries are parameterised at the adapter boundary (no string
-interpolation in the workflow code); query allow-listing is the responsibility of
-the workflow's ``permissions:`` block.
+Side effect: importing this package registers ``data.duckdb_query`` and
+``data.databricks_query`` in the orchestrator's ``DEFAULT_REGISTRY``.
 """
+
+from testudo.data import tools  # noqa: F401  - registers data adapters
+from testudo.data.databricks_adapter import query_databricks
+from testudo.data.duckdb_adapter import query_duckdb
+from testudo.data.result import QueryResult
+
+__all__ = [
+    "QueryResult",
+    "query_databricks",
+    "query_duckdb",
+]
