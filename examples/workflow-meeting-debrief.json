@@ -1,66 +1,65 @@
 {
-  "name": "meeting-debrief",
-  "description": "Demo workflow for Testudo v0.1: ingest a meeting transcript, sanitise it, query a small DuckDB table for context, return an answer plus a debrief file.",
+  "name": "meeting-debrief-v01",
+  "description": "Demo workflow for Testudo v0.1: ingest a meeting transcript, sanitise it, query the demo DuckDB for attendees, and write a debrief summary to disk plus a chat-inline response.",
   "inputs": {
-    "transcript": {
+    "transcript_path": {
       "type": "file",
       "format": "text",
       "required": true
     },
-    "question": {
+    "demo_db_path": {
+      "type": "file",
+      "format": "duckdb",
+      "required": true
+    },
+    "meeting_id": {
       "type": "string",
       "required": false,
-      "default": "Summarise the decisions and action items in this meeting."
+      "default": "M-001"
+    },
+    "output_path": {
+      "type": "file",
+      "format": "markdown",
+      "required": true
     }
   },
   "steps": [
     {
       "id": "ingest",
       "uses": "connectors.local_file",
-      "with": { "path": "${inputs.transcript}" }
+      "with": { "path": "${inputs.transcript_path}" }
     },
     {
       "id": "sanitise",
       "uses": "sanitisers.pii_and_injection",
       "needs": ["ingest"],
-      "with": { "content": "${steps.ingest.content}" }
+      "with": { "content": "${steps.ingest.content}", "redact": true }
     },
     {
-      "id": "context",
+      "id": "lookup_attendees",
       "uses": "data.duckdb_query",
       "with": {
-        "connection": "demo",
+        "database": "${inputs.demo_db_path}",
         "query": "SELECT name, role FROM attendees WHERE meeting_id = ?",
         "parameters": ["${inputs.meeting_id}"]
       }
     },
     {
-      "id": "answer",
-      "uses": "model.local_completion",
-      "needs": ["sanitise", "context"],
-      "with": {
-        "system": "You are a meeting analyst. Use the transcript and attendee list to answer the user's question. Cite quotes from the transcript where relevant.",
-        "transcript": "${steps.sanitise.content}",
-        "attendees": "${steps.context.rows}",
-        "question": "${inputs.question}"
-      }
-    },
-    {
       "id": "write_debrief",
       "uses": "outputs.file",
-      "needs": ["answer"],
+      "needs": ["sanitise", "lookup_attendees"],
       "with": {
-        "path": "debrief.md",
-        "content": "${steps.answer.text}"
+        "path": "${inputs.output_path}",
+        "content": "${steps.sanitise.content}"
       }
     },
     {
       "id": "respond",
       "uses": "outputs.chat",
-      "needs": ["answer", "write_debrief"],
+      "needs": ["write_debrief"],
       "with": {
-        "text": "${steps.answer.text}",
-        "attachments": ["${steps.write_debrief.path}"]
+        "text": "Debrief written; transcript sanitised; attendees retrieved.",
+        "attachments": ["${steps.write_debrief.destination}"]
       }
     }
   ],
