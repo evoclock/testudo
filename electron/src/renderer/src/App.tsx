@@ -327,6 +327,7 @@ export default function App() {
           <WorkflowPanel
             workflows={workflows}
             busy={busy}
+            client={client}
             onRun={runWorkflow}
             onSelectionChange={setSelectedWorkflowName}
           />
