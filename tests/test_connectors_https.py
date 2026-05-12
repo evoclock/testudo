@@ -49,8 +49,8 @@ def test_fetch_https_rejects_disallowed_content_type() -> None:
     def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(
             200,
-            content=b"binary",
-            headers={"content-type": "application/octet-stream"},
+            content=b"<img>",
+            headers={"content-type": "image/jpeg"},
         )
 
     with pytest.raises(ValueError, match="Disallowed content type"):
