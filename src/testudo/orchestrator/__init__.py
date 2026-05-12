@@ -1,16 +1,49 @@
 """Testudo orchestrator package.
 
-Purpose: lightweight in-container workflow runner. Reads Hillstar's ``workflow.json``
-format (with Testudo-specific ``permissions:`` and ``isolation:`` extensions),
-executes steps in dependency order, and supports branches and simple async-parallel
-fan-out.
+Purpose: lightweight in-container workflow runner. Reads Hillstar's
+``workflow.json`` format (with Testudo-specific ``permissions:`` and
+``isolation:`` extensions), executes steps in topological dependency order,
+emits audit events around each invocation, and resolves ``${...}``
+references in step ``with:`` arguments.
 
-Inputs: a parsed ``Workflow`` plus inputs (file paths, structured arguments).
+Inputs: a ``Workflow`` (parsed by ``loader.load_workflow``), a dict of
+inputs, a ``Permissions`` model, and optionally an ``AuditLog``.
 
-Outputs: a ``RunResult`` carrying per-step outputs, the final outputs, and the audit
-record.
+Outputs: a dict mapping step IDs to ``StepResult``.
 
-Assumptions: workflow steps are pure functions over their declared inputs; side
-effects are routed through the permissioned ``connectors/``, ``data/``, and
-``outputs/`` packages so the runtime can audit them.
+Assumptions: the executor is synchronous in v0.1; async + parallel batches
+land in v0.2. Tools register themselves in the ``DEFAULT_REGISTRY`` at
+import time.
 """
+
+# Importing tools registers the v0.1 baseline (noop) into DEFAULT_REGISTRY.
+from testudo.orchestrator import tools  # noqa: F401
+from testudo.orchestrator.context import StepContext
+from testudo.orchestrator.executor import Executor, StepResult, WorkflowError
+from testudo.orchestrator.loader import (
+    load_workflow,
+    resolve_isolation,
+    resolve_permissions,
+)
+from testudo.orchestrator.registry import (
+    DEFAULT_REGISTRY,
+    ToolRegistry,
+    register_tool,
+)
+from testudo.orchestrator.workflow import Step, Workflow, WorkflowInput
+
+__all__ = [
+    "DEFAULT_REGISTRY",
+    "Executor",
+    "Step",
+    "StepContext",
+    "StepResult",
+    "ToolRegistry",
+    "Workflow",
+    "WorkflowError",
+    "WorkflowInput",
+    "load_workflow",
+    "register_tool",
+    "resolve_isolation",
+    "resolve_permissions",
+]
