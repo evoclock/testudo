@@ -6,7 +6,6 @@ title: "Testudo docs index"
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) -- where Testudo sits in the broader agentic pipeline, the v0.1.5 internal layers, the five defence-in-depth layers (sanitisation -> permission check -> scan-then-permit -> MCP server separation -> audit), model adapters, UI modes.
 - [ROADMAP.md](ROADMAP.md) -- shipped, in-flight, v0.2 through v0.4 plans.
-- [naming.md](naming.md) -- three meanings of "Testudo".
 
 ## Setup guides
 

@@ -268,10 +268,8 @@ export default function App() {
 
   return (
     <div className="grid grid-rows-[56px_1fr] h-full">
-      <header className="bg-panel border-b border-border flex items-center px-5 gap-4">
-        <div className="w-8 h-8 rounded bg-bg border border-border flex items-center justify-center text-xs text-muted">
-          T
-        </div>
+      <header className="bg-panel border-b border-border flex items-center px-5 gap-3">
+        <img src="./logo.png" alt="Testudo" className="w-8 h-8 rounded object-cover" />
         <div className="font-semibold tracking-wide">Testudo</div>
         <div className="text-xs text-muted">
           {bridgeStatus === "online" && `bridge v${version}`}

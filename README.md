@@ -1,8 +1,12 @@
 # Testudo
 
+<p align="center">
+  <img src="assets/testudo.png" alt="Testudo" width="200">
+</p>
+
 > Hardened agent runtime: a containerised executor that runs an entire agent workflow end-to-end with declarative permissioning, layered sanitisation, MCP server isolation, audit logging, and a typed TS/React renderer. Comes with a CLI and a FastAPI bridge.
 
-**Status:** v0.1.5 (security expansion + Electron TS/React migration shipped). 279 tests passing, 87% coverage, ruff clean. Apache 2.0.
+**Status:** v0.1.5 (security expansion + Electron TS/React migration shipped, plus follow-ups: model adapters, DAG composition, four new example workflows). 312 tests passing, 87% coverage, ruff clean. Apache 2.0.
 
 ## What it does
 
@@ -38,7 +42,7 @@ Permissions       Sanitisers                Connectors / Data    Runtime
 • net egress      • prompt injection        • HTTPS              • Dockerfile
 • proc spawn      • OWASP web + MCP         • DuckDB             • Runner
 • scan-then-      • hidden unicode          • Databricks (extra) • IsolationProfile
-  permit gate     • output-side pipeline    • Drive (stub)
+  permit gate     • output-side pipeline
                   • secrets                                       Audit (JSONL)
                                                                   • workflow_start
                   In-house MCP servers                            • step_start/end
@@ -48,14 +52,6 @@ Permissions       Sanitisers                Connectors / Data    Runtime
 ```
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the layered view, the broader-pipeline positioning, and a worked example of the read-only -> sanitiser -> write-only chain.
-
-## Why "Testudo"
-
-- **Tortoise** that carries its shell (container) wherever it goes.
-- **Roman testudo** formation: legionaries (agents) interlock shields (containers) into a hardened protective barrier.
-- **Slow and steady**: deterministic, careful, rollback-friendly execution.
-
-Naming notes: [docs/naming.md](docs/naming.md).
 
 ## v0.1.5 vertical slice (shipped)
 
@@ -75,7 +71,7 @@ Naming notes: [docs/naming.md](docs/naming.md).
 | UI | Electron + TypeScript + React 18 + Tailwind + React Flow (renderer via `electron-vite`, sandboxed; bridge token flows via preload `contextBridge`) |
 | Output | File writer, chat-inline, dashboard component spec, ticket via webhook |
 | Demo workflows | `meeting-debrief` (transcript + DuckDB), `pdf-debrief` (extract + sanitise), `pdf-summarise` (extract + LLM + sanitise), `url-fetch` (HTTPS + sanitise), `db-query` (DuckDB query). All bundled under `examples/`. |
-| UI modes | Four-tab picker (File / URL / Database / Workflow). File mode runs `pdf-summarise`; URL runs `url-fetch`; Database runs `db-query`; Workflow renders any workflow's input schema as a dynamic form. DAG panel shows the staged workflow's step graph with post-run OK/FAIL/SKIP colour. DAG **composition** (drag-to-edit) lands in v0.1.6. |
+| UI modes | Five-tab picker (File / URL / Database / Workflow / Compose). File mode runs `pdf-summarise`; URL runs `url-fetch`; Database runs `db-query`; Workflow renders any workflow's input schema as a dynamic form; Compose authors new workflows visually (tool palette, editable React Flow canvas, node inspector, save via `POST /workflows`). DAG panel shows the staged workflow's step graph with post-run OK/FAIL/SKIP colour. |
 
 ## Quick start
 
