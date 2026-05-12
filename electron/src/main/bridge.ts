@@ -7,7 +7,7 @@
  * the explicit getStatus() return value.
  */
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -73,13 +73,28 @@ export class BridgeManager {
       runsDir,
     ];
 
+    // Auto-load .env.testudo / .env.databricks / .env.ollama from the
+    // repo root and merge into the child env. Turnkey: the user edits
+    // the file once, no shell sourcing required.
+    const envFromFiles = this.loadEnvFiles();
+    const envKeys = Object.keys(envFromFiles);
+    if (envKeys.length > 0) {
+      process.stderr.write(
+        `[bridge] loaded ${envKeys.length} env var(s) from repo .env.* files: ${envKeys.join(", ")}\n`,
+      );
+    } else {
+      process.stderr.write(
+        `[bridge] no .env.* values loaded (files empty or placeholders only)\n`,
+      );
+    }
+
     process.stderr.write(
       `[bridge] spawning: ${command} ${args.join(" ")} (cwd=${process.cwd()})\n`,
     );
 
     this.child = spawn(command, args, {
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env },
+      env: { ...process.env, ...envFromFiles },
     });
 
     const tokenPromise = new Promise<string>((accept, reject) => {
@@ -196,6 +211,45 @@ export class BridgeManager {
     throw new Error(
       `bridge did not respond on ${url}/health within ${timeoutMs}ms (last: ${String(lastErr)})`,
     );
+  }
+
+  private loadEnvFiles(): Record<string, string> {
+    const repoRoot = resolve(__dirname, "../../..");
+    const files = [".env.testudo", ".env.databricks", ".env.ollama"];
+    const out: Record<string, string> = {};
+    for (const name of files) {
+      const path = join(repoRoot, name);
+      if (!existsSync(path)) continue;
+      try {
+        const raw = readFileSync(path, "utf-8");
+        for (const lineRaw of raw.split(/\r?\n/)) {
+          const line = lineRaw.trim();
+          if (!line || line.startsWith("#")) continue;
+          const m = line.match(/^(?:export\s+)?([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$/i);
+          if (!m) continue;
+          let value = m[2].trim();
+          if (
+            (value.startsWith('"') && value.endsWith('"')) ||
+            (value.startsWith("'") && value.endsWith("'"))
+          ) {
+            value = value.slice(1, -1);
+          }
+          // skip placeholder defaults from the .example templates so an
+          // unfilled .env.* file does not shadow a real process.env value
+          if (
+            value.startsWith("REPLACE-") ||
+            value === "dapi-REPLACE-WITH-YOUR-TOKEN" ||
+            value === "dapi-..."
+          ) {
+            continue;
+          }
+          out[m[1]] = value;
+        }
+      } catch (err) {
+        process.stderr.write(`[bridge] failed to read ${path}: ${(err as Error).message}\n`);
+      }
+    }
+    return out;
   }
 
   private resolveCommand(): string {
