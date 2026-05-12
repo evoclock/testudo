@@ -54,40 +54,46 @@ Larger pipelines run on [Hillstar](https://github.com/evoclock/hillstar-orchestr
 ## v0.1.5 internal layers
 
 ```text
-                       ┌──────────────────────────────────────┐
-                       │  Electron renderer (TS + React)      │
-                       │  • Sidebar (workflows)               │
-                       │  • Chat                              │
-                       │  • React Flow DAG preview            │
-                       └──────────────┬───────────────────────┘
+                       ┌──────────────────────────────────────────────┐
+                       │  Electron renderer (TS + React)              │
+                       │  Five modes: File / URL / Database /         │
+                       │  Workflow / Compose                          │
+                       │  DAG panel renders the staged workflow's     │
+                       │  step graph; nodes coloured by run status    │
+                       └──────────────┬───────────────────────────────┘
                                       │ window.testudo (preload contextBridge)
                                       ▼
-                       ┌──────────────────────────────────────┐
-                       │  FastAPI bridge (testudo serve)      │
-                       │  Bearer auth + in-house rate limiter │
-                       │  GET /workflows  POST /runs  ...     │
-                       └──────────────┬───────────────────────┘
+                       ┌──────────────────────────────────────────────┐
+                       │  FastAPI bridge (testudo serve)              │
+                       │  Bearer auth + in-house rate limiter         │
+                       │  GET /workflows  GET /tools                  │
+                       │  POST /runs     POST /workflows  ...         │
+                       └──────────────┬───────────────────────────────┘
                                       ▼
-                       ┌──────────────────────────────────────┐
-                       │  Orchestrator (Executor)             │
-                       │  topo-sort, ref resolution,          │
-                       │  when: predicates, tool registry     │
-                       └──────────────┬───────────────────────┘
+                       ┌──────────────────────────────────────────────┐
+                       │  Orchestrator (Executor)                     │
+                       │  topo-sort, ref resolution,                  │
+                       │  when: predicates, tool registry             │
+                       └──────────────┬───────────────────────────────┘
                                       ▼
-   ┌────────────────────┬─────────────┴────────────┬─────────────────┐
-   ▼                    ▼                          ▼                 ▼
-Permissions       Sanitisers                Connectors / Data    Runtime
-• fs read/write   • PII (~50 countries)     • local file         • build_docker_argv
-• net egress      • prompt injection        • HTTPS              • Dockerfile
-• proc spawn      • OWASP web + MCP         • DuckDB             • Runner
-• scan-then-      • hidden unicode          • Databricks (extra) • IsolationProfile
-  permit gate     • output-side pipeline
-                  • secrets                                       Audit (JSONL)
-                                                                  • workflow_start
-                  In-house MCP servers                            • step_start/end
-                  • llm_response_capturer (read-only)             • permission_*
-                  • file_extractor (read-only)                    • error
-                  • file_writer (write-only, HMAC receipts)
+ ┌─────────────┬──────────────┬─────────────┬────────────┬────────────┐
+ ▼             ▼              ▼             ▼            ▼            ▼
+Permissions   Sanitisers   Connectors     Data        Models      Runtime
+• fs read/    • PII (~50   • local_file   • DuckDB    • ollama    • build_docker_argv
+  write       countries)   • https_get    • Databricks  _chat     • Dockerfile
+• net egress  • prompt     • extract_       (extra)               • Runner
+• proc spawn  injection      document    Outputs                  • IsolationProfile
+• scan-then-  • OWASP web                 • file
+  permit      + MCP                       • chat
+  gate        • hidden                    • dashboard      Audit (JSONL)
+              unicode                     • ticket         • workflow_start
+              • output-side                                • step_start/end
+              pipeline                                     • permission_*
+              • secrets                                    • error
+
+In-house MCP servers (subprocess STDIO):
+• llm_response_capturer (read-only)   • file_extractor (read-only)
+• file_writer (write-only, HMAC receipts)
 ```
 
 ## The five defence-in-depth layers
@@ -159,6 +165,40 @@ A third in-house server, `file_extractor`, is symmetrically read-only and handle
 ### 5. Per-run audit log
 
 Append-only JSONL at `runs/<run_id>/audit.jsonl`. Six event types: `workflow_start`, `workflow_end`, `step_start`, `step_end`, `permission_*` (granted / denied), `error`. Every permission decision and every step boundary is captured. `testudo inspect <audit.jsonl>` pretty-prints the timeline.
+
+## Model adapters
+
+`testudo.models` ships one adapter in v0.1.5: `models.ollama_chat`. It POSTs to a local (or remote) Ollama-served model and routes the response through `sanitise_output` before returning to the orchestrator. Every LLM call therefore inherits the full output-side sanitiser pipeline at no per-workflow cost.
+
+```text
+workflow step (uses: models.ollama_chat)
+       │
+       ▼
+   httpx POST /api/chat
+       │
+       ▼
+   raw response text
+       │
+       ▼
+   sanitise_output(raw)
+       │  hidden → secrets → PII → injection → OWASP/MCP
+       ▼
+   {decision, content, findings, raw_length, sanitised_length}
+```
+
+The default base URL is `http://localhost:11434` (overridable via `TESTUDO_OLLAMA_URL`). Default model in the bundled `workflow-pdf-summarise` is `minimax-m2.5`; any model accessible via `ollama list` is valid. v0.2 adds adapters for other providers behind the same `models.*` namespace.
+
+## UI modes (Electron renderer)
+
+Five tabs at the top of the renderer:
+
+- **File** — pick a local document, run the bundled `pdf-summarise` workflow (extract → ollama → write → respond).
+- **URL** — paste any HTTPS URL (including public Google Drive direct-download links), run `url-fetch`.
+- **Database** — DuckDB query against a path you point to; Databricks toggle ready (disabled until the env vars are exported).
+- **Workflow** — pick any workflow on disk, the panel renders a dynamic form from its `inputs:` schema and submits the run.
+- **Compose** — author a workflow visually. Tool palette on the left (drag a tool onto the canvas to add a node), React Flow editable canvas in the middle (drag from one node to another to add a `needs` edge), node inspector on the right (rename step IDs, edit each `with:` param, delete nodes). Save writes the resulting JSON via `POST /workflows`; the saved workflow appears in the Workflow tab.
+
+A DAG panel sits under each mode's input form. It shows the staged workflow's step graph and colours nodes by post-run status (`OK` green, `FAIL` red, `SKIP` grey, pending muted).
 
 ## Workflow format
 
