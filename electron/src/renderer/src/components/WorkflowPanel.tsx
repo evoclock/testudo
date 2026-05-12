@@ -61,11 +61,11 @@ const STARTERS: Record<string, Starter[]> = {
   ],
   "url-fetch-v015": [
     {
-      label: "GitHub raw markdown (testudo README)",
+      label: "Hillstar-orchestrator README (public GitHub raw)",
       hint: "Fetches a small public markdown over HTTPS.",
       inputs: {
-        url: "https://raw.githubusercontent.com/evoclock/testudo/main/README.md",
-        output_path: "/home/jgamboa/testudo/outputs-ui/url-fetch-readme.md",
+        url: "https://raw.githubusercontent.com/evoclock/hillstar-orchestrator/main/README.md",
+        output_path: "/home/jgamboa/testudo/outputs-ui/url-fetch-hillstar-readme.md",
         max_bytes: 10485760,
       },
     },
