@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { WorkflowSummary } from "../lib/api";
+import type { BridgeClient, WorkflowSummary } from "../lib/api";
 
 interface InputSpec {
   type?: string;
@@ -12,6 +12,7 @@ interface InputSpec {
 interface Props {
   workflows: WorkflowSummary[];
   busy: boolean;
+  client: BridgeClient | null;
   onRun: (workflow: WorkflowSummary, inputs: Record<string, unknown>) => void;
   onSelectionChange?: (workflowName: string) => void;
 }
@@ -113,9 +114,16 @@ const STARTERS: Record<string, Starter[]> = {
   ],
 };
 
-export function WorkflowPanel({ workflows, busy, onRun, onSelectionChange }: Props) {
+export function WorkflowPanel({ workflows, busy, client, onRun, onSelectionChange }: Props) {
   const [selectedName, setSelectedName] = useState<string>("");
   const [form, setForm] = useState<Record<string, unknown>>({});
+  // Separate text-buffer for array inputs so typing does not round-trip
+  // through JSON.stringify/parse on every keystroke (which previously
+  // turned each `"` typed into cascading "\\\\\\\"" escapes).
+  const [arrayBuffers, setArrayBuffers] = useState<Record<string, string>>({});
+  const [arrayErrors, setArrayErrors] = useState<Record<string, string | null>>({});
+  const [readme, setReadme] = useState<string | null>(null);
+  const [readmeOpen, setReadmeOpen] = useState(false);
 
   const selected = useMemo(
     () => workflows.find((w) => w.name === selectedName) ?? null,
@@ -130,6 +138,25 @@ export function WorkflowPanel({ workflows, busy, onRun, onSelectionChange }: Pro
   useEffect(() => {
     onSelectionChange?.(selectedName);
   }, [selectedName, onSelectionChange]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!selected || !client) {
+      setReadme(null);
+      return;
+    }
+    void (async () => {
+      try {
+        const md = await client.workflowReadme(selected.name);
+        if (!cancelled) setReadme(md);
+      } catch {
+        if (!cancelled) setReadme(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selected, client]);
 
   useEffect(() => {
     if (!selected) {
@@ -211,6 +238,20 @@ export function WorkflowPanel({ workflows, busy, onRun, onSelectionChange }: Pro
         {selected?.description && (
           <p className="text-xs text-muted mt-2">{selected.description}</p>
         )}
+        {readme && (
+          <details
+            open={readmeOpen}
+            onToggle={(e) => setReadmeOpen((e.target as HTMLDetailsElement).open)}
+            className="mt-2"
+          >
+            <summary className="cursor-pointer text-xs text-accent hover:underline">
+              {readmeOpen ? "Hide README" : "Show README (usage, inputs, common failures)"}
+            </summary>
+            <pre className="mt-2 text-xs bg-bg border border-border rounded p-3 whitespace-pre-wrap font-mono max-h-96 overflow-y-auto">
+              {readme}
+            </pre>
+          </details>
+        )}
       </div>
 
       {selected && starters.length > 0 && (
@@ -260,32 +301,74 @@ export function WorkflowPanel({ workflows, busy, onRun, onSelectionChange }: Pro
                 {spec.description && (
                   <p className="text-xs text-muted mb-1">{spec.description}</p>
                 )}
+                {isArray && arrayErrors[key] && (
+                  <p className="text-xs text-amber-400 mb-1">{arrayErrors[key]}</p>
+                )}
                 <div className="flex gap-2">
-                  <input
-                    type={isNumber ? "number" : "text"}
-                    value={
-                      isArray
-                        ? JSON.stringify(v ?? [])
-                        : v == null
-                          ? ""
-                          : String(v)
-                    }
-                    onChange={(e) => {
-                      if (isArray) {
+                  {isArray ? (
+                    <input
+                      type="text"
+                      value={
+                        arrayBuffers[key] !== undefined
+                          ? arrayBuffers[key]
+                          : JSON.stringify(v ?? [])
+                      }
+                      onChange={(e) => {
+                        setArrayBuffers((b) => ({ ...b, [key]: e.target.value }));
+                      }}
+                      onBlur={(e) => {
+                        const text = e.target.value.trim();
+                        if (text === "") {
+                          updateField(key, []);
+                          setArrayBuffers((b) => {
+                            const next = { ...b };
+                            delete next[key];
+                            return next;
+                          });
+                          setArrayErrors((er) => ({ ...er, [key]: null }));
+                          return;
+                        }
                         try {
-                          updateField(key, JSON.parse(e.target.value));
-                        } catch {
+                          const parsed = JSON.parse(text);
+                          if (!Array.isArray(parsed)) {
+                            setArrayErrors((er) => ({
+                              ...er,
+                              [key]: "must be a JSON array, e.g. [] or [\"a\", 1]",
+                            }));
+                            return;
+                          }
+                          updateField(key, parsed);
+                          setArrayBuffers((b) => {
+                            const next = { ...b };
+                            delete next[key];
+                            return next;
+                          });
+                          setArrayErrors((er) => ({ ...er, [key]: null }));
+                        } catch (err) {
+                          setArrayErrors((er) => ({
+                            ...er,
+                            [key]: `invalid JSON: ${(err as Error).message}`,
+                          }));
+                        }
+                      }}
+                      placeholder="[]  or  [&quot;value&quot;, 42, true]"
+                      className="flex-1 bg-bg border border-border rounded px-3 py-2 text-sm font-mono focus:outline-none focus:border-accent"
+                    />
+                  ) : (
+                    <input
+                      type={isNumber ? "number" : "text"}
+                      value={v == null ? "" : String(v)}
+                      onChange={(e) => {
+                        if (isNumber) {
+                          updateField(key, Number(e.target.value));
+                        } else {
                           updateField(key, e.target.value);
                         }
-                      } else if (isNumber) {
-                        updateField(key, Number(e.target.value));
-                      } else {
-                        updateField(key, e.target.value);
-                      }
-                    }}
-                    placeholder={placeholderFor(key, spec)}
-                    className="flex-1 bg-bg border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent"
-                  />
+                      }}
+                      placeholder={placeholderFor(key, spec)}
+                      className="flex-1 bg-bg border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent"
+                    />
+                  )}
                   {isFile && (
                     <button
                       type="button"

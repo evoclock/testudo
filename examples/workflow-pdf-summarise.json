@@ -53,9 +53,9 @@
     {
       "id": "respond",
       "uses": "outputs.chat",
-      "needs": ["write_summary"],
+      "needs": ["write_summary", "summarise"],
       "with": {
-        "text": "Document summarised by the LLM; output sanitised on the way back.",
+        "text": "${steps.summarise.content}",
         "attachments": ["${steps.write_summary.destination}"]
       }
     }

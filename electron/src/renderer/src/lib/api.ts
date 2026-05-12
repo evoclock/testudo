@@ -120,6 +120,15 @@ export class BridgeClient {
     return (await r.json()) as EnvCheck;
   }
 
+  async workflowReadme(name: string): Promise<string | null> {
+    const r = await fetch(`${this.url}/workflows/${encodeURIComponent(name)}/readme`, {
+      headers: this.headers(),
+    });
+    if (!r.ok) return null;
+    const body = (await r.json()) as { name: string; readme: string | null };
+    return body.readme;
+  }
+
   async saveWorkflow(draft: WorkflowDraft): Promise<WorkflowSaveResponse> {
     const r = await fetch(`${this.url}/workflows`, {
       method: "POST",

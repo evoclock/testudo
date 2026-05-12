@@ -122,6 +122,29 @@ def create_app(
             )
         return out
 
+    @app.get(
+        "/workflows/{name}/readme",
+        dependencies=[Depends(auth)],
+    )
+    def get_workflow_readme(name: str) -> dict[str, str | None]:
+        """Return the per-workflow README markdown if one exists.
+
+        Looks under ``<workflows_root>/readmes/<name>.md``. Returns
+        ``{"name": ..., "readme": null}`` when the workflow has no
+        README; callers decide whether to fall back to the inline
+        description.
+        """
+        # Defence against path traversal: require kebab-case + dots
+        if not re.fullmatch(r"[a-z0-9][a-z0-9.\-]{0,80}", name):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="workflow name must be kebab-case with optional dots",
+            )
+        readme_path = workflows_root / "readmes" / f"{name}.md"
+        if not readme_path.is_file():
+            return {"name": name, "readme": None}
+        return {"name": name, "readme": readme_path.read_text(encoding="utf-8")}
+
     @app.post(
         "/runs",
         response_model=RunResponse,

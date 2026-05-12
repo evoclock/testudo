@@ -52,9 +52,15 @@ UK_PII_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ),
     ("NHS number", re.compile(r"\b\d{3}\s?\d{3}\s?\d{4}\b")),
     (
+        # Require an explicit whitespace between the outward and inward
+        # parts (SW1A 1AA, M1 1AA, EH7 5AB) so scientific identifiers
+        # like mouse strain "C57BL/6J" do not match (no space in the
+        # alphanumeric run). False-negative on compact-form postcodes
+        # ("SW1A1AA") is the accepted trade-off; v0.2 NER hybrid will
+        # disambiguate.
         "UK postcode",
         re.compile(
-            r"\b[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}\b",
+            r"\b[A-Z]{1,2}\d[A-Z\d]?\s+\d[A-Z]{2}\b",
             re.IGNORECASE,
         ),
     ),
@@ -70,7 +76,8 @@ INTERNATIONAL_PII_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
         re.compile(r"\b(?!000|666|9\d{2})\d{3}[-\s]?(?!00)\d{2}[-\s]?(?!0000)\d{4}\b"),
     ),
     ("Credit card (Visa)", re.compile(r"\b4\d{12}(?:\d{3})?\b")),
-    ("Credit card (Mastercard)", re.compile(r"\b5[1-5]\d{14}\b")),
+    # Mastercard: legacy 51-55 BIN range + 2017-era 2221-2720 BIN range
+    ("Credit card (Mastercard)", re.compile(r"\b(?:5[1-5]\d{14}|2(?:2[2-9]\d|[3-6]\d{2}|7[01]\d|720)\d{12})\b")),
     ("Credit card (Amex)", re.compile(r"\b3[47]\d{13}\b")),
     ("Credit card (Discover)", re.compile(r"\b6(?:011|5\d{2})\d{12}\b")),
     ("Credit card (JCB)", re.compile(r"\b35(?:2[89]|[3-8]\d)\d{12}\b")),

@@ -1,6 +1,6 @@
 {
   "name": "databricks-query-v015",
-  "description": "Run a SQL query against Databricks via the [databricks] extra, write the rows to disk, and return a chat-inline confirmation. Reads DATABRICKS_SERVER_HOSTNAME / DATABRICKS_HTTP_PATH / DATABRICKS_TOKEN from the bridge process env. Designed for the Database mode in the Electron UI when the Databricks adapter is selected.",
+  "description": "Run a SQL query against Databricks, sanitise the returned rows for PII / cards / secrets, write the redacted rows to disk, return a chat-inline summary with finding counts. Reads DATABRICKS_SERVER_HOSTNAME / HTTP_PATH / TOKEN from the bridge process env (auto-loaded from .env.databricks).",
   "inputs": {
     "query": {
       "type": "string",
@@ -10,7 +10,8 @@
     "parameters": {
       "type": "array",
       "required": false,
-      "default": []
+      "default": [],
+      "description": "Positional parameters bound to ? placeholders in the query. Leave [] if your query has no placeholders."
     },
     "output_path": {
       "type": "file",
@@ -27,20 +28,29 @@
       }
     },
     {
-      "id": "write_results",
-      "uses": "outputs.file",
+      "id": "sanitise",
+      "uses": "sanitisers.pii_and_injection",
       "needs": ["query"],
       "with": {
+        "content": "${steps.query.rows}",
+        "redact": true
+      }
+    },
+    {
+      "id": "write_results",
+      "uses": "outputs.file",
+      "needs": ["sanitise"],
+      "with": {
         "path": "${inputs.output_path}",
-        "content": "${steps.query.rows}"
+        "content": "${steps.sanitise.content}"
       }
     },
     {
       "id": "respond",
       "uses": "outputs.chat",
-      "needs": ["write_results"],
+      "needs": ["write_results", "sanitise"],
       "with": {
-        "text": "Databricks query returned rows; results saved.",
+        "text": "Databricks query returned rows; sanitiser found ${steps.sanitise.critical_count} critical + ${steps.sanitise.high_count} high finding(s); redacted output saved.",
         "attachments": ["${steps.write_results.destination}"]
       }
     }
