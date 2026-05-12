@@ -16,6 +16,13 @@ export default defineConfig({
     build: {
       rollupOptions: {
         input: { index: resolve(__dirname, "src/preload/index.ts") },
+        output: {
+          // Sandboxed renderers cannot load ESM preloads; force CJS with
+          // a .js extension so the main process's `preload: ../preload/index.js`
+          // path resolves and the script actually executes.
+          format: "cjs",
+          entryFileNames: "[name].js",
+        },
       },
     },
   },
