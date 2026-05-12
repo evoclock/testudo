@@ -260,10 +260,8 @@ electron/renderer/index.html
 electron/renderer/ (directory)
 ```
 
-## Confidentiality / privacy
+## Reuse from other tools I have built
 
-- Zero references to `agentic-orchestrator/` or any private-fork
-  content in the diff.
 - The agent scanner is an in-house port of hillstar's
   `workflows/agent_scanner.py`; the redactor is an in-house
   superset of hillstar's `utils/credential_redactor.py`. Both live

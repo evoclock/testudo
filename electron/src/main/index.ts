@@ -1,23 +1,22 @@
 /**
  * Testudo main process.
  *
- * Single BrowserWindow with a sandboxed renderer. The bridge token is
- * loaded from the TESTUDO_BRIDGE_TOKEN env var and forwarded to the
- * renderer via the preload script's contextBridge. The token never
- * appears in renderer-inspectable scope.
+ * Owns the FastAPI bridge subprocess via BridgeManager. The renderer
+ * asks main to start / stop / inspect the bridge through IPC; the
+ * token and URL never reach renderer scope except through the explicit
+ * bridge:status return value, and they are scrubbed when the bridge
+ * stops.
  */
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
-import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { BridgeManager, type StartOptions } from "./bridge";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 let mainWindow: BrowserWindow | null = null;
-
-const BRIDGE_URL = process.env.TESTUDO_BRIDGE_URL ?? "http://127.0.0.1:8000";
-const BRIDGE_TOKEN = process.env.TESTUDO_BRIDGE_TOKEN ?? "";
+const bridge = new BridgeManager();
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -48,13 +47,25 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
+  bridge.killSync();
   if (process.platform !== "darwin") app.quit();
 });
 
-ipcMain.handle("testudo:bridgeConfig", () => ({
-  url: BRIDGE_URL,
-  token: BRIDGE_TOKEN,
-}));
+app.on("before-quit", () => {
+  bridge.killSync();
+});
+
+ipcMain.handle("bridge:status", () => bridge.status());
+
+ipcMain.handle("bridge:start", async (_event, opts: StartOptions = {}) => {
+  try {
+    return await bridge.start(opts);
+  } catch (err) {
+    return { ...bridge.status(), error: (err as Error).message };
+  }
+});
+
+ipcMain.handle("bridge:stop", () => bridge.stop());
 
 ipcMain.handle("testudo:openFile", async () => {
   if (!mainWindow) return null;
@@ -68,24 +79,3 @@ ipcMain.handle("testudo:openFile", async () => {
   });
   return result.canceled ? null : result.filePaths[0];
 });
-
-ipcMain.handle(
-  "testudo:spawnServe",
-  (_event, args: { workflowsRoot: string; runsRoot: string }) => {
-    const proc = spawn("testudo", [
-      "serve",
-      "--workflows-root",
-      args.workflowsRoot,
-      "--runs-root",
-      args.runsRoot,
-    ]);
-    proc.stderr.setEncoding("utf-8");
-    proc.stderr.on("data", (chunk: string) => {
-      process.stderr.write(`[testudo serve] ${chunk}`);
-    });
-    proc.on("exit", (code) => {
-      process.stderr.write(`[testudo serve] exited with ${code}\n`);
-    });
-    return { pid: proc.pid ?? -1 };
-  },
-);
