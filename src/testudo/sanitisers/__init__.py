@@ -1,16 +1,46 @@
 """Testudo sanitisers package.
 
-Purpose: input safety checks. v0.1 ships PII detection (regex plus a lightweight
-NER pass) and prompt-injection-pattern detection. v0.2 will add file-format exploit
-detection.
+Purpose: input safety checks for workflow content. v0.1 ships UK-flavoured
+PII detection (regex-based, with optional redaction), prompt-injection
+pattern detection (always strict), and the agent scanner ported from
+hillstar (a static security scanner for MCP configs and skill files).
 
-Inputs: a ``StagedInput`` from ``connectors/``.
+Inputs: text content from a workflow step (PII / injection sanitisers) or
+a file/directory path (agent scanner).
 
-Outputs: a ``SanitisationResult`` carrying the cleaned content, a list of findings
-(category, span, severity), and a decision (accept, redact, reject) the orchestrator
-uses to gate the workflow step.
+Outputs: a ``SanitisationResult`` with decision (accept / redact / reject)
+plus a list of ``Finding``; or a ``ScanResult`` from the agent scanner.
 
-Assumptions: sanitisation runs inside the container so failures cannot bypass it;
-findings are written to the audit log even when the result is "accept" so the
-review trail is complete.
+Assumptions: regex-only detection in v0.1. The ``[sanitisers]`` extra (spaCy,
+Presidio) lands in v0.2 for higher-recall detection of names, addresses, and
+context-dependent identifiers.
+
+Side effect: importing this package triggers registration of the ``sanitisers.pii``,
+``sanitisers.injection``, and ``sanitisers.pii_and_injection`` tools in the
+orchestrator's ``DEFAULT_REGISTRY``.
 """
+
+from testudo.sanitisers import tools  # noqa: F401  - registers sanitiser tools
+from testudo.sanitisers.agent_scanner import AgentScanner, ScanResult
+from testudo.sanitisers.injection import detect_injection, sanitise_injection
+from testudo.sanitisers.pii import detect_pii, redact_pii, sanitise_pii
+from testudo.sanitisers.result import (
+    Decision,
+    Finding,
+    SanitisationResult,
+    Severity,
+)
+
+__all__ = [
+    "AgentScanner",
+    "Decision",
+    "Finding",
+    "SanitisationResult",
+    "ScanResult",
+    "Severity",
+    "detect_injection",
+    "detect_pii",
+    "redact_pii",
+    "sanitise_injection",
+    "sanitise_pii",
+]
