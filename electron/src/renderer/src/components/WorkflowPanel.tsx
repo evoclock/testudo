@@ -13,9 +13,10 @@ interface Props {
   workflows: WorkflowSummary[];
   busy: boolean;
   onRun: (workflow: WorkflowSummary, inputs: Record<string, unknown>) => void;
+  onSelectionChange?: (workflowName: string) => void;
 }
 
-export function WorkflowPanel({ workflows, busy, onRun }: Props) {
+export function WorkflowPanel({ workflows, busy, onRun, onSelectionChange }: Props) {
   const [selectedName, setSelectedName] = useState<string>("");
   const [form, setForm] = useState<Record<string, unknown>>({});
 
@@ -23,6 +24,10 @@ export function WorkflowPanel({ workflows, busy, onRun }: Props) {
     () => workflows.find((w) => w.name === selectedName) ?? null,
     [workflows, selectedName],
   );
+
+  useEffect(() => {
+    onSelectionChange?.(selectedName);
+  }, [selectedName, onSelectionChange]);
 
   useEffect(() => {
     if (!selected) {

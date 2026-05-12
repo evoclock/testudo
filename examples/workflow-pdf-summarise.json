@@ -1,0 +1,81 @@
+{
+  "name": "pdf-summarise-v015",
+  "description": "Extract text from a document, ask an Ollama-served LLM to summarise, sanitise the model output (built into the ollama_chat tool), write the summary to disk. Defaults to minimax-m2.5; set the model input to switch (e.g. llama3.2, qwen2.5, mistral).",
+  "inputs": {
+    "pdf_path": {
+      "type": "file",
+      "format": "document",
+      "required": true
+    },
+    "model": {
+      "type": "string",
+      "required": false,
+      "default": "minimax-m2.5"
+    },
+    "system_prompt": {
+      "type": "string",
+      "required": false,
+      "default": "You are a careful, factual summariser. Produce five bullet points; do not add information that is not in the source."
+    },
+    "output_path": {
+      "type": "file",
+      "format": "markdown",
+      "required": true
+    }
+  },
+  "steps": [
+    {
+      "id": "extract",
+      "uses": "connectors.extract_document",
+      "with": { "path": "${inputs.pdf_path}" }
+    },
+    {
+      "id": "summarise",
+      "uses": "models.ollama_chat",
+      "needs": ["extract"],
+      "with": {
+        "model": "${inputs.model}",
+        "system": "${inputs.system_prompt}",
+        "prompt": "Summarise the following document in five bullet points:\n\n${steps.extract.content}",
+        "temperature": 0.0
+      }
+    },
+    {
+      "id": "write_summary",
+      "uses": "outputs.file",
+      "needs": ["summarise"],
+      "with": {
+        "path": "${inputs.output_path}",
+        "content": "${steps.summarise.content}"
+      }
+    },
+    {
+      "id": "respond",
+      "uses": "outputs.chat",
+      "needs": ["write_summary"],
+      "with": {
+        "text": "Document summarised by the LLM; output sanitised on the way back.",
+        "attachments": ["${steps.write_summary.destination}"]
+      }
+    }
+  ],
+  "permissions": {
+    "filesystem": {
+      "read": ["/"],
+      "write": ["/"]
+    },
+    "network": {
+      "egress": ["localhost", "127.0.0.1"]
+    },
+    "process": {
+      "spawn": false
+    }
+  },
+  "isolation": {
+    "primitive": "docker",
+    "image": "testudo:0.1",
+    "cpu": "2.0",
+    "memory": "4g",
+    "rollback": true
+  }
+}

@@ -23,9 +23,18 @@ def file_tool(
     _ctx: StepContext,
     *,
     path: str,
-    content: str,
+    content: Any,
 ) -> dict[str, Any]:
-    """Write workflow output to a file in the writable layer."""
+    """Write workflow output to a file in the writable layer.
+
+    Non-string content (lists, dicts) is JSON-encoded with a trailing
+    newline so the writer always sees a string. This is the common case
+    for structured tool outputs (e.g. ``data.duckdb_query`` rows).
+    """
+    if not isinstance(content, str):
+        import json as _json
+
+        content = _json.dumps(content, indent=2, sort_keys=True, default=str) + "\n"
     return write_file(path, content)
 
 

@@ -75,8 +75,7 @@ def extract_pdf(path: Path) -> str:
         from pypdf import PdfReader
     except ImportError as exc:
         raise RuntimeError(
-            "pypdf is required for PDF extraction; install with "
-            "`uv pip install -e '.[file_ops]'`."
+            "pypdf is required for PDF extraction; install with `uv pip install -e '.[file_ops]'`."
         ) from exc
     reader = PdfReader(str(path))
     return "\n\n".join(page.extract_text() or "" for page in reader.pages)

@@ -15,10 +15,12 @@ export interface ModeBinding {
 
 export const MODE_BINDINGS: Record<Exclude<Mode, "workflow">, ModeBinding> = {
   file: {
-    workflowName: "pdf-debrief-v015",
+    workflowName: "pdf-summarise-v015",
     buildInputs: (form) => ({
       pdf_path: form.filePath,
-      output_path: form.outputPath ?? "/tmp/testudo-file-debrief.md",
+      model: form.model ?? "minimax-m2.5",
+      system_prompt: form.systemPrompt ?? undefined,
+      output_path: form.outputPath ?? "/tmp/testudo-file-summary.md",
     }),
   },
   url: {

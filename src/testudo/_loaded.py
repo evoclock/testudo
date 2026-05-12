@@ -23,6 +23,7 @@ from __future__ import annotations
 from testudo import (
     connectors,  # noqa: F401
     data,  # noqa: F401
+    models,  # noqa: F401
     orchestrator,  # noqa: F401
     outputs,  # noqa: F401
     sanitisers,  # noqa: F401

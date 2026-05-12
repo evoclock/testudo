@@ -5,11 +5,18 @@
  * never from renderer-side env vars. Construct one client per session.
  */
 
+export interface WorkflowStepSummary {
+  id: string;
+  uses: string;
+  needs: string[];
+}
+
 export interface WorkflowSummary {
   name: string;
   description: string | null;
   inputs: Record<string, unknown>;
   step_count: number;
+  steps: WorkflowStepSummary[];
   path: string;
 }
 

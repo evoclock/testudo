@@ -40,6 +40,7 @@ from testudo.server.models import (
     RunRequest,
     RunResponse,
     StepResultPayload,
+    WorkflowStepSummary,
     WorkflowSummary,
 )
 from testudo.server.rate_limit import RateLimiter, RateLimitMiddleware
@@ -91,6 +92,10 @@ def create_app(
                     description=wf.description,
                     inputs={k: v.model_dump() for k, v in wf.inputs.items()},
                     step_count=len(wf.steps),
+                    steps=[
+                        WorkflowStepSummary(id=s.id, uses=s.uses, needs=list(s.needs))
+                        for s in wf.steps
+                    ],
                     path=str(path),
                 )
             )

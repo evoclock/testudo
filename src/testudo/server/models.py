@@ -19,6 +19,14 @@ class HealthResponse(BaseModel):
     version: str
 
 
+class WorkflowStepSummary(BaseModel):
+    """Minimal step shape for the DAG renderer."""
+
+    id: str
+    uses: str
+    needs: list[str] = Field(default_factory=list)
+
+
 class WorkflowSummary(BaseModel):
     """Brief description of a workflow available on disk."""
 
@@ -26,6 +34,7 @@ class WorkflowSummary(BaseModel):
     description: str | None = None
     inputs: dict[str, Any] = Field(default_factory=dict)
     step_count: int
+    steps: list[WorkflowStepSummary] = Field(default_factory=list)
     path: str
 
 

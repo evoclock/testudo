@@ -32,6 +32,7 @@ class WorkflowInput(BaseModel):
     format: str | None = None
     required: bool = True
     default: Any = None
+    description: str | None = None
 
 
 class Step(BaseModel):

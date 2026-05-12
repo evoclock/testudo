@@ -4,6 +4,7 @@ import { FilePanel } from "./components/FilePanel";
 import { ModeTabs } from "./components/ModeTabs";
 import { ResultLog, type LogEntry } from "./components/ResultLog";
 import { UrlPanel } from "./components/UrlPanel";
+import { WorkflowGraph } from "./components/WorkflowGraph";
 import { WorkflowPanel } from "./components/WorkflowPanel";
 import {
   type BridgeClient,
@@ -11,7 +12,7 @@ import {
   type WorkflowSummary,
   makeBridgeClient,
 } from "./lib/api";
-import { type Mode, buildRunRequest } from "./lib/modes";
+import { MODE_BINDINGS, type Mode, buildRunRequest } from "./lib/modes";
 
 export default function App() {
   const [client, setClient] = useState<BridgeClient | null>(null);
@@ -65,6 +66,17 @@ export default function App() {
     [workflows],
   );
 
+  const [selectedWorkflowName, setSelectedWorkflowName] = useState<string>("");
+  const [lastRun, setLastRun] = useState<RunResponse | null>(null);
+
+  const stagedWorkflow = useMemo<WorkflowSummary | null>(() => {
+    if (mode === "workflow") {
+      return workflows.find((w) => w.name === selectedWorkflowName) ?? null;
+    }
+    const binding = MODE_BINDINGS[mode];
+    return workflows.find((w) => w.name === binding.workflowName) ?? null;
+  }, [mode, selectedWorkflowName, workflows]);
+
   const submit = async (
     description: string,
     inputs: Record<string, unknown>,
@@ -93,6 +105,7 @@ export default function App() {
           meta: run,
         },
       ]);
+      setLastRun(run);
     } catch (err) {
       setEntries((e) => [
         ...e,
@@ -197,7 +210,14 @@ export default function App() {
           />
         );
       case "workflow":
-        return <WorkflowPanel workflows={workflows} busy={busy} onRun={runWorkflow} />;
+        return (
+          <WorkflowPanel
+            workflows={workflows}
+            busy={busy}
+            onRun={runWorkflow}
+            onSelectionChange={setSelectedWorkflowName}
+          />
+        );
     }
   };
 
@@ -222,7 +242,22 @@ export default function App() {
       <div className="grid grid-cols-2 h-full overflow-hidden">
         <div className="flex flex-col h-full border-r border-border">
           <ModeTabs active={mode} onSelect={setMode} />
-          <div className="flex-1 overflow-hidden">{renderPanel()}</div>
+          <div className="flex-1 overflow-hidden flex flex-col">
+            <div className="flex-1 overflow-y-auto">{renderPanel()}</div>
+            <div className="h-64 border-t border-border bg-bg/60">
+              <div className="px-3 py-2 text-xs uppercase tracking-wider text-muted border-b border-border bg-panel flex items-center justify-between">
+                <span>DAG</span>
+                {stagedWorkflow && (
+                  <span className="font-mono text-muted/80 normal-case">
+                    {stagedWorkflow.name} · {stagedWorkflow.step_count} steps
+                  </span>
+                )}
+              </div>
+              <div className="h-[calc(100%-32px)]">
+                <WorkflowGraph workflow={stagedWorkflow} lastRun={lastRun} />
+              </div>
+            </div>
+          </div>
         </div>
         <div className="flex flex-col h-full bg-bg">
           <div className="px-5 py-3 border-b border-border bg-panel">

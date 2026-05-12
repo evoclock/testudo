@@ -66,6 +66,7 @@ Naming notes: [docs/naming.md](docs/naming.md).
 | Permissions | Filesystem read/write prefixes; network egress allow-list; process-spawn deny-by-default; scan-before-permit gate for MCP-config / skill artifacts |
 | Data | DuckDB by default; Databricks adapter behind `[databricks]` extra |
 | Orchestration | Hillstar-compatible `workflow.json`; topological dependency ordering; `${...}` reference resolution; `when:` predicates; tool registry |
+| Model adapters | `models.ollama_chat` against an Ollama-served model (default `minimax-m2.5`); response auto-routed through `sanitise_output` before return |
 | MCP servers | In-house base (JSON-RPC 2.0 + STDIO); read-only `llm_response_capturer` with HMAC-signed receipts; write-only `file_writer` (receipt-gated); read-only `file_extractor` |
 | Runtime | Docker argv builder, `Dockerfile`, Runner, IsolationProfile (deny-by-default network, read-only root, tmpfs `/tmp`, configurable cpu / memory) |
 | Audit | Append-only JSONL per run; workflow + step lifecycle + permission decisions + errors |
@@ -73,7 +74,8 @@ Naming notes: [docs/naming.md](docs/naming.md).
 | API | FastAPI bridge: `/health`, `/workflows`, `POST /runs`, `GET /runs/{id}`; bearer-token auth; in-house token-bucket rate limiter |
 | UI | Electron + TypeScript + React 18 + Tailwind + React Flow (renderer via `electron-vite`, sandboxed; bridge token flows via preload `contextBridge`) |
 | Output | File writer, chat-inline, dashboard component spec, ticket via webhook |
-| Demo | `examples/workflow-meeting-debrief.json` (text-mode) and `examples/workflow-pdf-debrief.json` (PDF-mode) both run end-to-end |
+| Demo workflows | `meeting-debrief` (transcript + DuckDB), `pdf-debrief` (extract + sanitise), `pdf-summarise` (extract + LLM + sanitise), `url-fetch` (HTTPS + sanitise), `db-query` (DuckDB query). All bundled under `examples/`. |
+| UI modes | Four-tab picker (File / URL / Database / Workflow). File mode runs `pdf-summarise`; URL runs `url-fetch`; Database runs `db-query`; Workflow renders any workflow's input schema as a dynamic form. DAG panel shows the staged workflow's step graph with post-run OK/FAIL/SKIP colour. DAG **composition** (drag-to-edit) lands in v0.1.6. |
 
 ## Quick start
 
