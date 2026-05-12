@@ -3,6 +3,40 @@
 Sample dataset + table DDL + bundled workflow you can use to verify
 the `data.databricks_query` adapter once your workspace is provisioned.
 
+## Fastest path: use the built-in `samples` catalog
+
+Databricks ships a `samples` catalog with pre-populated demo tables on
+every workspace (Free Edition included). If you just want to verify
+the adapter wiring, skip the CSV upload entirely and query one of
+these:
+
+| Table | Rows | Useful columns |
+|---|---|---|
+| `samples.nyctaxi.trips` | ~22M | `pickup_zip`, `dropoff_zip`, `fare_amount`, `tpep_pickup_datetime` |
+| `samples.tpch.lineitem` | ~600K | `l_orderkey`, `l_partkey`, `l_quantity`, `l_extendedprice` |
+| `samples.tpch.customer` | 1.5K | `c_custkey`, `c_name`, `c_address`, `c_phone` |
+
+Quick smoke test:
+
+```bash
+testudo run tests/fixtures/databricks/sample_workflow_databricks.json \
+  --inputs-json <(echo '{
+    "query": "SELECT * FROM samples.nyctaxi.trips LIMIT 10",
+    "output_path": "runs/databricks-nyctaxi.md"
+  }')
+```
+
+If that returns 10 rows, the adapter is working. Move to the
+upload-your-own-data path below only if you want to exercise the
+sanitiser against rows that hit testudo's regex patterns (the
+`samples` catalog contains real-ish, non-PII data).
+
+## Upload-your-own path (for PII sanitiser testing)
+
+The fixtures bundled here are mock-PII tuned to trigger the
+sanitiser's regex patterns. Use this path when you want to confirm
+end-to-end behaviour with realistic PII shapes.
+
 ## What's in here
 
 | File | Purpose |
@@ -79,7 +113,7 @@ SELECT count(*) FROM testudo.employees;   -- 50
 SELECT count(*) FROM testudo.transactions; -- 50
 ```
 
-### 5. Run the bundled workflow
+### 5. Run the bundled workflow (mock-PII path)
 
 ```bash
 testudo run tests/fixtures/databricks/sample_workflow_databricks.json \
@@ -93,6 +127,21 @@ Or from the Electron UI: Database tab -> Adapter "Databricks" -> paste
 the same query -> Run. (The UI surfaces Databricks once the env vars
 are exported; the toggle is currently disabled with a "pending tonight"
 hint.)
+
+## Permissions that actually matter
+
+The PAT authenticates you, but Databricks still enforces table-level
+permissions on top. For the `samples` catalog path nothing needs to be
+granted -- it's readable by every workspace user by default. For your
+own catalogs you'll need:
+
+- **CAN USE** on the SQL Warehouse (Workspace UI -> SQL Warehouses ->
+  your warehouse -> Permissions).
+- **USE CATALOG / USE SCHEMA / SELECT** on the tables (Unity Catalog
+  UI -> your catalog -> your schema -> Permissions).
+
+Without those, the query fails with a clear "user does not have
+permission" message.
 
 ## Privacy note
 
