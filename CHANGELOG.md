@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file. Format foll
 
 ## [Unreleased]
 
+### v0.1.5 follow-ups (2026-05-12, post-tag)
+
+- **`testudo ui` is now turnkey**: one command launches the bridge, generates a token, polls `/health`, then spawns the Electron renderer with the token wired through. Ctrl-C cleans up both processes. `--no-renderer` flag for bridge-only mode.
+- **Ollama model adapter**: `testudo.models.ollama_chat` POSTs to a local Ollama daemon and routes the response through `sanitise_output` before returning. Default base URL `http://localhost:11434`, override via `TESTUDO_OLLAMA_URL`.
+- **DAG composition mode** in the UI (new "Compose" tab): tool palette down the left, editable React Flow canvas, node inspector with `with:` param editing, save via `POST /workflows`. New `GET /tools` bridge endpoint introspects `DEFAULT_REGISTRY` via Python `inspect` and returns each tool's kwarg signature with type annotations and defaults.
+- **UI mode picker** (five tabs): File / URL / Database / Workflow / Compose. File mode runs `pdf-summarise` (extract -> ollama -> sanitise -> write). DAG panel restored under each mode form; nodes coloured by post-run status.
+- **Document extractor** registered as orchestrator tool `connectors.extract_document` (PDF / DOCX / PPTX / HTML / JSON / TXT / MD); shared with the file_extractor MCP server.
+- **Four new bundled workflows**: `workflow-pdf-debrief`, `workflow-pdf-summarise`, `workflow-url-fetch`, `workflow-db-query`. All loadable via the Workflow tab.
+- **outputs.file** now accepts non-string content and JSON-encodes automatically (was a silent failure on structured tool outputs like DuckDB rows).
+- **WorkflowInput model** gained an optional `description` field for UI tooltips.
+- **Test fixtures**: `tests/fixtures/drive/` (sample_report.md, sample_log.txt, sample_customers.csv plus README) for the URL-mode flow; `tests/fixtures/databricks/` with README leading on the built-in `samples.bakehouse` schema.
+- **Env templates** committed in repo root: `.env.testudo.example`, `.env.databricks.example`, `.env.ollama.example`. `.gitignore` updated so real `.env.*` files stay private while `.env.*.example` is tracked.
+- **Logo** wired into the Electron header and the README from `assets/testudo.png`.
+- **Google Drive (private)** dropped from scope. Public link-shared Drive files reachable via `connectors.https_get` with the direct-download URL.
+- **Quality**: 312 tests passing (was 279), ruff clean, both Electron tsconfigs typecheck clean, 0 npm vulnerabilities. Electron toolchain bumped to electron ^41, electron-vite ^5, vite ^7, plugin-react ^5.
+
 ### Deferred to v0.2
 
 - Hybrid PII detection: layer Microsoft Presidio + spaCy NER on top of the in-house regex stack. The regex stack already covers structured identifiers across ~50 countries; Presidio covers names, places, organisations that need entity context. Install gate is a 750 MB spaCy model download (`en_core_web_lg`).

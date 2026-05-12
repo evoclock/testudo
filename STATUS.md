@@ -1,18 +1,33 @@
 # Testudo repo status
 
-Snapshot at v0.1.5, written 2026-05-12. This document is the
-state-of-the-codebase end-of-sprint report for handover to the next
-session.
+Snapshot at v0.1.5 + follow-ups, written 2026-05-12. The original
+v0.1.5 release section below is frozen as a handover artefact;
+"Post-tag follow-ups" captures everything that landed after the tag.
 
 ## Top line
 
-- **Version:** 0.1.5 (was 0.1.0 at sprint start). Local tag pending; no
-  remote configured.
-- **Tests:** 279 passing, 0 failing, 0 skipped. 87% line coverage.
-- **Lint:** `ruff check` clean. `ruff format` clean.
+- **Version:** 0.1.5 (with multiple follow-up commits on top; see CHANGELOG.md).
+- **Tests:** 312 passing, 0 failing, 0 skipped. 87% line coverage.
+- **Lint:** `ruff check` clean. `ruff format` clean. Both Electron tsconfigs typecheck clean.
 - **License:** Apache 2.0; sole author Julen Gamboa; no co-author bylines on commits.
 - **Confidentiality:** zero references to `agentic-orchestrator` or any
   private fork content. testudo is OSS only.
+
+## Post-tag follow-ups (since 2026-05-12 v0.1.5)
+
+- **`testudo ui`** is now a turnkey one-command launcher: generates a token, starts the bridge, polls `/health`, spawns the renderer with the token wired through, cleans up on Ctrl-C.
+- **Ollama adapter** (`testudo.models.ollama_chat`); response sanitised before return.
+- **DAG composition mode** in the renderer (Compose tab); `GET /tools` and `POST /workflows` bridge endpoints.
+- **Five-tab UI** (File / URL / Database / Workflow / Compose) with DAG panel under each mode.
+- **Four new bundled workflows** (pdf-debrief, pdf-summarise, url-fetch, db-query).
+- **Document extractor** registered as the `connectors.extract_document` orchestrator tool.
+- **Test fixtures** for Drive (URL mode) and Databricks (samples.bakehouse + upload path).
+- **Logo** wired into the Electron header and the README from `assets/testudo.png`.
+- **Drive (private)** dropped from scope; public Drive via `connectors.https_get`.
+- **Env templates** (`.env.testudo.example`, `.env.databricks.example`, `.env.ollama.example`).
+- **Electron toolchain** bumped to electron ^41 / electron-vite ^5 / vite ^7 / plugin-react ^5; 0 npm vulnerabilities.
+
+Full diff log: see CHANGELOG.md `## [Unreleased] / v0.1.5 follow-ups`.
 
 ## Sprint scope (delivered this session)
 

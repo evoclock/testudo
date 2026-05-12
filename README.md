@@ -104,28 +104,44 @@ testudo run examples/workflow-pdf-debrief.json \
 
 ### Bring up the Electron UI
 
-Two terminals.
+**One command.** This is the turnkey path -- generates a token, starts the bridge, waits for `/health`, spawns the renderer with the token wired through, and tears both down on Ctrl-C.
+
+```bash
+cd /path/to/testudo
+source .venv/bin/activate
+testudo ui
+```
+
+Pre-requisites (one-time):
+
+```bash
+# Python side
+uv pip install -e ".[serve]"
+
+# Renderer side
+cd electron && npm install && cd ..
+```
+
+After that, `testudo ui` is the whole launch.
+
+#### Flags
+
+```bash
+testudo ui --port 8000           # bridge port (default 8000)
+testudo ui --workflows-dir DIR   # which workflow JSONs the bridge exposes (default examples/)
+testudo ui --no-renderer         # only start the bridge, skip Electron
+```
+
+#### Manual two-terminal flow (if you want to debug each side separately)
 
 ```bash
 # terminal 1 -- bridge
-cd /path/to/testudo
-source .venv/bin/activate
-testudo serve --port 8000
+testudo serve --port 8000 --workflows-dir examples
 # stderr: "[testudo] bearer token: <random-url-safe>"
-```
 
-```bash
 # terminal 2 -- electron
 export TESTUDO_BRIDGE_URL=http://127.0.0.1:8000
 export TESTUDO_BRIDGE_TOKEN=<paste-token>
-cd electron && npm run dev
-```
-
-Alternative bring-up with a pinned token:
-
-```bash
-export TESTUDO_BRIDGE_TOKEN="$(openssl rand -hex 32)"
-testudo serve --port 8000 --token "$TESTUDO_BRIDGE_TOKEN" &
 cd electron && npm run dev
 ```
 

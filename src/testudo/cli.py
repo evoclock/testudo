@@ -28,6 +28,7 @@ Last Edited: 2026-05-12 by Julen Gamboa
 from __future__ import annotations
 
 import json
+import os
 import secrets
 import sys
 from pathlib import Path
@@ -187,15 +188,170 @@ def inspect(audit_log: Path) -> None:
 
 
 @main.command()
-def ui() -> None:
-    """Launch the Electron shell (assumes `npm install` already ran in electron/)."""
-    click.echo(
-        "[testudo] ui scaffolded but not yet wired to the FastAPI bridge.\n"
-        "Run `cd electron && npm install && npm start` for the v0.1 UI shell.\n"
-        "Full TS/React migration lands in v0.1.5.",
-        err=True,
+@click.option("--port", type=int, default=8000, help="Port for the bridge (default 8000).")
+@click.option("--host", type=str, default="127.0.0.1", help="Host for the bridge.")
+@click.option(
+    "--workflows-dir",
+    type=click.Path(path_type=Path),
+    default=Path("examples"),
+    help="Directory of workflow JSON files the bridge will expose.",
+)
+@click.option(
+    "--runs-dir",
+    type=click.Path(path_type=Path),
+    default=Path("runs"),
+    help="Directory for per-run artefacts.",
+)
+@click.option(
+    "--electron-dir",
+    type=click.Path(path_type=Path),
+    default=Path(__file__).resolve().parent.parent.parent / "electron",
+    help="Path to the electron/ directory (auto-detected from the package by default).",
+)
+@click.option(
+    "--no-renderer",
+    is_flag=True,
+    default=False,
+    help="Start only the bridge; do not spawn the renderer.",
+)
+def ui(
+    port: int,
+    host: str,
+    workflows_dir: Path,
+    runs_dir: Path,
+    electron_dir: Path,
+    no_renderer: bool,
+) -> None:
+    """Launch the bridge + Electron renderer with a shared bearer token.
+
+    One-command turnkey startup: generates a token, starts ``testudo serve``
+    in the background, waits for ``/health`` to respond, then spawns
+    ``npm run dev`` in the electron directory with the token exported.
+    Ctrl-C tears down both processes cleanly.
+    """
+    import secrets as _secrets
+    import shutil
+    import signal
+    import subprocess
+
+    if not no_renderer:
+        if not electron_dir.is_dir():
+            click.echo(
+                f"[testudo] electron directory not found at {electron_dir}; "
+                "pass --electron-dir or run --no-renderer.",
+                err=True,
+            )
+            sys.exit(2)
+        if not (electron_dir / "node_modules").is_dir():
+            click.echo(
+                f"[testudo] {electron_dir}/node_modules missing; "
+                "run `cd electron && npm install` first.",
+                err=True,
+            )
+            sys.exit(2)
+        if shutil.which("npm") is None:
+            click.echo(
+                "[testudo] npm not on PATH; install Node.js or skip with --no-renderer.", err=True
+            )
+            sys.exit(2)
+
+    token = _secrets.token_urlsafe(32)
+    bridge_url = f"http://{host}:{port}"
+
+    bridge_cmd = [
+        sys.executable,
+        "-m",
+        "testudo.cli",
+        "serve",
+        "--port",
+        str(port),
+        "--host",
+        host,
+        "--token",
+        token,
+        "--workflows-dir",
+        str(workflows_dir),
+        "--runs-dir",
+        str(runs_dir),
+    ]
+
+    click.echo(f"[testudo ui] starting bridge on {bridge_url} ...", err=True)
+    bridge = subprocess.Popen(bridge_cmd, start_new_session=True)
+
+    renderer: subprocess.Popen[bytes] | None = None
+    try:
+        _wait_for_health(bridge_url, timeout=20.0)
+        click.echo("[testudo ui] bridge is up.", err=True)
+
+        if no_renderer:
+            click.echo(
+                f"[testudo ui] --no-renderer set; bridge running. "
+                f"TESTUDO_BRIDGE_TOKEN={token}\nCtrl-C to stop.",
+                err=True,
+            )
+            bridge.wait()
+            return
+
+        env = os.environ.copy()
+        env["TESTUDO_BRIDGE_TOKEN"] = token
+        env["TESTUDO_BRIDGE_URL"] = bridge_url
+
+        click.echo(f"[testudo ui] launching renderer from {electron_dir} ...", err=True)
+        renderer = subprocess.Popen(
+            ["npm", "run", "dev"],
+            cwd=str(electron_dir),
+            env=env,
+            start_new_session=True,
+        )
+
+        click.echo("[testudo ui] both processes up. Ctrl-C to stop both.", err=True)
+
+        def _shutdown(_sig: int, _frame: object) -> None:
+            click.echo("[testudo ui] shutting down ...", err=True)
+            for proc, label in ((renderer, "renderer"), (bridge, "bridge")):
+                if proc and proc.poll() is None:
+                    try:
+                        proc.terminate()
+                        proc.wait(timeout=5.0)
+                    except subprocess.TimeoutExpired:
+                        click.echo(f"[testudo ui] {label} did not exit, killing.", err=True)
+                        proc.kill()
+            sys.exit(0)
+
+        signal.signal(signal.SIGINT, _shutdown)
+        signal.signal(signal.SIGTERM, _shutdown)
+
+        renderer.wait()
+        bridge.terminate()
+        bridge.wait(timeout=5.0)
+    except TimeoutError as exc:
+        click.echo(f"[testudo ui] {exc}", err=True)
+        bridge.terminate()
+        if renderer:
+            renderer.terminate()
+        sys.exit(1)
+
+
+def _wait_for_health(bridge_url: str, *, timeout: float) -> None:
+    """Poll the bridge's /health endpoint until it responds or timeout fires."""
+    import time
+    import urllib.error
+    import urllib.request
+
+    deadline = time.monotonic() + timeout
+    last_err: Exception | None = None
+    while time.monotonic() < deadline:
+        try:
+            with urllib.request.urlopen(f"{bridge_url}/health", timeout=2.0) as resp:
+                if 200 <= resp.status < 300:
+                    return
+        except (urllib.error.URLError, ConnectionError, TimeoutError) as exc:
+            last_err = exc
+        time.sleep(0.3)
+    raise TimeoutError(
+        f"bridge did not respond on {bridge_url}/health within {timeout:.0f}s "
+        f"(last error: {last_err})"
     )
-    sys.exit(2)
 
 
 if __name__ == "__main__":
