@@ -52,6 +52,9 @@ dev = [
     "pytest-asyncio>=0.23",
     "ruff>=0.7",
     "mypy>=1.10",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "python-multipart>=0.0.12",
 ]
 sanitisers = [
     "spacy>=3.7",
@@ -59,6 +62,11 @@ sanitisers = [
 ]
 databricks = [
     "databricks-sql-connector>=3.0",
+]
+serve = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "python-multipart>=0.0.12",
 ]
 
 [project.scripts]
