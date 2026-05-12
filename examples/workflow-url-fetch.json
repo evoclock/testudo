@@ -1,0 +1,77 @@
+{
+  "name": "url-fetch-v015",
+  "description": "Fetch content from an HTTPS URL, sanitise for PII and prompt-injection, write a redacted summary to disk, and return a chat-inline summary. Designed for the URL mode in the Electron UI: one URL, one output path, optional max-bytes cap.",
+  "inputs": {
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "required": true
+    },
+    "output_path": {
+      "type": "file",
+      "format": "markdown",
+      "required": true
+    },
+    "max_bytes": {
+      "type": "integer",
+      "required": false,
+      "default": 10485760
+    }
+  },
+  "steps": [
+    {
+      "id": "fetch",
+      "uses": "connectors.https_get",
+      "with": {
+        "url": "${inputs.url}",
+        "max_bytes": "${inputs.max_bytes}"
+      }
+    },
+    {
+      "id": "sanitise",
+      "uses": "sanitisers.pii_and_injection",
+      "needs": ["fetch"],
+      "with": {
+        "content": "${steps.fetch.content}",
+        "redact": true
+      }
+    },
+    {
+      "id": "write_summary",
+      "uses": "outputs.file",
+      "needs": ["sanitise"],
+      "with": {
+        "path": "${inputs.output_path}",
+        "content": "${steps.sanitise.content}"
+      }
+    },
+    {
+      "id": "respond",
+      "uses": "outputs.chat",
+      "needs": ["write_summary"],
+      "with": {
+        "text": "URL fetched, sanitised, and saved.",
+        "attachments": ["${steps.write_summary.destination}"]
+      }
+    }
+  ],
+  "permissions": {
+    "filesystem": {
+      "read": ["/"],
+      "write": ["/"]
+    },
+    "network": {
+      "egress": ["*"]
+    },
+    "process": {
+      "spawn": false
+    }
+  },
+  "isolation": {
+    "primitive": "docker",
+    "image": "testudo:0.1",
+    "cpu": "1.0",
+    "memory": "2g",
+    "rollback": true
+  }
+}

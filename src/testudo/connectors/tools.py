@@ -12,10 +12,12 @@ from pathlib import Path
 from typing import Any
 
 from testudo.connectors.drive import fetch_drive
+from testudo.connectors.extract import EXTRACTORS, extract_document
 from testudo.connectors.https import fetch_https
 from testudo.connectors.local import fetch_local
 from testudo.orchestrator.context import StepContext
 from testudo.orchestrator.registry import register_tool
+from testudo.sanitisers.unicode_payload import strip_hidden
 
 
 @register_tool("connectors.local_file")
@@ -50,3 +52,45 @@ def google_drive_tool(
 ) -> dict[str, Any]:
     """Fetch a Google Drive file (v0.2 placeholder)."""
     return fetch_drive(file_id, credentials=credentials).to_dict()
+
+
+@register_tool("connectors.extract_document")
+def extract_document_tool(
+    _ctx: StepContext,
+    *,
+    path: str,
+    strip_hidden_payloads: bool = True,
+) -> dict[str, Any]:
+    """Extract text from a document (PDF / DOCX / PPTX / HTML / JSON / TXT).
+
+    Dispatch on suffix via the shared ``EXTRACTORS`` table. With
+    ``strip_hidden_payloads=True`` (default) the extracted text is run
+    through ``strip_hidden`` before return so zero-width characters, bidi
+    overrides, HTML comments, and base64 blobs are removed at the
+    extraction boundary.
+    """
+    target = Path(path)
+    if not target.is_file():
+        raise FileNotFoundError(path)
+    if target.suffix.lower() not in EXTRACTORS:
+        raise ValueError(f"Unsupported document format: {target.suffix or '(no suffix)'}")
+
+    fmt, raw_text = extract_document(target)
+
+    if strip_hidden_payloads:
+        cleaned, findings = strip_hidden(raw_text)
+    else:
+        cleaned, findings = raw_text, []
+
+    return {
+        "format": fmt,
+        "path": str(target),
+        "byte_count": target.stat().st_size,
+        "char_count": len(cleaned),
+        "stripped_findings": len(findings),
+        "content": cleaned,
+        "findings": [
+            {"label": f.label, "line_number": f.line_number, "evidence": f.evidence}
+            for f in findings
+        ],
+    }

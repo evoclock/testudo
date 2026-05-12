@@ -16,12 +16,15 @@ Side effect: importing this package triggers registration of
 
 from testudo.connectors import tools  # noqa: F401  - registers connector tools
 from testudo.connectors.drive import fetch_drive
+from testudo.connectors.extract import EXTRACTORS, extract_document
 from testudo.connectors.https import fetch_https
 from testudo.connectors.local import fetch_local
 from testudo.connectors.result import StagedInput
 
 __all__ = [
+    "EXTRACTORS",
     "StagedInput",
+    "extract_document",
     "fetch_drive",
     "fetch_https",
     "fetch_local",

@@ -1,0 +1,69 @@
+{
+  "name": "pdf-debrief-v015",
+  "description": "Extract text from a document (PDF, DOCX, PPTX, HTML, JSON, TXT, MD), sanitise PII and prompt-injection patterns, write a redacted debrief to disk, and return a chat-inline summary with finding counts. Designed to be driven from the Electron UI: only two inputs, both populated by the file-picker (pdf_path) and an auto-generated output path.",
+  "inputs": {
+    "pdf_path": {
+      "type": "file",
+      "format": "document",
+      "required": true
+    },
+    "output_path": {
+      "type": "file",
+      "format": "markdown",
+      "required": true
+    }
+  },
+  "steps": [
+    {
+      "id": "extract",
+      "uses": "connectors.extract_document",
+      "with": { "path": "${inputs.pdf_path}" }
+    },
+    {
+      "id": "sanitise",
+      "uses": "sanitisers.pii_and_injection",
+      "needs": ["extract"],
+      "with": {
+        "content": "${steps.extract.content}",
+        "redact": true
+      }
+    },
+    {
+      "id": "write_debrief",
+      "uses": "outputs.file",
+      "needs": ["sanitise"],
+      "with": {
+        "path": "${inputs.output_path}",
+        "content": "${steps.sanitise.content}"
+      }
+    },
+    {
+      "id": "respond",
+      "uses": "outputs.chat",
+      "needs": ["write_debrief"],
+      "with": {
+        "text": "Document sanitised; debrief written.",
+        "attachments": ["${steps.write_debrief.destination}"]
+      }
+    }
+  ],
+  "permissions": {
+    "filesystem": {
+      "read": ["/"],
+      "write": ["/"]
+    },
+    "network": {
+      "egress": []
+    },
+    "process": {
+      "spawn": false
+    }
+  },
+  "isolation": {
+    "primitive": "docker",
+    "image": "testudo:0.1",
+    "cpu": "1.0",
+    "memory": "2g",
+    "rollback": true
+  }
+}

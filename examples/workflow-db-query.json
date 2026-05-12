@@ -1,0 +1,75 @@
+{
+  "name": "db-query-v015",
+  "description": "Run a SQL query against DuckDB (default) or Databricks (when configured), return the rows, and write a CSV / markdown summary to disk. Designed for the Database mode in the Electron UI: pick a connection, paste a query, get rows back. Databricks adapter is behind the [databricks] extra and requires PAT auth in v0.1.5.",
+  "inputs": {
+    "database_path": {
+      "type": "file",
+      "format": "duckdb",
+      "required": true,
+      "description": "Path to the DuckDB database file. Use ':memory:' for an in-memory DB."
+    },
+    "query": {
+      "type": "string",
+      "required": true,
+      "description": "SQL query to run. Parameters are bound positionally via the parameters array."
+    },
+    "parameters": {
+      "type": "array",
+      "required": false,
+      "default": []
+    },
+    "output_path": {
+      "type": "file",
+      "format": "markdown",
+      "required": true
+    }
+  },
+  "steps": [
+    {
+      "id": "query",
+      "uses": "data.duckdb_query",
+      "with": {
+        "database": "${inputs.database_path}",
+        "query": "${inputs.query}",
+        "parameters": "${inputs.parameters}"
+      }
+    },
+    {
+      "id": "write_results",
+      "uses": "outputs.file",
+      "needs": ["query"],
+      "with": {
+        "path": "${inputs.output_path}",
+        "content": "${steps.query.rows}"
+      }
+    },
+    {
+      "id": "respond",
+      "uses": "outputs.chat",
+      "needs": ["write_results"],
+      "with": {
+        "text": "Query returned rows; results saved.",
+        "attachments": ["${steps.write_results.destination}"]
+      }
+    }
+  ],
+  "permissions": {
+    "filesystem": {
+      "read": ["/"],
+      "write": ["/"]
+    },
+    "network": {
+      "egress": []
+    },
+    "process": {
+      "spawn": false
+    }
+  },
+  "isolation": {
+    "primitive": "docker",
+    "image": "testudo:0.1",
+    "cpu": "1.0",
+    "memory": "2g",
+    "rollback": true
+  }
+}
