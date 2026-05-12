@@ -82,10 +82,8 @@ def test_post_runs_applies_workflow_input_defaults(
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["status"] == "completed", body
-    echo_output = body["results"]["echo"]["output"]
-    # The noop tool returns the kwargs it received with the inputs already
-    # resolved by the orchestrator's ${...} reference resolver.
-    assert echo_output == {"name": "alice", "greeting": "hello"}
+    echoed = body["results"]["echo"]["output"]["echoed"]
+    assert echoed == {"name": "alice", "greeting": "hello"}
 
 
 def test_post_runs_caller_value_overrides_default(
@@ -104,5 +102,5 @@ def test_post_runs_caller_value_overrides_default(
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["status"] == "completed", body
-    echo_output = body["results"]["echo"]["output"]
-    assert echo_output == {"name": "alice", "greeting": "hi there"}
+    echoed = body["results"]["echo"]["output"]["echoed"]
+    assert echoed == {"name": "alice", "greeting": "hi there"}
