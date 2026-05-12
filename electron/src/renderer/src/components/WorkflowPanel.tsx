@@ -37,10 +37,27 @@ export function WorkflowPanel({ workflows, busy, onRun, onSelectionChange }: Pro
     const seed: Record<string, unknown> = {};
     for (const [key, raw] of Object.entries(selected.inputs)) {
       const spec = raw as InputSpec;
-      if (spec.default !== undefined) seed[key] = spec.default;
+      if (spec.default !== undefined) {
+        seed[key] = spec.default;
+      } else if (spec.type === "file" && key.includes("output")) {
+        // Pre-fill an output path so the user doesn't have to invent one
+        seed[key] = `/tmp/testudo-${selected.name}.md`;
+      } else if (spec.type === "array") {
+        seed[key] = [];
+      }
     }
     setForm(seed);
   }, [selected]);
+
+  const placeholderFor = (key: string, spec: InputSpec): string => {
+    if (spec.default !== undefined) return `default: ${JSON.stringify(spec.default)}`;
+    if (spec.type === "array") return "[]";
+    if (spec.type === "integer" || spec.type === "number") return "0";
+    if (key === "query") return "SELECT * FROM samples.bakehouse.sales_transactions LIMIT 10";
+    if (key === "url") return "https://example.com/file.md";
+    if (key.includes("path")) return "/tmp/testudo-output.md";
+    return spec.required ? "(required)" : "(optional)";
+  };
 
   const updateField = (key: string, value: unknown) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -137,6 +154,7 @@ export function WorkflowPanel({ workflows, busy, onRun, onSelectionChange }: Pro
                         updateField(key, e.target.value);
                       }
                     }}
+                    placeholder={placeholderFor(key, spec)}
                     className="flex-1 bg-bg border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent"
                   />
                   {isFile && (

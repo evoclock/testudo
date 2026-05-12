@@ -32,9 +32,32 @@ def duckdb_query_tool(
 def databricks_query_tool(
     _ctx: StepContext,
     *,
-    connection: dict[str, Any],
     query: str,
+    connection: dict[str, Any] | None = None,
     parameters: list[Any] | None = None,
 ) -> dict[str, Any]:
-    """Run a parameterised query against a Databricks SQL warehouse."""
+    """Run a parameterised query against a Databricks SQL warehouse.
+
+    ``connection`` is optional. If absent, the tool builds it from the
+    ``DATABRICKS_SERVER_HOSTNAME`` / ``DATABRICKS_HTTP_PATH`` /
+    ``DATABRICKS_TOKEN`` env vars (sourced from the bridge process via
+    the .env.databricks autoloader). Workflows therefore don't need to
+    embed credentials.
+    """
+    import os
+
+    if connection is None:
+        try:
+            connection = {
+                "server_hostname": os.environ["DATABRICKS_SERVER_HOSTNAME"],
+                "http_path": os.environ["DATABRICKS_HTTP_PATH"],
+                "access_token": os.environ["DATABRICKS_TOKEN"],
+            }
+        except KeyError as exc:
+            raise RuntimeError(
+                f"data.databricks_query needs the {exc.args[0]} env var "
+                "(set in /home/jgamboa/testudo/.env.databricks and the bridge "
+                "auto-loads it on Start)"
+            ) from exc
+
     return query_databricks(connection, query, parameters).to_dict()

@@ -23,8 +23,7 @@
       "id": "query",
       "uses": "data.databricks_query",
       "with": {
-        "query": "${inputs.query}",
-        "parameters": "${inputs.parameters}"
+        "query": "${inputs.query}"
       }
     },
     {
