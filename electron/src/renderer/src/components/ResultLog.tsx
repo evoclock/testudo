@@ -40,6 +40,33 @@ function countFindings(meta: RunResponse | undefined | null): {
   return acc;
 }
 
+interface ChatBlock {
+  text: string;
+  attachments: string[];
+}
+
+/**
+ * Find the workflow's chat-channel response, if any. The convention is
+ * the last step that emits {channel: "chat", text, attachments}; the
+ * step is named "respond" in the bundled workflows but anything with a
+ * channel === "chat" qualifies.
+ */
+function extractChatBlock(meta: RunResponse | undefined | null): ChatBlock | null {
+  if (!meta) return null;
+  for (const step of Object.values(meta.results)) {
+    const out = step.output as Record<string, unknown> | null;
+    if (!out || out.channel !== "chat") continue;
+    const text = typeof out.text === "string" ? out.text : "";
+    const attachments = Array.isArray(out.attachments)
+      ? (out.attachments.filter((a) => typeof a === "string") as string[])
+      : [];
+    if (text || attachments.length > 0) {
+      return { text, attachments };
+    }
+  }
+  return null;
+}
+
 export function ResultLog({ entries }: Props) {
   return (
     <div className="flex-1 overflow-y-auto p-5 space-y-3">
@@ -47,6 +74,7 @@ export function ResultLog({ entries }: Props) {
         const counts = countFindings(entry.meta);
         const total = counts.critical + counts.high + counts.medium + counts.low;
         const stepResults = entry.meta?.results ?? {};
+        const chat = extractChatBlock(entry.meta);
 
         return (
           <div
@@ -63,6 +91,26 @@ export function ResultLog({ entries }: Props) {
 
             {entry.note && (
               <div className="text-xs text-muted mt-2 italic">{entry.note}</div>
+            )}
+
+            {chat && (
+              <div className="mt-3 p-3 rounded bg-bg/60 border border-border">
+                {chat.text && (
+                  <div className="text-sm whitespace-pre-wrap">{chat.text}</div>
+                )}
+                {chat.attachments.length > 0 && (
+                  <div className="mt-2 text-xs text-muted">
+                    Attachment{chat.attachments.length > 1 ? "s" : ""}:
+                    <ul className="mt-1 space-y-0.5">
+                      {chat.attachments.map((a) => (
+                        <li key={a} className="font-mono text-text/80 break-all">
+                          {a}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
             )}
 
             {entry.meta && (
