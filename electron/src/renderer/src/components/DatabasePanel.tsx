@@ -18,6 +18,31 @@ const DUCKDB_QUERY_DEFAULT = "SELECT 1 AS hello";
 const DATABRICKS_QUERY_DEFAULT =
   "SELECT * FROM samples.bakehouse.sales_transactions LIMIT 10";
 
+const DEMO_DUCKDB_PATH = "/home/jgamboa/testudo/examples/data/demo.duckdb";
+
+const DUCKDB_SAMPLE_QUERIES: Array<{ label: string; sql: string; database?: string }> = [
+  {
+    label: "Demo db: M-001 attendees (3 rows)",
+    sql: "SELECT name, role FROM attendees WHERE meeting_id = 'M-001'",
+    database: DEMO_DUCKDB_PATH,
+  },
+  {
+    label: "Demo db: M-002 attendees (2 rows)",
+    sql: "SELECT name, role FROM attendees WHERE meeting_id = 'M-002'",
+    database: DEMO_DUCKDB_PATH,
+  },
+  {
+    label: "Demo db: all attendees grouped by meeting",
+    sql: "SELECT meeting_id, COUNT(*) AS attendees FROM attendees GROUP BY meeting_id ORDER BY meeting_id",
+    database: DEMO_DUCKDB_PATH,
+  },
+  {
+    label: "In-memory: literal smoke test",
+    sql: "SELECT 1 AS hello, 'world' AS greeting",
+    database: ":memory:",
+  },
+];
+
 const DATABRICKS_SAMPLE_QUERIES: Array<{ label: string; sql: string }> = [
   {
     label: "Recent sales transactions",
@@ -131,26 +156,72 @@ export function DatabasePanel({ busy, databricksReady, onRun }: Props) {
       </div>
 
       {adapter === "duckdb" && (
-        <div>
-          <label className="block text-xs uppercase text-muted tracking-wider mb-2">
-            Database file (or :memory:)
-          </label>
-          <div className="flex gap-3">
-            <input
-              type="text"
-              value={databasePath}
-              onChange={(e) => setDatabasePath(e.target.value)}
-              className="flex-1 bg-bg border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent"
-            />
-            <button
-              type="button"
-              onClick={pickDb}
-              className="px-3 py-2 rounded bg-bg border border-border hover:border-accent text-sm"
-            >
-              Pick .duckdb
-            </button>
+        <>
+          <div>
+            <label className="block text-xs uppercase text-muted tracking-wider mb-2">
+              Starter queries
+            </label>
+            <div className="grid grid-cols-1 gap-2">
+              {DUCKDB_SAMPLE_QUERIES.map((q) => (
+                <button
+                  key={q.label}
+                  type="button"
+                  onClick={() => {
+                    setQuery(q.sql);
+                    if (q.database) setDatabasePath(q.database);
+                  }}
+                  className="text-left px-3 py-2 rounded bg-bg border border-border hover:border-accent text-xs"
+                  title={q.sql}
+                >
+                  <div className="text-text">{q.label}</div>
+                  <div className="text-[10px] text-muted font-mono truncate">{q.sql}</div>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+
+          <div>
+            <label className="block text-xs uppercase text-muted tracking-wider mb-2">
+              Database file (or :memory:)
+            </label>
+            <div className="flex gap-3 items-center">
+              <input
+                type="text"
+                value={databasePath}
+                onChange={(e) => setDatabasePath(e.target.value)}
+                className="flex-1 bg-bg border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent"
+              />
+              <button
+                type="button"
+                onClick={() => setDatabasePath(DEMO_DUCKDB_PATH)}
+                className="px-3 py-2 rounded bg-bg border border-border hover:border-accent text-sm whitespace-nowrap"
+                title={`Set path to the bundled demo db at ${DEMO_DUCKDB_PATH}`}
+              >
+                Use demo db
+              </button>
+              <button
+                type="button"
+                onClick={pickDb}
+                className="px-3 py-2 rounded bg-bg border border-border hover:border-accent text-sm whitespace-nowrap"
+              >
+                Pick .duckdb
+              </button>
+            </div>
+            <p className="text-[11px] text-muted mt-2">
+              <code className="text-text">:memory:</code> runs a transient session
+              (good for SELECT-literal smoke tests). Or point at a .duckdb file.
+              The bundled demo db at{" "}
+              <code className="text-text">{DEMO_DUCKDB_PATH}</code> has one
+              table: <code className="text-text">attendees(meeting_id, name, role)</code>{" "}
+              with 5 rows across <code className="text-text">M-001</code> /{" "}
+              <code className="text-text">M-002</code>. Regenerate with{" "}
+              <code className="text-text">
+                python examples/data/seed_demo.py
+              </code>
+              .
+            </p>
+          </div>
+        </>
       )}
 
       {adapter === "databricks" && (
