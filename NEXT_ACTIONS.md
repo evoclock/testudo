@@ -13,10 +13,6 @@ intentionally deferred.
   `DATABRICKS_HTTP_PATH`, `DATABRICKS_SERVER_HOSTNAME`,
   `DATABRICKS_TOKEN` as env, then re-enable the
   `tests/test_data_databricks.py` integration test (currently mocked).
-- **Google Drive live integration test.** User: "a google drive test as
-  well". Connector is a `NotImplementedError` placeholder in
-  `src/testudo/connectors/drive.py`. Implement against `google-api-python-client`
-  + service-account JSON once the user provisions credentials.
 - **aikido intel API token** (`https://intel.aikido.dev/`, marked
   important). Once a token is provisioned, scaffold an `[aikido]` extra
   with a thin client; merge findings into the existing `Finding`

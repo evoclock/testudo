@@ -81,7 +81,7 @@ Permissions       Sanitisers                Connectors / Data    Runtime
 • net egress      • prompt injection        • HTTPS              • Dockerfile
 • proc spawn      • OWASP web + MCP         • DuckDB             • Runner
 • scan-then-      • hidden unicode          • Databricks (extra) • IsolationProfile
-  permit gate     • output-side pipeline    • Drive (stub)
+  permit gate     • output-side pipeline
                   • secrets                                       Audit (JSONL)
                                                                   • workflow_start
                   In-house MCP servers                            • step_start/end
@@ -203,7 +203,7 @@ The Docker isolation primitive is architected and scaffolded but is not the defa
 testudo/
 ├── src/testudo/
 │   ├── audit/          # JSONL append-only event log
-│   ├── connectors/     # local file, HTTPS, document extractor, Drive stub
+│   ├── connectors/     # local file, HTTPS, document extractor
 │   ├── data/           # DuckDB, Databricks
 │   ├── mcp_servers/    # base, capturer, writer, extractor
 │   ├── orchestrator/   # Executor, registry, workflow.json loader

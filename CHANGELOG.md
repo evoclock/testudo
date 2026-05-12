@@ -13,7 +13,7 @@ All notable changes to this project will be documented in this file. Format foll
 - File-format exploit detection in sanitisers (PDF JS objects, Office macros, archive zip-slip beyond the existing path-traversal patterns).
 - Schema validation and regression diff for structured outputs.
 - Async + parallel step execution in the orchestrator.
-- Google Drive connector (currently a `NotImplementedError` placeholder; live integration test pending user-side OAuth setup).
+- Google Drive (private) -- out of scope. Public link-shared Drive files work today via `connectors.https_get` with the direct-download URL form.
 - Service-principal auth for the Databricks adapter (live integration test pending user-side workspace setup).
 - Network egress allow-list enforcement at the Docker layer (v0.1 ships `--network=none`).
 - Vitest + Playwright UI smoke test for the Electron renderer.
@@ -62,7 +62,7 @@ First vertical-slice release. End-to-end demo workflow runs through every layer 
 - **Orchestrator** (`testudo.orchestrator`): synchronous workflow executor with topological dependency ordering, recursive `${inputs.x}` and `${steps.y.z.attr}` reference resolution, `when:` predicates (v0.1 supports `${ref}` truthiness only), tool registry with `@register_tool` decorator, audit emission per step, error capture as `StepResult.error` so downstream steps can decide whether to continue. Hillstar-compatible `workflow.json` schema with Testudo-specific `permissions:` and `isolation:` extensions.
 - **Prompts** (`testudo.prompts`): XML prompt template loader with `{{placeholder}}` substitution. Pattern adopted from the benefits-extraction reference architecture; templates are plain text in version control. Directory-scoped `PromptLibrary` with extension-priority resolution.
 - **Sanitisers** (`testudo.sanitisers`): UK + international PII regex detection (NIN, NHS, postcode, phone, email; US SSN, Visa/Mastercard/Amex/Discover, IBAN, IPv4/IPv6, E.164, DOB), prompt-injection pattern detection (override, role hijack, safety bypass, hidden HTML, invisible instruction, tool override), and the `AgentScanner` ported from hillstar-orchestrator (MCP config and skill file scanning for hardcoded secrets, shell injection, dangerous flags, untrusted endpoints, exfiltration, destructive commands). Documented v0.1 limitations and v0.2 hybrid plan (regex + spaCy + Presidio).
-- **Connectors** (`testudo.connectors`): local file with format inference and size cap; HTTPS GET via httpx with scheme/content-type/size guards and pre-built-client injection for tests. Google Drive scaffolded as a v0.2 placeholder.
+- **Connectors** (`testudo.connectors`): local file with format inference and size cap; HTTPS GET via httpx with scheme/content-type/size guards and pre-built-client injection for tests.
 - **Data** (`testudo.data`): DuckDB adapter (default for the demo path; in-memory or persisted databases) and Databricks SQL adapter behind the `[databricks]` extra (PAT auth in v0.1; service principal in v0.2).
 - **Outputs** (`testudo.outputs`): file writer (writable layer with auto-created parents), structured chat-inline response, dashboard component spec, ticket creation via webhook POST.
 - **CLI**: `testudo run`, `testudo serve`, `testudo inspect`, `testudo ui` (stub pointing at the v0.1 Electron JS scaffold). Auto-loads all built-in tool packages via `testudo._loaded`.

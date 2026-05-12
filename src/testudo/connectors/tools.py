@@ -11,7 +11,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from testudo.connectors.drive import fetch_drive
 from testudo.connectors.extract import EXTRACTORS, extract_document
 from testudo.connectors.https import fetch_https
 from testudo.connectors.local import fetch_local
@@ -39,19 +38,13 @@ def https_get_tool(
     max_bytes: int = 10 * 1024 * 1024,
     timeout: float = 30.0,
 ) -> dict[str, Any]:
-    """Fetch an HTTPS URL and return a StagedInput dict."""
+    """Fetch an HTTPS URL and return a StagedInput dict.
+
+    For public link-shared Google Drive files, use the direct-download
+    form: ``https://drive.google.com/uc?export=download&id=<FILE_ID>``.
+    Private Drive files require authentication and are out of scope.
+    """
     return fetch_https(url, max_bytes=max_bytes, timeout=timeout).to_dict()
-
-
-@register_tool("connectors.google_drive")
-def google_drive_tool(
-    _ctx: StepContext,
-    *,
-    file_id: str,
-    credentials: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Fetch a Google Drive file (v0.2 placeholder)."""
-    return fetch_drive(file_id, credentials=credentials).to_dict()
 
 
 @register_tool("connectors.extract_document")
