@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+*.egg
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.tox/
+.venv/
+venv/
+.env
+.envrc
+
+# Hatch
+.hatch/
+
+# uv
+.uv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Electron
+electron/node_modules/
+electron/dist/
+electron/out/
+electron/.cache/
+
+# Testudo runtime artefacts (audit logs, container state)
+runs/
+audit-logs/
+*.audit.jsonl
+
+# Local testing scratch
+scratch/
+.scratch/
+
+# pipeline_output is for inventory and run records that we DO want tracked
+# (do not gitignore the directory itself)
+pipeline_output/codebase_inventory.jsonl
+
+# Secrets
+*.pem
+*.key
+.secrets/

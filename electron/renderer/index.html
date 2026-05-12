@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';" />
+    <title>Testudo</title>
+    <style>
+      :root {
+        --bg: #1f1f24;
+        --panel: #2a2a32;
+        --text: #e5e5ec;
+        --muted: #9b9bab;
+        --accent: #5e9bd1;
+        --border: #3a3a44;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        height: 100vh;
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        grid-template-rows: 56px 1fr 200px;
+        grid-template-areas:
+          "header header"
+          "sidebar main"
+          "sidebar input";
+      }
+      header {
+        grid-area: header;
+        background: var(--panel);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        padding: 0 20px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+      }
+      aside {
+        grid-area: sidebar;
+        background: var(--panel);
+        border-right: 1px solid var(--border);
+        padding: 16px;
+        overflow-y: auto;
+      }
+      aside h2 { margin-top: 0; font-size: 13px; text-transform: uppercase; color: var(--muted); }
+      aside button {
+        display: block;
+        width: 100%;
+        margin-bottom: 8px;
+        padding: 8px 10px;
+        background: var(--bg);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        cursor: pointer;
+        text-align: left;
+      }
+      aside button:hover { border-color: var(--accent); }
+      main {
+        grid-area: main;
+        padding: 20px;
+        overflow-y: auto;
+      }
+      main .message {
+        margin-bottom: 16px;
+        padding: 12px 14px;
+        border-radius: 6px;
+        background: var(--panel);
+        border-left: 3px solid var(--accent);
+      }
+      main .message.user { border-left-color: #c79a4a; }
+      footer {
+        grid-area: input;
+        background: var(--panel);
+        border-top: 1px solid var(--border);
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      footer textarea {
+        flex: 1;
+        background: var(--bg);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 10px;
+        font-family: inherit;
+        font-size: 14px;
+        resize: none;
+      }
+      footer .row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      footer button {
+        padding: 8px 14px;
+        background: var(--accent);
+        color: white;
+        border: 0;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 500;
+      }
+      footer .file {
+        flex: 1;
+        font-size: 13px;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <header>Testudo</header>
+
+    <aside>
+      <h2>Workflows</h2>
+      <button id="wf-meeting-debrief">meeting-debrief</button>
+      <h2 style="margin-top: 18px;">Outputs</h2>
+      <p style="color: var(--muted); font-size: 12px;">No runs yet.</p>
+    </aside>
+
+    <main id="messages">
+      <div class="message">
+        Welcome to Testudo. Pick a workflow on the left, attach a file if needed, and ask
+        a question. v0.1 vertical slice in progress.
+      </div>
+    </main>
+
+    <footer>
+      <textarea id="prompt" rows="3" placeholder="Ask something about your file or run a workflow..."></textarea>
+      <div class="row">
+        <button id="attach">Attach file</button>
+        <span id="attached-file" class="file">No file attached.</span>
+        <button id="send">Send</button>
+      </div>
+    </footer>
+
+    <script>
+      // Renderer is intentionally minimal in v0.1; full IPC wiring lands during the sprint.
+      const messages = document.getElementById('messages');
+      const promptEl = document.getElementById('prompt');
+      const sendBtn = document.getElementById('send');
+      const attachBtn = document.getElementById('attach');
+      const attachedFileEl = document.getElementById('attached-file');
+
+      sendBtn.addEventListener('click', () => {
+        const text = promptEl.value.trim();
+        if (!text) return;
+        const userMsg = document.createElement('div');
+        userMsg.className = 'message user';
+        userMsg.textContent = text;
+        messages.appendChild(userMsg);
+        promptEl.value = '';
+
+        const stub = document.createElement('div');
+        stub.className = 'message';
+        stub.textContent = 'Testudo CLI is not yet wired up; v0.1 sprint in progress.';
+        messages.appendChild(stub);
+        messages.scrollTop = messages.scrollHeight;
+      });
+
+      attachBtn.addEventListener('click', () => {
+        attachedFileEl.textContent = 'File-attach IPC will be wired during v0.1.';
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "testudo-shell",
+  "version": "0.0.1",
+  "description": "Minimal Electron shell for Testudo: chat, file upload, output panel.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "lint": "echo 'no linter configured yet'"
+  },
+  "license": "Apache-2.0",
+  "author": "Julen Gamboa",
+  "devDependencies": {
+    "electron": "^33.0.0"
+  },
+  "dependencies": {}
+}

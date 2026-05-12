@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+title: "Testudo: dockerised agent runtime with declarative permissioning, audit logging, and an embedded lightweight orchestrator"
+message: "If you use this software, please cite it using the metadata in this file."
+type: software
+authors:
+  - given-names: Julen
+    family-names: Gamboa
+repository-code: "https://github.com/evoclock/testudo"
+license: Apache-2.0
+version: "0.0.1"
+date-released: "2026-05-12"
+keywords:
+  - agent
+  - agentic
+  - container
+  - docker
+  - sandbox
+  - isolation
+  - llm
+  - tool-use
+  - orchestration
+abstract: >-
+  Testudo is a dockerised agent runtime that runs an entire agent workflow end-to-end
+  inside a hardened container, with declarative per-workflow permissioning, full audit
+  logging, and rollback semantics. It embeds a lightweight workflow orchestrator so the
+  container is the deployment unit ("the agent"), and exposes a host-side adapter so
+  Hillstar Orchestrator can invoke a Testudo container as a single DAG step.

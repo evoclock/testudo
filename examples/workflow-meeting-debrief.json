@@ -1,0 +1,86 @@
+{
+  "name": "meeting-debrief",
+  "description": "Demo workflow for Testudo v0.1: ingest a meeting transcript, sanitise it, query a small DuckDB table for context, return an answer plus a debrief file.",
+  "inputs": {
+    "transcript": {
+      "type": "file",
+      "format": "text",
+      "required": true
+    },
+    "question": {
+      "type": "string",
+      "required": false,
+      "default": "Summarise the decisions and action items in this meeting."
+    }
+  },
+  "steps": [
+    {
+      "id": "ingest",
+      "uses": "connectors.local_file",
+      "with": { "path": "${inputs.transcript}" }
+    },
+    {
+      "id": "sanitise",
+      "uses": "sanitisers.pii_and_injection",
+      "needs": ["ingest"],
+      "with": { "content": "${steps.ingest.content}" }
+    },
+    {
+      "id": "context",
+      "uses": "data.duckdb_query",
+      "with": {
+        "connection": "demo",
+        "query": "SELECT name, role FROM attendees WHERE meeting_id = ?",
+        "parameters": ["${inputs.meeting_id}"]
+      }
+    },
+    {
+      "id": "answer",
+      "uses": "model.local_completion",
+      "needs": ["sanitise", "context"],
+      "with": {
+        "system": "You are a meeting analyst. Use the transcript and attendee list to answer the user's question. Cite quotes from the transcript where relevant.",
+        "transcript": "${steps.sanitise.content}",
+        "attendees": "${steps.context.rows}",
+        "question": "${inputs.question}"
+      }
+    },
+    {
+      "id": "write_debrief",
+      "uses": "outputs.file",
+      "needs": ["answer"],
+      "with": {
+        "path": "debrief.md",
+        "content": "${steps.answer.text}"
+      }
+    },
+    {
+      "id": "respond",
+      "uses": "outputs.chat",
+      "needs": ["answer", "write_debrief"],
+      "with": {
+        "text": "${steps.answer.text}",
+        "attachments": ["${steps.write_debrief.path}"]
+      }
+    }
+  ],
+  "permissions": {
+    "filesystem": {
+      "read": ["/inputs"],
+      "write": ["/runs"]
+    },
+    "network": {
+      "egress": []
+    },
+    "process": {
+      "spawn": false
+    }
+  },
+  "isolation": {
+    "primitive": "docker",
+    "image": "testudo:0.1",
+    "cpu": "1.0",
+    "memory": "2g",
+    "rollback": true
+  }
+}
