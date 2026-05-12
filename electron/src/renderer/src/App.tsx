@@ -86,20 +86,47 @@ export default function App() {
     setBridgeState("starting");
     setBridgeError(null);
     setEntries((e) => [...e, { kind: "info", text: "Starting bridge..." }]);
-    const status = await window.testudo.bridge.start();
-    await adoptStatus(status);
-    if (status.running) {
-      setEntries((e) => [
-        ...e,
-        { kind: "system", text: `Bridge online on ${status.url}.` },
-      ]);
-    } else {
+
+    // Safety net: if the IPC promise hasn't resolved in 35s, force the UI
+    // out of "starting" so the user is never stranded on the yellow badge.
+    const safetyTimer = window.setTimeout(() => {
+      setBridgeState((current) => (current === "starting" ? "error" : current));
+      setBridgeError("bridge.start did not resolve within 35s; check the main-process terminal for stderr from `testudo serve`");
       setEntries((e) => [
         ...e,
         {
           kind: "error",
-          text: `Bridge failed to start: ${status.error ?? "unknown error"}`,
+          text:
+            "Bridge.start did not resolve within 35s. Look at the terminal where you ran `npm run dev` -- the main process logs `[testudo serve] ...` stderr lines that explain why.",
         },
+      ]);
+    }, 35_000);
+
+    try {
+      const status = await window.testudo.bridge.start();
+      window.clearTimeout(safetyTimer);
+      await adoptStatus(status);
+      if (status.running) {
+        setEntries((e) => [
+          ...e,
+          { kind: "system", text: `Bridge online on ${status.url}.` },
+        ]);
+      } else {
+        setEntries((e) => [
+          ...e,
+          {
+            kind: "error",
+            text: `Bridge failed to start: ${status.error ?? "unknown error"}`,
+          },
+        ]);
+      }
+    } catch (err) {
+      window.clearTimeout(safetyTimer);
+      setBridgeState("error");
+      setBridgeError((err as Error).message);
+      setEntries((e) => [
+        ...e,
+        { kind: "error", text: `Bridge IPC threw: ${(err as Error).message}` },
       ]);
     }
   };
@@ -285,10 +312,11 @@ export default function App() {
         return (
           <DatabasePanel
             busy={busy}
-            onRun={({ databasePath, query, outputPath, note }) =>
+            databricksReady={envCheck?.databricks_env_set ?? false}
+            onRun={({ adapter, databasePath, query, outputPath, note }) =>
               runMode(
-                { databasePath, query, outputPath },
-                `Query against ${databasePath}: ${query.slice(0, 80)}${query.length > 80 ? "..." : ""}`,
+                { adapter, databasePath, query, outputPath },
+                `${adapter === "databricks" ? "Databricks" : `DuckDB(${databasePath})`}: ${query.slice(0, 80)}${query.length > 80 ? "..." : ""}`,
                 note || undefined,
               )
             }

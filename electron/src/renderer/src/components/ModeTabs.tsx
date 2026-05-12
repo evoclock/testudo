@@ -8,7 +8,7 @@ interface Props {
 const TABS: Array<{ id: Mode; label: string; hint: string }> = [
   { id: "file", label: "File", hint: "PDF / DOCX / PPTX / HTML / TXT / MD" },
   { id: "url", label: "URL", hint: "Fetch an HTTPS resource" },
-  { id: "database", label: "Database", hint: "DuckDB now, Databricks pending" },
+  { id: "database", label: "Database", hint: "DuckDB + Databricks (PAT)" },
   { id: "workflow", label: "Workflow", hint: "Run an arbitrary workflow.json" },
   { id: "compose", label: "Compose", hint: "Author a workflow visually" },
 ];

@@ -42,6 +42,15 @@ export const MODE_BINDINGS: Record<Exclude<Mode, "workflow" | "compose">, ModeBi
   },
 };
 
+const DATABRICKS_BINDING: ModeBinding = {
+  workflowName: "databricks-query-v015",
+  buildInputs: (form) => ({
+    query: form.query,
+    parameters: form.parameters ?? [],
+    output_path: form.outputPath ?? "/tmp/testudo-databricks-results.md",
+  }),
+};
+
 export type BuildResult =
   | { ok: true; request: RunRequestBody }
   | { ok: false; error: string };
@@ -63,7 +72,10 @@ export function buildRunRequest(
     return { ok: false, error: "compose mode authors workflows; use Run after saving" };
   }
 
-  const binding = MODE_BINDINGS[mode];
+  let binding = MODE_BINDINGS[mode];
+  if (mode === "database" && form.adapter === "databricks") {
+    binding = DATABRICKS_BINDING;
+  }
   const wf = workflows.find((w) => w.name === binding.workflowName);
   if (!wf) {
     return {

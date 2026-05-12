@@ -73,6 +73,10 @@ export class BridgeManager {
       runsDir,
     ];
 
+    process.stderr.write(
+      `[bridge] spawning: ${command} ${args.join(" ")} (cwd=${process.cwd()})\n`,
+    );
+
     this.child = spawn(command, args, {
       stdio: ["ignore", "pipe", "pipe"],
       env: { ...process.env },
@@ -196,12 +200,21 @@ export class BridgeManager {
 
   private resolveCommand(): string {
     const env = process.env.TESTUDO_CLI;
-    if (env && existsSync(env)) return env;
+    if (env && existsSync(env)) {
+      process.stderr.write(`[bridge] resolved testudo via TESTUDO_CLI=${env}\n`);
+      return env;
+    }
 
     const repoRoot = resolve(__dirname, "../../..");
     const venvBin = join(repoRoot, ".venv", "bin", "testudo");
-    if (existsSync(venvBin)) return venvBin;
+    if (existsSync(venvBin)) {
+      process.stderr.write(`[bridge] resolved testudo via venv: ${venvBin}\n`);
+      return venvBin;
+    }
 
+    process.stderr.write(
+      `[bridge] no testudo at TESTUDO_CLI or ${venvBin}; falling back to PATH lookup ("testudo")\n`,
+    );
     return "testudo";
   }
 

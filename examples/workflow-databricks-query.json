@@ -1,0 +1,61 @@
+{
+  "name": "databricks-query-v015",
+  "description": "Run a SQL query against Databricks via the [databricks] extra, write the rows to disk, and return a chat-inline confirmation. Reads DATABRICKS_SERVER_HOSTNAME / DATABRICKS_HTTP_PATH / DATABRICKS_TOKEN from the bridge process env. Designed for the Database mode in the Electron UI when the Databricks adapter is selected.",
+  "inputs": {
+    "query": {
+      "type": "string",
+      "required": true,
+      "description": "SQL query. Free Edition workspaces have samples.bakehouse pre-populated (sales_transactions, sales_customers, media_customer_reviews, etc.)."
+    },
+    "parameters": {
+      "type": "array",
+      "required": false,
+      "default": []
+    },
+    "output_path": {
+      "type": "file",
+      "format": "markdown",
+      "required": true
+    }
+  },
+  "steps": [
+    {
+      "id": "query",
+      "uses": "data.databricks_query",
+      "with": {
+        "query": "${inputs.query}",
+        "parameters": "${inputs.parameters}"
+      }
+    },
+    {
+      "id": "write_results",
+      "uses": "outputs.file",
+      "needs": ["query"],
+      "with": {
+        "path": "${inputs.output_path}",
+        "content": "${steps.query.rows}"
+      }
+    },
+    {
+      "id": "respond",
+      "uses": "outputs.chat",
+      "needs": ["write_results"],
+      "with": {
+        "text": "Databricks query returned rows; results saved.",
+        "attachments": ["${steps.write_results.destination}"]
+      }
+    }
+  ],
+  "permissions": {
+    "filesystem": { "read": ["/"], "write": ["/"] },
+    "network": { "egress": ["*.cloud.databricks.com", "*.databricks.com"] },
+    "process": { "spawn": false }
+  },
+  "isolation": {
+    "primitive": "docker",
+    "image": "testudo:0.1",
+    "cpu": "2.0",
+    "memory": "4g",
+    "rollback": true
+  }
+}
