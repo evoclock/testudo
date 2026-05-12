@@ -9,65 +9,78 @@ export interface RecommendedModel {
 
 export const MODEL_GROUPS: Array<{ title: string; models: RecommendedModel[] }> = [
   {
-    title: "General",
+    title: "Cloud (Ollama Cloud, signin required)",
     models: [
       {
-        id: "minimax-m2.7",
+        id: "minimax-m2.7:cloud",
         label: "minimax-m2.7",
-        hint: "default. long context, careful summaries (cloud-served)",
-        pullCommand: "ollama pull minimax-m2.7",
+        hint: "default. long context, careful summaries",
+        pullCommand: "ollama signin",
       },
       {
-        id: "mistral-large-3",
-        label: "mistral-large-3",
-        hint: "general-purpose",
-        pullCommand: "ollama pull mistral-large-3",
+        id: "mistral-large-3:675b-cloud",
+        label: "mistral-large-3 (675b)",
+        hint: "general-purpose, large",
+        pullCommand: "ollama signin",
       },
       {
-        id: "qwen3.5",
-        label: "qwen3.5",
-        hint: "general-purpose alternative",
-        pullCommand: "ollama pull qwen3.5",
-      },
-    ],
-  },
-  {
-    title: "Code",
-    models: [
-      {
-        id: "qwen3-coder-next",
+        id: "qwen3-coder-next:cloud",
         label: "qwen3-coder-next",
-        hint: "code-leaning, larger context",
-        pullCommand: "ollama pull qwen3-coder-next",
+        hint: "code-leaning, large context",
+        pullCommand: "ollama signin",
       },
       {
-        id: "fredrezones55/Jan-code",
-        label: "Jan-code",
-        hint: "small / fast; good for short coding tasks",
-        pullCommand: "ollama pull fredrezones55/Jan-code",
+        id: "gemini-3-flash-preview:cloud",
+        label: "gemini-3-flash-preview",
+        hint: "fast general-purpose",
+        pullCommand: "ollama signin",
+      },
+      {
+        id: "gpt-oss:120b-cloud",
+        label: "gpt-oss (120b)",
+        hint: "open-source large",
+        pullCommand: "ollama signin",
+      },
+      {
+        id: "devstral-2:123b-cloud",
+        label: "devstral-2 (123b)",
+        hint: "code-leaning large",
+        pullCommand: "ollama signin",
       },
     ],
   },
   {
-    title: "Specialised",
+    title: "Local",
     models: [
       {
-        id: "fredrezones55/chandra-ocr-2",
-        label: "chandra-ocr-2",
-        hint: "OCR over scanned documents",
-        pullCommand: "ollama pull fredrezones55/chandra-ocr-2",
+        id: "mistral:latest",
+        label: "mistral",
+        hint: "7B general-purpose, runs locally",
+        pullCommand: "ollama pull mistral",
       },
       {
-        id: "mathstral",
-        label: "mathstral",
-        hint: "maths-leaning reasoning",
-        pullCommand: "ollama pull mathstral",
+        id: "magistral:latest",
+        label: "magistral",
+        hint: "23B reasoning model, runs locally",
+        pullCommand: "ollama pull magistral",
+      },
+      {
+        id: "jan-code:latest",
+        label: "jan-code",
+        hint: "4.4B code-leaning, runs locally",
+        pullCommand: "ollama pull jan-code",
+      },
+      {
+        id: "devstral-small-2:24b-instruct-2512-q4_K_M",
+        label: "devstral-small-2 (24b)",
+        hint: "24B code-leaning, runs locally",
+        pullCommand: "ollama pull devstral-small-2:24b-instruct-2512-q4_K_M",
       },
     ],
   },
 ];
 
-export const DEFAULT_MODEL = "minimax-m2.7";
+export const DEFAULT_MODEL = "minimax-m2.7:cloud";
 
 interface Props {
   busy: boolean;

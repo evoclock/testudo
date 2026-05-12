@@ -10,8 +10,8 @@
     "model": {
       "type": "string",
       "required": false,
-      "default": "minimax-m2.7",
-      "description": "Ollama model name. Recommended: minimax-m2.7 (default; long-context, cloud-served), mistral-large-3 (general), qwen3.5 (general alternative), qwen3-coder-next (code), fredrezones55/Jan-code (small/fast code), fredrezones55/chandra-ocr-2 (OCR), mathstral (math)."
+      "default": "minimax-m2.7:cloud",
+      "description": "Ollama model name. Cloud-served use the :cloud suffix (signin required). Recommended cloud: minimax-m2.7:cloud (default), mistral-large-3:675b-cloud, qwen3-coder-next:cloud. Local: mistral:latest, magistral:latest, jan-code:latest."
     },
     "system_prompt": {
       "type": "string",
