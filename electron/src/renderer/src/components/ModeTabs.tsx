@@ -5,12 +5,24 @@ interface Props {
   onSelect: (mode: Mode) => void;
 }
 
-const TABS: Array<{ id: Mode; label: string; hint: string }> = [
+interface TabSpec {
+  id: Mode;
+  label: string;
+  hint: string;
+  wip?: boolean;
+}
+
+const TABS: TabSpec[] = [
   { id: "file", label: "File", hint: "PDF / DOCX / PPTX / HTML / TXT / MD" },
   { id: "url", label: "URL", hint: "Fetch an HTTPS resource" },
   { id: "database", label: "Database", hint: "DuckDB + Databricks (PAT)" },
   { id: "workflow", label: "Workflow", hint: "Run an arbitrary workflow.json" },
-  { id: "compose", label: "Compose", hint: "Author a workflow visually" },
+  {
+    id: "compose",
+    label: "Compose",
+    hint: "Author a workflow visually (WIP)",
+    wip: true,
+  },
 ];
 
 export function ModeTabs({ active, onSelect }: Props) {
@@ -29,7 +41,14 @@ export function ModeTabs({ active, onSelect }: Props) {
                 : "text-muted hover:text-text hover:bg-bg/40"
             }`}
           >
-            <div className="text-sm font-medium">{tab.label}</div>
+            <div className="text-sm font-medium flex items-center gap-2">
+              {tab.label}
+              {tab.wip && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-700/30 text-amber-300 border border-amber-700/40 normal-case">
+                  WIP
+                </span>
+              )}
+            </div>
             <div className="text-xs text-muted">{tab.hint}</div>
           </button>
         );
