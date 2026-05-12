@@ -18,6 +18,8 @@ htmlcov/
 .venv/
 venv/
 .env
+.env.*
+!.env.*.example
 .envrc
 
 # Hatch

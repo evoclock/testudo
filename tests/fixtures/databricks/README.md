@@ -3,33 +3,55 @@
 Sample dataset + table DDL + bundled workflow you can use to verify
 the `data.databricks_query` adapter once your workspace is provisioned.
 
-## Fastest path: use the built-in `samples` catalog
+## Fastest path: use the built-in `samples.bakehouse` schema
 
-Databricks ships a `samples` catalog with pre-populated demo tables on
-every workspace (Free Edition included). If you just want to verify
-the adapter wiring, skip the CSV upload entirely and query one of
-these:
+Databricks Free Edition ships a `samples` catalog with the `bakehouse`
+demo schema pre-populated. Skip the CSV upload entirely if you just
+want to verify the adapter wiring; query one of these instead:
 
-| Table | Rows | Useful columns |
+| Table | Shape | Best for |
 |---|---|---|
-| `samples.nyctaxi.trips` | ~22M | `pickup_zip`, `dropoff_zip`, `fare_amount`, `tpep_pickup_datetime` |
-| `samples.tpch.lineitem` | ~600K | `l_orderkey`, `l_partkey`, `l_quantity`, `l_extendedprice` |
-| `samples.tpch.customer` | 1.5K | `c_custkey`, `c_name`, `c_address`, `c_phone` |
+| `samples.bakehouse.sales_transactions` | Structured rows: transaction_id, customer_id, total_amount, transaction_date | Wiring smoke-test (clean structured data) |
+| `samples.bakehouse.sales_customers` | Customer rows: customer_id, name, email, phone, address | Sanitiser smoke-test (real-shape PII columns) |
+| `samples.bakehouse.media_customer_reviews` | Free-text review_body column | Best sanitiser test (free text can hit PII / injection patterns) |
+| `samples.bakehouse.media_gold_reviews_chunked` | Pre-chunked review text | RAG-style retrieval against the same data |
+| `samples.bakehouse.sales_suppliers` | Supplier rows | Joins with sales_transactions |
+| `samples.bakehouse.sales_franchises` | Franchise rows | Joins with sales_transactions |
 
-Quick smoke test:
+### Quick smoke tests
 
 ```bash
+# 1. Wiring check -- 10 transaction rows
 testudo run tests/fixtures/databricks/sample_workflow_databricks.json \
   --inputs-json <(echo '{
-    "query": "SELECT * FROM samples.nyctaxi.trips LIMIT 10",
-    "output_path": "runs/databricks-nyctaxi.md"
+    "query": "SELECT * FROM samples.bakehouse.sales_transactions LIMIT 10",
+    "output_path": "runs/bakehouse-transactions.md"
+  }')
+
+# 2. Sanitiser exercise -- 10 reviews with free text
+testudo run tests/fixtures/databricks/sample_workflow_databricks.json \
+  --inputs-json <(echo '{
+    "query": "SELECT review_body FROM samples.bakehouse.media_customer_reviews LIMIT 10",
+    "output_path": "runs/bakehouse-reviews.md"
+  }')
+
+# 3. Join across schemas
+testudo run tests/fixtures/databricks/sample_workflow_databricks.json \
+  --inputs-json <(echo '{
+    "query": "SELECT c.name, COUNT(t.transaction_id) AS purchases FROM samples.bakehouse.sales_transactions t JOIN samples.bakehouse.sales_customers c ON t.customer_id = c.customer_id GROUP BY c.name ORDER BY purchases DESC LIMIT 10",
+    "output_path": "runs/bakehouse-top-customers.md"
   }')
 ```
 
-If that returns 10 rows, the adapter is working. Move to the
-upload-your-own-data path below only if you want to exercise the
-sanitiser against rows that hit testudo's regex patterns (the
-`samples` catalog contains real-ish, non-PII data).
+A **Serverless Starter Warehouse** comes pre-configured on Free
+Edition; the connection details are on its Connection Details tab.
+Use those for the env vars below.
+
+Move to the upload-your-own-data path further down only if you want
+the sanitiser exercise against rows that hit testudo's specific UK /
+international PII regex patterns (e.g. UK postcode, NIN). The
+bakehouse data contains realistic shapes but not the exact formats
+testudo's UK patterns key on.
 
 ## Upload-your-own path (for PII sanitiser testing)
 
