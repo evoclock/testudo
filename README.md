@@ -18,7 +18,7 @@ audit trail (git history, code review, sanitiser test corpus) is the
 intended substrate for trust rather than the AI assistance itself. The
 runtime's hardening primitives (defence-in-depth sanitisers, isolation
 profile, MCP-server separation, audit log) are designed against the same
-threat model that AI-assisted development surfaces in adjacent/comparable tooling out there.
+threat model that AI-assisted development often produces in adjacent/comparable tooling out there.
 
 ## What it does
 
@@ -75,10 +75,10 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the layered view, the broad
 
 **Testudo is not:**
 
-- A replacement for a full-fledged workflow orchestrator. Tools like Hillstar, Airflow, Prefect, Dagster, Temporal, Argo Workflows, and similar handle the orchestration surface above what Testudo covers: sub-workflows, retries, distributed execution across hosts, complex scheduling, long-running pipelines, host-side dispatch, graph visualisation at the pipeline scale. Testudo is deliberately scoped to single-graph workflows that fit inside one container with a clear isolation profile. Larger pipelines stitch Testudo containers together as steps of whichever orchestrator you already run; Hillstar is the canonical example because its `workflow.json` shape matches Testudo's, but the integration is not Hillstar-specific.
-- A multi-tenant orchestrator. One runtime per machine in v0.x; multi-tenancy is post-v0.4.
-- An MCP server host in the Claude-Code / Cursor sense. Testudo ships its own in-house MCP servers as the security boundary; it does not surface arbitrary third-party MCP servers from the user's local config.
-- A no-code agent builder. Testudo offers **low-code** authoring through the Compose canvas: drag tools from a palette, wire them with `needs:` edges, edit per-step params, save as a workflow JSON. You do not write Python, but you do need to understand what each step does (which connectors touch the network, what each sanitiser pass means, how the isolation profile bounds the blast radius). Agentic failure modes are subtle: silent data leaks, prompt-injection chains, output that looks right and isn't. Low-code removes the typing burden, not the understanding burden. The author owns the system-design responsibility; "anyone can build an agent" tends to push that cost onto whoever consumes the bad output.
+- A replacement for a full-fledged workflow orchestrator. Tools like Hillstar, Airflow, Prefect, Dagster, Temporal, Argo Workflows, and similar handle the orchestration surface above what Testudo covers: sub-workflows, retries, distributed execution across hosts, complex scheduling, long-running pipelines, host-side dispatch, graph visualisation at the pipeline scale. Testudo is deliberately scoped to single-graph workflows that fit inside one container with a clear isolation profile. Larger pipelines can stitch Testudo-like containers and tools together as steps of whichever orchestrator you already run; Hillstar is the canonical example because its `workflow.json` shape matches Testudo's, but the integration is not Hillstar-specific.
+- A multi-tenant orchestrator. One runtime per machine in v0.x; multi-tenancy is scoped post-v0.4.
+- An MCP server host in the Claude-Code / Cursor / Codex sense. Testudo ships its own in-house MCP servers as the security boundary; it does not surface arbitrary third-party MCP servers from the user's local config.
+- A no-code agent builder. Testudo offers **low-code** authoring through the Compose canvas: drag tools from a palette, wire them with `needs:` edges, edit per-step params, save as a workflow JSON. You do not need to know how to write Python code, but you do need to understand what each step does (which connectors touch the network, what each sanitiser pass means, how the isolation profile bounds the blast radius). Agentic failure modes are subtle: silent data leaks, prompt-injection chains, output that looks right but isn't. Low-code removes the typing burden, not the understanding burden. The author owns the system-design responsibility; the proposition that "anyone can build an agent" tends to push that cost onto whoever consumes the bad outputs or has to fix the tool.
 
 ## Aim: less friction than Copilot Studio, no less secure
 
@@ -87,7 +87,7 @@ team that needs auditable, sandboxed, declarative agentic workflows on
 locked-down infrastructure**, where the friction of Microsoft Copilot
 Studio (Azure subscription, Power Platform licensing, tenant admin
 approval, vendor lock-in, opaque content moderation) is not warranted
-but the security posture must be at least as good.
+but the security posture must be at least as good or better.
 
 The default workflow shape is:
 
