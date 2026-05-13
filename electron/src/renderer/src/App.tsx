@@ -229,11 +229,13 @@ export default function App() {
   const runWorkflow = (
     workflow: WorkflowSummary,
     inputs: Record<string, unknown>,
+    note?: string,
   ) => {
     void submit(
       `Run "${workflow.name}" with ${Object.keys(inputs).length} inputs`,
       inputs,
       workflow.path,
+      note,
     );
   };
 
@@ -270,17 +272,74 @@ export default function App() {
 
   const renderPanel = () => {
     if (bridgeState !== "online") {
-      const message =
-        bridgeState === "starting"
-          ? "Bridge starting..."
-          : bridgeState === "stopping"
-            ? "Bridge stopping..."
-            : bridgeState === "error"
-              ? `Bridge error: ${bridgeError}`
-              : "Bridge stopped. Click Start in the header.";
+      const isStarting = bridgeState === "starting";
+      const isStopping = bridgeState === "stopping";
+      const isError = bridgeState === "error";
+      const message = isStarting
+        ? "Bridge starting..."
+        : isStopping
+          ? "Bridge stopping..."
+          : isError
+            ? `Bridge error: ${bridgeError}`
+            : "Bridge stopped";
+      const dotColour = isStarting || isStopping
+        ? "bg-amber-500 animate-pulse"
+        : isError
+          ? "bg-red-500"
+          : "bg-muted2";
+
       return (
-        <div className="flex items-center justify-center h-full text-muted text-center p-8">
-          {message}
+        <div className="flex flex-col h-full p-5 gap-4">
+          {/* Faint outlines of panels-to-come */}
+          <div className="opacity-25 space-y-3 pointer-events-none">
+            <div className="h-9 border border-dashed border-border rounded" />
+            <div className="space-y-2">
+              <div className="h-3 w-24 border border-dashed border-border rounded" />
+              <div className="h-9 border border-dashed border-border rounded" />
+            </div>
+            <div className="space-y-2">
+              <div className="h-3 w-24 border border-dashed border-border rounded" />
+              <div className="h-20 border border-dashed border-border rounded" />
+            </div>
+          </div>
+          {/* Centred CTA card */}
+          <div className="flex-1 flex items-center justify-center">
+            <div className="bg-panel border border-border rounded-lg p-6 max-w-sm text-center shadow-lg">
+              <div className="flex items-center justify-center gap-2 mb-3">
+                <span className={`w-2 h-2 rounded-full ${dotColour}`} />
+                <span className="text-[11px] uppercase tracking-[0.12em] text-muted2 font-semibold">
+                  {message}
+                </span>
+              </div>
+              {!isError && !isStarting && !isStopping && (
+                <>
+                  <p className="text-sm text-text mb-1">
+                    Welcome to Testudo
+                  </p>
+                  <p className="text-xs text-muted leading-relaxed mb-4">
+                    Click <span className="text-text font-medium">Start bridge</span> in the
+                    header to bring the FastAPI bridge online. Once connected, pick a mode
+                    (File / URL / Database / Workflow / Compose) to load a workflow.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={startBridge}
+                    className="px-4 py-2 rounded bg-accent text-white text-sm font-medium hover:bg-accent/90"
+                  >
+                    Start bridge
+                  </button>
+                </>
+              )}
+              {isError && (
+                <>
+                  <p className="text-sm text-text mb-1">Bridge failed to start</p>
+                  <p className="text-xs text-muted leading-relaxed">
+                    {bridgeError}
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       );
     }
@@ -363,70 +422,115 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="bg-panel border-b border-border flex items-center px-5 gap-3 h-14 shrink-0">
-        <img src="./logo.png" alt="Testudo" className="w-8 h-8 rounded object-cover" />
-        <div className="font-semibold tracking-wide">Testudo</div>
-        {headerStatusBadge()}
-        {version && bridgeState === "online" && (
-          <span className="text-xs text-muted">bridge v{version}</span>
-        )}
-        {envCheck && bridgeState === "online" && (
-          <>
-            <span
-              title={
-                envCheck.ollama_running
-                  ? `Ollama up at ${envCheck.ollama_url}\nModels: ${envCheck.ollama_models.join(", ") || "(none pulled)"}`
-                  : `Ollama offline at ${envCheck.ollama_url}\n${envCheck.ollama_error ?? "no error reported"}\nFile mode (LLM summarise) will fail until ollama serve is running.`
-              }
-              className={`px-2 py-0.5 rounded text-[11px] ${
-                envCheck.ollama_running
-                  ? "bg-green-700 text-white"
-                  : "bg-amber-700 text-white"
-              }`}
-            >
-              ollama {envCheck.ollama_running ? "up" : "down"}
+      <header className="bg-panel border-b border-border shrink-0">
+        {/* Top row: wordmark + bridge status + version + workflows + actions */}
+        <div className="flex items-center px-5 h-14 gap-3">
+          <img
+            src="./testudo-wordmark.png"
+            alt="Testudo"
+            className="h-9 w-auto"
+            style={{ imageRendering: "auto" }}
+          />
+          {headerStatusBadge()}
+          {version && bridgeState === "online" && (
+            <span className="text-xs text-muted font-mono">v{version}</span>
+          )}
+          <div className="flex-1" />
+          {bridgeState === "online" && (
+            <span className="text-xs text-muted font-mono">
+              {workflows.length} workflow{workflows.length === 1 ? "" : "s"}
             </span>
-            <span
-              title={
-                envCheck.databricks_env_set
-                  ? "DATABRICKS_SERVER_HOSTNAME / HTTP_PATH / TOKEN are exported"
-                  : "DATABRICKS_* env vars not set; Database mode against Databricks will be unavailable"
-              }
-              className={`px-2 py-0.5 rounded text-[11px] ${
-                envCheck.databricks_env_set
-                  ? "bg-green-700 text-white"
-                  : "bg-bg text-muted border border-border"
-              }`}
+          )}
+          {bridgeState === "online" || bridgeState === "stopping" ? (
+            <button
+              type="button"
+              onClick={stopBridge}
+              disabled={bridgeState === "stopping"}
+              className="px-3 py-1.5 rounded bg-bg border border-border text-sm hover:border-red-500/60 disabled:opacity-40"
             >
-              databricks {envCheck.databricks_env_set ? "ready" : "n/a"}
-            </span>
-          </>
-        )}
-        <div className="flex-1" />
-        {bridgeState === "online" && (
-          <span className="text-xs text-muted">
-            {workflows.length} workflow{workflows.length === 1 ? "" : "s"}
+              Stop bridge
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={startBridge}
+              disabled={bridgeState === "starting"}
+              className="px-3 py-1.5 rounded bg-accent text-white text-sm font-medium disabled:opacity-40"
+            >
+              Start bridge
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              void window.testudo.app.quit();
+            }}
+            title="Stop the bridge (if running) and exit Testudo"
+            className="px-3 py-1.5 rounded bg-bg border border-border text-sm hover:border-red-500/60 hover:text-red-300"
+          >
+            Quit
+          </button>
+        </div>
+
+        {/* Bottom tier: env-check strip with breathing room */}
+        <div className="flex items-center px-5 h-8 gap-3 border-t border-border/50 bg-panel2/40">
+          <span className="text-[10px] uppercase tracking-[0.14em] text-muted2">
+            Environment
           </span>
-        )}
-        {bridgeState === "online" || bridgeState === "stopping" ? (
-          <button
-            type="button"
-            onClick={stopBridge}
-            disabled={bridgeState === "stopping"}
-            className="px-3 py-1.5 rounded bg-bg border border-border text-sm hover:border-red-500/60 disabled:opacity-40"
-          >
-            Stop bridge
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={startBridge}
-            disabled={bridgeState === "starting"}
-            className="px-3 py-1.5 rounded bg-accent text-white text-sm font-medium disabled:opacity-40"
-          >
-            Start bridge
-          </button>
-        )}
+          {envCheck && bridgeState === "online" ? (
+            <>
+              <span
+                title={
+                  envCheck.ollama_running
+                    ? `Ollama up at ${envCheck.ollama_url}\nModels: ${envCheck.ollama_models.join(", ") || "(none pulled)"}`
+                    : `Ollama offline at ${envCheck.ollama_url}\n${envCheck.ollama_error ?? "no error reported"}\nFile mode (LLM summarise) will fail until ollama serve is running.`
+                }
+                className="flex items-center gap-1.5 text-[11px]"
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    envCheck.ollama_running ? "bg-green-500" : "bg-amber-500"
+                  }`}
+                />
+                <span className="text-muted">ollama</span>
+                <span className="text-text">
+                  {envCheck.ollama_running ? "up" : "down"}
+                </span>
+                {envCheck.ollama_running && envCheck.ollama_models.length > 0 && (
+                  <>
+                    <span className="text-muted2">·</span>
+                    <span className="text-muted2 font-mono">
+                      {envCheck.ollama_models.length} model
+                      {envCheck.ollama_models.length === 1 ? "" : "s"}
+                    </span>
+                  </>
+                )}
+              </span>
+              <span
+                title={
+                  envCheck.databricks_env_set
+                    ? "DATABRICKS_SERVER_HOSTNAME / HTTP_PATH / TOKEN are exported"
+                    : "DATABRICKS_* env vars not set; Database mode against Databricks will be unavailable"
+                }
+                className="flex items-center gap-1.5 text-[11px]"
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    envCheck.databricks_env_set ? "bg-green-500" : "bg-muted2"
+                  }`}
+                />
+                <span className="text-muted">databricks</span>
+                <span className={envCheck.databricks_env_set ? "text-text" : "text-muted2"}>
+                  {envCheck.databricks_env_set ? "ready" : "n/a"}
+                </span>
+              </span>
+            </>
+          ) : (
+            <span className="text-[11px] text-muted2">
+              {bridgeState === "online" ? "checking environment..." : "bridge offline"}
+            </span>
+          )}
+        </div>
       </header>
 
       <Group orientation="horizontal" className="flex-1 overflow-hidden">

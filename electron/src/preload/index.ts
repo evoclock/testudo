@@ -29,6 +29,9 @@ export interface TestudoAPI {
     start: (opts?: BridgeStartOptions) => Promise<BridgeStatus>;
     stop: () => Promise<BridgeStatus>;
   };
+  app: {
+    quit: () => Promise<void>;
+  };
   openFile: () => Promise<string | null>;
 }
 
@@ -37,6 +40,9 @@ const api: TestudoAPI = {
     status: () => ipcRenderer.invoke("bridge:status") as Promise<BridgeStatus>,
     start: (opts) => ipcRenderer.invoke("bridge:start", opts ?? {}) as Promise<BridgeStatus>,
     stop: () => ipcRenderer.invoke("bridge:stop") as Promise<BridgeStatus>,
+  },
+  app: {
+    quit: () => ipcRenderer.invoke("app:quit") as Promise<void>,
   },
   openFile: () => ipcRenderer.invoke("testudo:openFile") as Promise<string | null>,
 };

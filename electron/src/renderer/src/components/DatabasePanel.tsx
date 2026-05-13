@@ -157,11 +157,11 @@ export function DatabasePanel({ busy, databricksReady, onRun }: Props) {
 
       {adapter === "duckdb" && (
         <>
-          <div>
-            <label className="block text-xs uppercase text-muted tracking-wider mb-2">
+          <details open>
+            <summary className="cursor-pointer text-xs uppercase text-muted tracking-wider mb-2 hover:text-text select-none">
               Starter queries
-            </label>
-            <div className="grid grid-cols-1 gap-2">
+            </summary>
+            <div className="grid grid-cols-1 gap-2 mt-2">
               {DUCKDB_SAMPLE_QUERIES.map((q) => (
                 <button
                   key={q.label}
@@ -178,7 +178,7 @@ export function DatabasePanel({ busy, databricksReady, onRun }: Props) {
                 </button>
               ))}
             </div>
-          </div>
+          </details>
 
           <div>
             <label className="block text-xs uppercase text-muted tracking-wider mb-2">
@@ -207,54 +207,57 @@ export function DatabasePanel({ busy, databricksReady, onRun }: Props) {
                 Pick .duckdb
               </button>
             </div>
-            <p className="text-[11px] text-muted mt-2">
-              <code className="text-text">:memory:</code> runs a transient session
-              (good for SELECT-literal smoke tests). Or point at a .duckdb file.
-              The bundled demo db at{" "}
-              <code className="text-text">{DEMO_DUCKDB_PATH}</code> has one
-              table: <code className="text-text">attendees(meeting_id, name, role)</code>{" "}
-              with 5 rows across <code className="text-text">M-001</code> /{" "}
-              <code className="text-text">M-002</code>. Regenerate with{" "}
-              <code className="text-text">
-                python examples/data/seed_demo.py
-              </code>
-              .
-            </p>
+            <details open className="mt-2">
+              <summary className="cursor-pointer text-[11px] text-muted hover:text-text select-none">
+                Schema hint
+              </summary>
+              <p className="text-[11px] text-muted mt-1">
+                <code className="text-text">:memory:</code> runs a transient session
+                (good for SELECT-literal smoke tests). Or point at a .duckdb file.
+                The bundled demo db at{" "}
+                <code className="text-text">{DEMO_DUCKDB_PATH}</code> has one
+                table: <code className="text-text">attendees(meeting_id, name, role)</code>{" "}
+                with 5 rows across <code className="text-text">M-001</code> /{" "}
+                <code className="text-text">M-002</code>. Regenerate with{" "}
+                <code className="text-text">
+                  python examples/data/seed_demo.py
+                </code>
+                .
+              </p>
+            </details>
           </div>
         </>
       )}
 
       {adapter === "databricks" && (
-        <>
-          <div>
-            <label className="block text-xs uppercase text-muted tracking-wider mb-2">
-              Sample queries
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {DATABRICKS_SAMPLE_QUERIES.map((q) => (
-                <button
-                  key={q.label}
-                  type="button"
-                  onClick={() => setQuery(q.sql)}
-                  className="text-left px-3 py-2 rounded bg-bg border border-border hover:border-accent text-xs"
-                  title={q.sql}
-                >
-                  <div className="text-text">{q.label}</div>
-                  <div className="text-[10px] text-muted font-mono truncate">
-                    {q.sql}
-                  </div>
-                </button>
-              ))}
-            </div>
-            <p className="text-[11px] text-muted mt-2">
-              Reads{" "}
-              <code className="text-text">DATABRICKS_SERVER_HOSTNAME</code> /{" "}
-              <code className="text-text">HTTP_PATH</code> /{" "}
-              <code className="text-text">TOKEN</code> from the bridge process env.
-              Free Edition ships <code className="text-text">samples.bakehouse</code>.
-            </p>
+        <details open>
+          <summary className="cursor-pointer text-xs uppercase text-muted tracking-wider mb-2 hover:text-text select-none">
+            Sample queries
+          </summary>
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            {DATABRICKS_SAMPLE_QUERIES.map((q) => (
+              <button
+                key={q.label}
+                type="button"
+                onClick={() => setQuery(q.sql)}
+                className="text-left px-3 py-2 rounded bg-bg border border-border hover:border-accent text-xs"
+                title={q.sql}
+              >
+                <div className="text-text">{q.label}</div>
+                <div className="text-[10px] text-muted font-mono truncate">
+                  {q.sql}
+                </div>
+              </button>
+            ))}
           </div>
-        </>
+          <p className="text-[11px] text-muted mt-2">
+            Reads{" "}
+            <code className="text-text">DATABRICKS_SERVER_HOSTNAME</code> /{" "}
+            <code className="text-text">HTTP_PATH</code> /{" "}
+            <code className="text-text">TOKEN</code> from the bridge process env.
+            Free Edition ships <code className="text-text">samples.bakehouse</code>.
+          </p>
+        </details>
       )}
 
       <div className="flex-1 flex flex-col">

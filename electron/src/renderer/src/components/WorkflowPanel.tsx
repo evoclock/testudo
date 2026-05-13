@@ -1,5 +1,74 @@
 import { useEffect, useMemo, useState } from "react";
+import Markdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { BridgeClient, WorkflowSummary } from "../lib/api";
+
+const MD_REMARK_PLUGINS = [remarkGfm];
+
+const MD_COMPONENTS: Components = {
+  h1: (props) => (
+    <h1
+      className="text-lg font-semibold text-text mt-1 mb-3 pb-1 border-b border-border"
+      {...props}
+    />
+  ),
+  h2: (props) => (
+    <h2 className="text-base font-semibold text-text mt-4 mb-2" {...props} />
+  ),
+  h3: (props) => (
+    <h3 className="text-sm font-semibold text-text mt-3 mb-1" {...props} />
+  ),
+  h4: (props) => (
+    <h4
+      className="text-xs font-semibold uppercase tracking-wider text-muted mt-2 mb-1"
+      {...props}
+    />
+  ),
+  p: (props) => <p className="text-xs leading-relaxed mb-2 text-text/90" {...props} />,
+  ul: (props) => (
+    <ul className="list-disc ml-5 mb-2 text-xs space-y-0.5 text-text/90" {...props} />
+  ),
+  ol: (props) => (
+    <ol className="list-decimal ml-5 mb-2 text-xs space-y-0.5 text-text/90" {...props} />
+  ),
+  li: (props) => <li className="leading-relaxed" {...props} />,
+  code: (props) => (
+    <code
+      className="bg-panel px-1 rounded font-mono text-[0.9em] break-words"
+      {...props}
+    />
+  ),
+  pre: (props) => (
+    <pre
+      className="bg-panel border border-border rounded p-2 text-[11px] overflow-x-auto mb-2 [&_code]:bg-transparent [&_code]:border-0 [&_code]:p-0 [&_code]:text-inherit"
+      {...props}
+    />
+  ),
+  a: (props) => (
+    <a className="text-accent underline" target="_blank" rel="noreferrer" {...props} />
+  ),
+  strong: (props) => <strong className="font-semibold text-text" {...props} />,
+  em: (props) => <em className="italic" {...props} />,
+  blockquote: (props) => (
+    <blockquote
+      className="border-l-2 border-border pl-3 text-muted italic mb-2 text-xs"
+      {...props}
+    />
+  ),
+  hr: () => <hr className="my-3 border-border" />,
+  table: (props) => (
+    <div className="overflow-x-auto -mx-1 mb-2">
+      <table className="border-collapse text-xs w-full" {...props} />
+    </div>
+  ),
+  thead: (props) => <thead className="bg-panel" {...props} />,
+  th: (props) => (
+    <th className="border border-border px-2 py-1 text-left font-semibold text-text" {...props} />
+  ),
+  td: (props) => (
+    <td className="border border-border px-2 py-1 align-top text-text/90" {...props} />
+  ),
+};
 
 interface InputSpec {
   type?: string;
@@ -13,7 +82,11 @@ interface Props {
   workflows: WorkflowSummary[];
   busy: boolean;
   client: BridgeClient | null;
-  onRun: (workflow: WorkflowSummary, inputs: Record<string, unknown>) => void;
+  onRun: (
+    workflow: WorkflowSummary,
+    inputs: Record<string, unknown>,
+    note?: string,
+  ) => void;
   onSelectionChange?: (workflowName: string) => void;
 }
 
@@ -124,6 +197,7 @@ export function WorkflowPanel({ workflows, busy, client, onRun, onSelectionChang
   const [arrayErrors, setArrayErrors] = useState<Record<string, string | null>>({});
   const [readme, setReadme] = useState<string | null>(null);
   const [readmeOpen, setReadmeOpen] = useState(false);
+  const [note, setNote] = useState("");
 
   const selected = useMemo(
     () => workflows.find((w) => w.name === selectedName) ?? null,
@@ -214,13 +288,13 @@ export function WorkflowPanel({ workflows, busy, client, onRun, onSelectionChang
 
   const submit = () => {
     if (!selected || missingRequired.length > 0) return;
-    onRun(selected, form);
+    onRun(selected, form, note.trim() || undefined);
   };
 
   return (
     <section className="flex flex-col h-full p-5 gap-4">
       <div>
-        <label className="block text-xs uppercase text-muted tracking-wider mb-2">
+        <label className="block text-[11px] uppercase tracking-[0.12em] text-muted2 font-semibold mb-2">
           Workflow
         </label>
         <select
@@ -247,19 +321,21 @@ export function WorkflowPanel({ workflows, busy, client, onRun, onSelectionChang
             <summary className="cursor-pointer text-xs text-accent hover:underline">
               {readmeOpen ? "Hide README" : "Show README (usage, inputs, common failures)"}
             </summary>
-            <pre className="mt-2 text-xs bg-bg border border-border rounded p-3 whitespace-pre-wrap font-mono max-h-96 overflow-y-auto">
-              {readme}
-            </pre>
+            <div className="mt-2 bg-bg border border-border rounded p-3 max-h-96 overflow-y-auto">
+              <Markdown remarkPlugins={MD_REMARK_PLUGINS} components={MD_COMPONENTS}>
+                {readme}
+              </Markdown>
+            </div>
           </details>
         )}
       </div>
 
       {selected && starters.length > 0 && (
-        <div>
-          <label className="block text-xs uppercase text-muted tracking-wider mb-2">
+        <details open>
+          <summary className="cursor-pointer text-[11px] uppercase tracking-[0.12em] text-muted2 font-semibold mb-2 hover:text-text select-none">
             Starter examples (click to pre-fill)
-          </label>
-          <div className="grid grid-cols-1 gap-2">
+          </summary>
+          <div className="grid grid-cols-1 gap-2 mt-2">
             {starters.map((s) => (
               <button
                 key={s.label}
@@ -275,7 +351,7 @@ export function WorkflowPanel({ workflows, busy, client, onRun, onSelectionChang
               </button>
             ))}
           </div>
-        </div>
+        </details>
       )}
 
       {selected && (
@@ -289,7 +365,7 @@ export function WorkflowPanel({ workflows, busy, client, onRun, onSelectionChang
 
             return (
               <div key={key}>
-                <label className="block text-xs uppercase text-muted tracking-wider mb-1">
+                <label className="block text-[11px] uppercase tracking-[0.12em] text-muted2 font-semibold mb-1">
                   {key}
                   {spec.required && <span className="text-red-400 ml-1">*</span>}
                   {spec.format && (
@@ -382,6 +458,21 @@ export function WorkflowPanel({ workflows, busy, client, onRun, onSelectionChang
               </div>
             );
           })}
+        </div>
+      )}
+
+      {selected && (
+        <div>
+          <label className="block text-[11px] uppercase tracking-[0.12em] text-muted2 font-semibold mb-2">
+            Note (context for the chat log)
+          </label>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+            placeholder="Optional: what this run is for, what to look for in the output..."
+            className="w-full bg-bg border border-border rounded p-3 text-sm resize-none focus:outline-none focus:border-accent"
+          />
         </div>
       )}
 

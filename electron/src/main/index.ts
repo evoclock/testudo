@@ -67,6 +67,10 @@ ipcMain.handle("bridge:start", async (_event, opts: StartOptions = {}) => {
 
 ipcMain.handle("bridge:stop", () => bridge.stop());
 
+ipcMain.handle("app:quit", () => {
+  app.quit();
+});
+
 ipcMain.handle("testudo:openFile", async () => {
   if (!mainWindow) return null;
   const result = await dialog.showOpenDialog(mainWindow, {

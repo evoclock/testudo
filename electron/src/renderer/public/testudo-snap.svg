@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 32 32"
+     shape-rendering="crispEdges"
+     style="image-rendering: pixelated;"
+     role="img"
+     aria-label="Testudo - alligator snapping turtle">
+
+  <defs>
+    <style>
+      .crosshair { fill: #2d9a4d; opacity: 0.45; }
+      .shell-dark   { fill: #0a3d1c; }
+      .shell-mid    { fill: #1a6c30; }
+      .shell-light  { fill: #3fa66d; }
+      .shell-glint  { fill: #6fc28a; }
+      .head-mid     { fill: #1a6c30; }
+      .head-dark    { fill: #0a3d1c; }
+      .eye          { fill: #f6fff0; }
+      .mouth        { fill: #050505; }
+      .foot-dark    { fill: #0a3d1c; }
+      .foot-mid     { fill: #1a6c30; }
+
+      @keyframes pose-idle {
+        0%, 68%   { opacity: 1; }
+        70%, 86%  { opacity: 0; }
+        88%, 100% { opacity: 1; }
+      }
+      @keyframes pose-snap {
+        0%, 68%   { opacity: 0; }
+        70%, 86%  { opacity: 1; }
+        88%, 100% { opacity: 0; }
+      }
+      .head-idle { animation: pose-idle 3.5s steps(1) infinite; }
+      .head-snap { animation: pose-snap 3.5s steps(1) infinite; }
+
+      /* Respect reduced-motion preference */
+      @media (prefers-reduced-motion: reduce) {
+        .head-idle, .head-snap { animation: none; }
+        .head-idle { opacity: 1; }
+        .head-snap { opacity: 0; }
+      }
+    </style>
+  </defs>
+
+  <!-- ============================================================ -->
+  <!-- Crosshair brackets at the four corners                        -->
+  <!-- ============================================================ -->
+  <g class="crosshair">
+    <!-- top-left -->
+    <rect x="1" y="1" width="3" height="1"/>
+    <rect x="1" y="1" width="1" height="3"/>
+    <!-- top-right -->
+    <rect x="28" y="1" width="3" height="1"/>
+    <rect x="30" y="1" width="1" height="3"/>
+    <!-- bottom-left -->
+    <rect x="1" y="30" width="3" height="1"/>
+    <rect x="1" y="28" width="1" height="3"/>
+    <!-- bottom-right -->
+    <rect x="28" y="30" width="3" height="1"/>
+    <rect x="30" y="28" width="1" height="3"/>
+  </g>
+
+  <!-- ============================================================ -->
+  <!-- Shell - dome silhouette                                       -->
+  <!-- Dark outline first, then mid fill, then highlights            -->
+  <!-- ============================================================ -->
+  <g class="shell-dark">
+    <!-- top arc -->
+    <rect x="12" y="3" width="8" height="1"/>
+    <rect x="10" y="4" width="2" height="1"/>
+    <rect x="20" y="4" width="2" height="1"/>
+    <rect x="9" y="5" width="1" height="1"/>
+    <rect x="22" y="5" width="1" height="1"/>
+    <rect x="8" y="6" width="1" height="1"/>
+    <rect x="23" y="6" width="1" height="1"/>
+    <rect x="7" y="7" width="1" height="2"/>
+    <rect x="24" y="7" width="1" height="2"/>
+    <!-- side walls -->
+    <rect x="6" y="9" width="1" height="5"/>
+    <rect x="25" y="9" width="1" height="5"/>
+    <!-- bottom arc -->
+    <rect x="7" y="14" width="1" height="1"/>
+    <rect x="24" y="14" width="1" height="1"/>
+    <rect x="8" y="15" width="1" height="1"/>
+    <rect x="23" y="15" width="1" height="1"/>
+    <rect x="9" y="16" width="2" height="1"/>
+    <rect x="21" y="16" width="2" height="1"/>
+    <rect x="11" y="17" width="10" height="1"/>
+  </g>
+
+  <g class="shell-mid">
+    <rect x="12" y="4" width="8" height="1"/>
+    <rect x="10" y="5" width="12" height="1"/>
+    <rect x="9" y="6" width="14" height="1"/>
+    <rect x="8" y="7" width="16" height="2"/>
+    <rect x="7" y="9" width="18" height="5"/>
+    <rect x="8" y="14" width="16" height="1"/>
+    <rect x="9" y="15" width="14" height="1"/>
+    <rect x="11" y="16" width="10" height="1"/>
+  </g>
+
+  <!-- Shell scute pattern (dark dividers) -->
+  <g class="shell-dark">
+    <!-- central column dividers -->
+    <rect x="15" y="6" width="2" height="1"/>
+    <rect x="15" y="9" width="2" height="1"/>
+    <rect x="15" y="12" width="2" height="1"/>
+    <!-- left scute dividers -->
+    <rect x="9" y="8" width="1" height="1"/>
+    <rect x="11" y="11" width="1" height="1"/>
+    <rect x="9" y="13" width="1" height="1"/>
+    <!-- right scute dividers -->
+    <rect x="22" y="8" width="1" height="1"/>
+    <rect x="20" y="11" width="1" height="1"/>
+    <rect x="22" y="13" width="1" height="1"/>
+    <!-- horizontal divider near top of dome -->
+    <rect x="11" y="7" width="3" height="1"/>
+    <rect x="18" y="7" width="3" height="1"/>
+    <!-- horizontal divider mid -->
+    <rect x="11" y="10" width="3" height="1"/>
+    <rect x="18" y="10" width="3" height="1"/>
+  </g>
+
+  <!-- Shell highlights -->
+  <g class="shell-light">
+    <rect x="13" y="5" width="2" height="1"/>
+    <rect x="17" y="5" width="2" height="1"/>
+    <rect x="11" y="8" width="3" height="1"/>
+    <rect x="18" y="8" width="3" height="1"/>
+    <rect x="12" y="9" width="3" height="1"/>
+    <rect x="17" y="9" width="3" height="1"/>
+    <rect x="11" y="13" width="3" height="1"/>
+    <rect x="18" y="13" width="3" height="1"/>
+  </g>
+
+  <g class="shell-glint">
+    <rect x="13" y="6" width="1" height="1"/>
+    <rect x="18" y="6" width="1" height="1"/>
+    <rect x="12" y="11" width="1" height="1"/>
+    <rect x="19" y="11" width="1" height="1"/>
+  </g>
+
+  <!-- ============================================================ -->
+  <!-- Front feet / claws                                            -->
+  <!-- ============================================================ -->
+  <g class="foot-mid">
+    <rect x="5" y="20" width="4" height="2"/>
+    <rect x="23" y="20" width="4" height="2"/>
+  </g>
+  <g class="foot-dark">
+    <!-- left claws -->
+    <rect x="5" y="22" width="1" height="2"/>
+    <rect x="7" y="22" width="1" height="2"/>
+    <!-- right claws -->
+    <rect x="24" y="22" width="1" height="2"/>
+    <rect x="26" y="22" width="1" height="2"/>
+    <!-- foot outlines -->
+    <rect x="4" y="20" width="1" height="2"/>
+    <rect x="9" y="20" width="1" height="2"/>
+    <rect x="22" y="20" width="1" height="2"/>
+    <rect x="27" y="20" width="1" height="2"/>
+  </g>
+
+  <!-- ============================================================ -->
+  <!-- HEAD - idle pose (tucked, jaw closed)                         -->
+  <!-- ============================================================ -->
+  <g class="head-idle">
+    <!-- head body -->
+    <g class="head-mid">
+      <rect x="13" y="18" width="6" height="2"/>
+      <rect x="14" y="20" width="4" height="1"/>
+    </g>
+    <!-- jaw / beak (closed seam) -->
+    <g class="head-dark">
+      <rect x="13" y="20" width="1" height="1"/>
+      <rect x="18" y="20" width="1" height="1"/>
+      <rect x="14" y="21" width="4" height="1"/>
+      <rect x="15" y="22" width="2" height="1"/>
+    </g>
+    <!-- closed-mouth seam (dark line) -->
+    <g class="mouth">
+      <rect x="14" y="20" width="4" height="1" opacity="0.6"/>
+    </g>
+    <!-- eyes -->
+    <g class="mouth">
+      <rect x="14" y="19" width="1" height="1"/>
+      <rect x="17" y="19" width="1" height="1"/>
+    </g>
+    <!-- eye glints -->
+    <g class="eye">
+      <rect x="14" y="19" width="1" height="1" opacity="0.35"/>
+      <rect x="17" y="19" width="1" height="1" opacity="0.35"/>
+    </g>
+  </g>
+
+  <!-- ============================================================ -->
+  <!-- HEAD - snap pose (lunged forward+down, jaw OPEN)              -->
+  <!-- ============================================================ -->
+  <g class="head-snap">
+    <!-- extended skull -->
+    <g class="head-mid">
+      <rect x="11" y="18" width="10" height="2"/>
+      <rect x="12" y="20" width="8" height="1"/>
+    </g>
+    <!-- skull outline / brow -->
+    <g class="head-dark">
+      <rect x="11" y="17" width="10" height="1"/>
+      <rect x="10" y="18" width="1" height="2"/>
+      <rect x="21" y="18" width="1" height="2"/>
+    </g>
+    <!-- upper jaw / hooked beak -->
+    <g class="head-dark">
+      <rect x="12" y="21" width="2" height="1"/>
+      <rect x="18" y="21" width="2" height="1"/>
+      <rect x="13" y="22" width="1" height="1"/>
+      <rect x="18" y="22" width="1" height="1"/>
+      <rect x="14" y="23" width="1" height="1"/>
+      <rect x="17" y="23" width="1" height="1"/>
+      <rect x="15" y="24" width="2" height="1"/>
+    </g>
+    <!-- open mouth cavity (dark) -->
+    <g class="mouth">
+      <rect x="14" y="22" width="4" height="1"/>
+      <rect x="15" y="23" width="2" height="1"/>
+    </g>
+    <!-- lower jaw -->
+    <g class="head-dark">
+      <rect x="13" y="25" width="6" height="1"/>
+      <rect x="14" y="26" width="4" height="1"/>
+      <rect x="15" y="27" width="2" height="1"/>
+    </g>
+    <!-- jaw fill -->
+    <g class="head-mid">
+      <rect x="14" y="25" width="4" height="1" opacity="0.7"/>
+    </g>
+    <!-- aggressive eyes (wider) -->
+    <g class="mouth">
+      <rect x="12" y="19" width="2" height="1"/>
+      <rect x="18" y="19" width="2" height="1"/>
+    </g>
+    <!-- eye glints -->
+    <g class="eye">
+      <rect x="12" y="19" width="1" height="1"/>
+      <rect x="18" y="19" width="1" height="1"/>
+    </g>
+    <!-- nostrils -->
+    <g class="mouth">
+      <rect x="14" y="20" width="1" height="1" opacity="0.5"/>
+      <rect x="17" y="20" width="1" height="1" opacity="0.5"/>
+    </g>
+  </g>
+</svg>

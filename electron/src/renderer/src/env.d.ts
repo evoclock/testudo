@@ -31,6 +31,9 @@ interface TestudoAPI {
     start: (opts?: BridgeStartOptions) => Promise<BridgeStatus>;
     stop: () => Promise<BridgeStatus>;
   };
+  app: {
+    quit: () => Promise<void>;
+  };
   openFile: () => Promise<string | null>;
 }
 
