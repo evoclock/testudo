@@ -178,14 +178,14 @@ want and we will generate the agent" surface.
 
 **Why the distinction matters**: low-code removes the typing burden;
 no-code claims to remove the understanding burden too. The
-understanding cannot actually be removed — agentic-tooling failure
+understanding cannot actually be removed. Agentic-tooling failure
 modes are subtle. A misconfigured connector silently leaks data to a
 destination the operator did not intend; a prompt-injection chain
 produces output that looks correct but is wrong; a sanitiser misapplied
 to the wrong field redacts the signal and ships the noise. The "anyone
 can build an agent" position is appealing as a marketing line but
 tends to externalise the cost of these failure modes onto downstream
-consumers (the people who receive the bad output).
+consumers (the people who receive the bad output), and developer time spent fixing the solution.
 
 Testudo's position: the assumption of good system-design and
 implementation understanding rests with the author. Compose makes that
