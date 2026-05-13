@@ -41,6 +41,30 @@ container scaffolding ships unwired.
   user-authored composition with no external deps. Should take ~15
   minutes at the desktop.
 
+## Priority 0.5 -- v0.1.7 release-blockers (M365 + Slack)
+
+Behind v0.1.6 (Docker) in sequence, but the headline next release. Full
+scope in [docs/ROADMAP.md](docs/ROADMAP.md) and the architectural
+rationale in [docs/POSITIONING.md](docs/POSITIONING.md).
+
+- Build `testudo.auth.microsoft` MSAL wrapper (client-credentials +
+  device-code flows + token cache + per-workflow scope enforcement).
+- Build `testudo.auth.slack` bot-token loader.
+- Build `connectors.teams_post`, `connectors.sharepoint_read`,
+  `connectors.sharepoint_write`, `connectors.slack_post`.
+- Add per-workflow resource binding (channel IDs, site IDs) + refuse-on-
+  missing-permission with a clear scope-name error.
+- Extend the IsolationProfile egress allow-list automatically for
+  `graph.microsoft.com` and `slack.com` when these connectors appear in
+  a workflow.
+- Ship `testudo m365 doctor` CLI subcommand.
+- Ship two example workflows (Teams + Slack variants) with per-workflow
+  READMEs.
+- Ship `docs/compliance/{SOC2,ISO27001,FedRAMP,GDPR}-*.md` scaffolds.
+
+Realistic timeline: 3-5 sessions. Splittable into v0.1.7-alpha
+(auth + Teams) and v0.1.7-beta (SharePoint + Slack + compliance docs).
+
 ## Priority 2 -- user-side setup (unblocks several deferred items)
 
 These need user input or external accounts; they are the only items

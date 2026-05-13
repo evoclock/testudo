@@ -88,6 +88,59 @@ Headline release. Closes the loop on the "containerised executor" tagline.
 - **`RateLimitMiddleware` config via `testudo serve` CLI flags.**
 - **`workflow-url-document-debrief`**: fetch a URL, save to a temp path, extract_document, sanitise, write. Covers the "PDF on Drive via URL" case.
 
+### v0.1.7 -- Microsoft 365 + Slack connectors + auth helper
+
+Closes the gap to "process file -> sanitise -> post to Teams /
+SharePoint / Slack" so Testudo can be deployed as a
+less-friction-than-Copilot-Studio alternative on locked-down corporate
+infrastructure. See [POSITIONING.md](POSITIONING.md) for
+the full positioning and architectural decisions.
+
+- **`testudo.auth.microsoft`** -- MSAL wrapper. Client-credentials flow
+  (service-principal agent identity) and device-code flow (delegated
+  user). Token cache in `~/.config/testudo/tokens/` with proactive
+  refresh. Per-workflow scope declaration in
+  `permissions.microsoft.scopes`; runtime enforces.
+- **`testudo.auth.slack`** -- bot-token loader, no refresh.
+- **`connectors.teams_post`** -- Microsoft Graph
+  `/teams/{id}/channels/{id}/messages` (text and adaptive cards).
+- **`connectors.sharepoint_read` / `connectors.sharepoint_write`** --
+  Microsoft Graph `/sites/{id}/drives/{id}/items`.
+- **`connectors.slack_post`** -- Slack `chat.postMessage` (text and
+  block-kit).
+- **Per-workflow resource binding** in `workflow.json`: explicit
+  channel IDs, site IDs, drive IDs. Refuse to run a workflow whose
+  declared resources are not granted by the loaded tokens; surface the
+  missing permission scope name so the operator can request it from
+  their admin (Entra ID for Microsoft, workspace admin for Slack).
+- **Egress allow-list auto-extends** with `graph.microsoft.com` and
+  `slack.com` when these connectors appear in a workflow.
+- **`testudo m365 doctor` CLI** -- prints the Azure app registration
+  walkthrough (redirect URIs, API permissions, admin consent URL).
+- **Example workflows**:
+  `workflow-sharepoint-summarise-teams-post.json` and
+  `workflow-sharepoint-summarise-slack-post.json` with per-workflow
+  READMEs.
+- **Compliance scaffolds**: `docs/compliance/SOC2-control-mapping.md`,
+  `docs/compliance/ISO27001-Annex-A-mapping.md`,
+  `docs/compliance/FedRAMP-readiness.md`,
+  `docs/compliance/GDPR-data-flow.md`. The deployer's auditor reviews
+  these; Testudo enables certification, the deployer pursues it.
+
+**Deliberately out of scope** (rejected expansions per
+[POSITIONING.md](POSITIONING.md)):
+
+- A no-code agent builder. Compose stays for technical users.
+- A connector marketplace. Connectors land in `src/testudo/` under
+  the same review discipline as the rest of the codebase.
+- A centralised tenant admin surface. Per-resource admin gating at
+  the external system (Entra ID app consent, Slack workspace
+  approval) is the model.
+
+**Realistic timeline**: 3-5 focused sessions. Splittable into
+v0.1.7-alpha (auth + Teams + one demo) and v0.1.7-beta (SharePoint +
+Slack + compliance scaffolds + second demo) if pressed for time.
+
 ## Planned
 
 ### v0.2 -- depth on sanitisation + execution

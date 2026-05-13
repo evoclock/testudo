@@ -78,6 +78,39 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the layered view, the broad
 - A replacement for Hillstar's full orchestration surface. Hillstar handles longer pipelines (sub-workflows, retries, distributed execution, Mermaid graph generation, host-side dispatch). Testudo's composer is deliberately scoped to single-graph workflows that fit inside one container. Larger pipelines stitch Testudo containers together as Hillstar steps.
 - A multi-tenant orchestrator. One runtime per machine in v0.x; multi-tenancy is post-v0.4.
 - An MCP server host in the Claude-Code / Cursor sense. Testudo ships its own in-house MCP servers as the security boundary; it does not surface arbitrary third-party MCP servers from the user's local config.
+- A no-code agent builder. The Compose tab is a visual workflow editor for technical users; the audience is operators who can read a workflow JSON, not non-technical users who would author agents without awareness of system limitations.
+
+## Aim: less friction than Copilot Studio, no less secure
+
+Testudo's target use case is **a single technical operator or small
+team that needs auditable, sandboxed, declarative agentic workflows on
+locked-down infrastructure**, where the friction of Microsoft Copilot
+Studio (Azure subscription, Power Platform licensing, tenant admin
+approval, vendor lock-in, opaque content moderation) is not warranted
+but the security posture must be at least as good.
+
+The default workflow shape is:
+
+```text
+SharePoint or local file -> sanitise (input side)
+                         -> model call (Ollama local, or v0.2 multi-provider)
+                         -> sanitise (output side: hidden-unicode strip,
+                            secret redact, PII redact across ~50 country
+                            patterns, prompt-injection detect, OWASP web
+                            and OWASP MCP threat detect)
+                         -> post to Teams / Slack / SharePoint / dashboard
+```
+
+Today the runtime, sandbox, sanitiser, and audit layers are shipped.
+The M365 + Slack connectors are the missing piece; they are the v0.1.7
+release-milestone scope. Access control is **not** mediated by a
+centralised Testudo tenant admin: each external resource (SharePoint
+site, Teams channel, Slack workspace) is gated at its own admin layer
+(Entra ID app registration consent, Slack workspace app approval).
+This is a deliberate architectural choice; see
+[docs/POSITIONING.md](docs/POSITIONING.md) for the full
+positioning, gap analysis, and close-the-gap plan (drag-drop GUI,
+M365 auth, compliance attestations, per-resource gating).
 
 ## v0.1.5 vertical slice (shipped)
 
@@ -241,7 +274,7 @@ locales are present (originally documented by Krebs on Security in 2021).
 On Ubuntu / Debian:
 
 ```bash
-sudo apt install language-pack-ru language-pack-ru-base 
+sudo apt install language-pack-ru language-pack-ru-base
 ```
 
 **Lockfile + audit.** `package-lock.json` and `uv.lock` are committed.

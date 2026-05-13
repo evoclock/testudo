@@ -6,6 +6,7 @@ title: "Testudo docs index"
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) -- where Testudo sits in the broader agentic pipeline, the v0.1.5 internal layers, the five defence-in-depth layers (sanitisation -> permission check -> scan-then-permit -> MCP server separation -> audit), model adapters, UI modes.
 - [ROADMAP.md](ROADMAP.md) -- shipped, in-flight, v0.2 through v0.4 plans.
+- [POSITIONING.md](POSITIONING.md) -- positioning against the class of restrictive enterprise agentic-platform products (Microsoft Copilot Studio as lead example, plus Vertex AI Agent Builder, Bedrock Agents, Agentforce, ServiceNow Now Assist, watsonx Orchestrate, Rovo, Glean, and similar). Today's connector gap, friction and security comparison, close-the-gap plan including rejected expansions (no-code GUI, connector marketplace, centralised tenant admin) and committed work (M365 / Slack connectors, MSAL auth, per-resource gating, compliance control mapping).
 
 ## Setup guides
 
