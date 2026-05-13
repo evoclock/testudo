@@ -38,49 +38,55 @@ Electron scaffold, demo workflow + integration test.
 - **Electron**: TS + React + electron-vite migration; vanilla JS
   scaffold removed entirely.
 
-### v0.1.5 follow-up (2026-05-12)
+### v0.1.5 follow-ups (2026-05-12 / 2026-05-13)
 
-312 tests. New + dropped scope:
+316 tests. Two waves of in-tree work on top of the v0.1.5 tag.
 
-- **Model adapters**: `testudo.models.ollama_chat` POSTs to Ollama
-  and routes the response through `sanitise_output` automatically.
-- **New example workflows**: `pdf-debrief`, `pdf-summarise` (LLM in
-  the loop), `url-fetch`, `db-query`.
-- **UI mode picker**: five-tab renderer (File / URL / Database /
-  Workflow / Compose).
-- **DAG composition mode**: tool palette + editable React Flow canvas
-  + node inspector; saves via `POST /workflows`. `GET /tools`
-  introspects DEFAULT_REGISTRY via Python `inspect`.
-- **DAG display panel** restored under each mode form; coloured by
-  post-run status.
-- **Drive (private)** dropped from scope. Public link-shared Drive
-  files reachable via `connectors.https_get` with the direct-download
-  URL form.
+**Wave 1 (2026-05-12):**
+
+- **Model adapters**: `testudo.models.ollama_chat` POSTs to Ollama and routes the response through `sanitise_output` automatically.
+- **New example workflows** (renamed `*-v015`): `pdf-debrief`, `pdf-summarise` (LLM in the loop), `url-fetch`, `db-query`, `databricks-query`.
+- **UI mode picker**: five-tab renderer (File / URL / Database / Workflow / Compose).
+- **DAG composition mode**: tool palette + editable React Flow canvas + node inspector; saves via `POST /workflows`. `GET /tools` introspects DEFAULT_REGISTRY via Python `inspect`.
+- **DAG display panel** restored under each mode form; coloured by post-run status.
+- **Bridge lifecycle** in the Electron header (Start / Stop / Quit). Token isolated to main-process scope.
+- **`testudo ui`** turnkey CLI; spawns bridge + renderer with shared token.
+- **`GET /env-check`** endpoint + UI badges for Ollama + Databricks readiness.
+- **Resizable panes** via `react-resizable-panels`.
+- **Per-workflow READMEs** under `examples/readmes/` surfaced inline in the Workflow tab.
+- **Starter buttons** on every run mode that pre-fill known-working inputs.
+- **Collapsible help sections** (DuckDB starters, schema hint, Databricks starters, workflow starters).
+- **PII regex tightening** (UK postcode strain-ID false positive fixed; Mastercard 2-series BIN range added).
+- **Sanitiser tools accept structured content** (lists / dicts), JSON-encoded before regex match.
+
+**Wave 2 (2026-05-13):**
+
+- **Custom DAG node template** (status stripe + tool name + step id + duration row).
+- **Activity panel collapsed-by-default** with chevron-expand for full meta.
+- **Two-tier header** with the 80s wordmark logo on the top tier, env strip on the bottom.
+- **Floating GIF inset** in the WorkflowGraph pane (pixel-art snapping turtle, rembg-processed for transparency).
+- **Pre-bridge empty state** (dashed-outline panel placeholders + centred CTA card).
+- **Workflow README HTML rendering** (react-markdown + remark-gfm for tables).
+- **Note input on every run mode**, threaded into the Activity entry.
+- **Logo asset pipeline**: 80s wordmark + full 80s logo + original turtle, all rembg + trimmed.
+- **Socket Firewall install discipline**: `sfw 1.8.0` + PreToolUse hook + policy in `~/.claude/CLAUDE.md`.
+- **Local language packs** (Krebs trick): Russian, Ukrainian, Chinese, Hebrew installed on host.
+- **`docs/COMPOSE-SMOKE-TEST.md`**: 4-step composition spec for round-trip validation of the Compose -> Save -> Run cycle.
 
 ## In flight
 
-### v0.1.6 -- Docker default execution path
+### v0.1.6 -- containerised execution becomes the default
 
-The Docker isolation primitive is architected and scaffolded but not
-the default execution path in v0.1.x. `build_docker_argv` builds the
-canonical `docker run` argv from a workflow's `IsolationProfile`; the
-Dockerfile produces `testudo:0.1`; `Runner` wires the audit log around
-the container invocation. The CLI / FastAPI default path currently
-runs the orchestrator in-process. Wiring the Docker path into
-`testudo run` and `POST /runs` by default is the priority-1 item for
-v0.1.6.
+Headline release. Closes the loop on the "containerised executor" tagline.
 
-Also in v0.1.6:
-
-- Wire the read-only -> sanitiser -> write-only MCP chain into the
-  orchestrator. Today the three servers exist as standalone STDIO
-  scripts; the orchestrator should spawn the trio for any workflow
-  step that touches LLM output going to disk.
-- Audit-log integration for the scan-then-permit gate.
-- `RateLimitMiddleware` config via `testudo serve` CLI flags.
-- `workflow-url-document-debrief`: fetch a URL, save to a temp path,
-  extract_document, sanitise, write. Covers the "PDF on Drive via
-  URL" case.
+- **Wire `docker run` into `testudo run` and `POST /runs`.** The argv builder, the Dockerfile, and the Runner already exist. v0.1.6 plumbs them: spawn the container with the `IsolationProfile`-derived argv, stream stdout / stderr back into the audit log, marshal inputs (workflow JSON + values) and outputs (audit log + written files) across the host-container boundary.
+- **Per-workflow egress allow-list at the iptables layer.** Solves the reachability tension: workflows that legitimately need Ollama, Databricks, or public HTTPS declare exactly the destinations they need; the container's `iptables` ruleset enforces. No `--network=host` fallback.
+- **`testudo allow-list <workflow.json>` CLI helper.** Inspects the merged allow-list (workflow declaration + operator overrides) before the container starts. Useful in restricted environments (corporate proxy, VPN, on-prem).
+- **Wire the read-only -> sanitiser -> write-only MCP chain** into the orchestrator. Today the three servers exist as standalone STDIO scripts; v0.1.6 spawns the trio for any workflow step that touches LLM output going to disk.
+- **Wire the prompt template assembler** into the workflow step schema. Add `template:` and `vars:` fields so steps reference named templates rather than embedding XML inline.
+- **Audit-log integration for the scan-then-permit gate.**
+- **`RateLimitMiddleware` config via `testudo serve` CLI flags.**
+- **`workflow-url-document-debrief`**: fetch a URL, save to a temp path, extract_document, sanitise, write. Covers the "PDF on Drive via URL" case.
 
 ## Planned
 

@@ -58,10 +58,17 @@ Larger pipelines run on [Hillstar](https://github.com/evoclock/hillstar-orchestr
                        │  Electron renderer (TS + React)              │
                        │  Five modes: File / URL / Database /         │
                        │  Workflow / Compose                          │
-                       │  Header: Start/Stop bridge + ollama up/down  │
-                       │  + databricks ready/n/a badges + logo        │
-                       │  DAG panel renders the staged workflow's     │
-                       │  step graph; nodes coloured by run status    │
+                       │  Two-tier header: 80s wordmark logo +        │
+                       │  Start/Stop/Quit + bridge status badge       │
+                       │  on top tier; env-check strip (ollama,       │
+                       │  databricks bullet badges) on bottom tier    │
+                       │  DAG panel: custom node template (status     │
+                       │  stripe + tool/id stack + duration row)      │
+                       │  + floating GIF inset top-right              │
+                       │  Activity panel: collapsed-by-default        │
+                       │  one-line strips with chevron-expand to      │
+                       │  note + chat-channel block + step list +     │
+                       │  audit-log path                              │
                        └──────────────┬───────────────────────────────┘
                                       │ window.testudo.bridge.{status,start,stop}
                                       │ (preload contextBridge -- token never
@@ -87,16 +94,16 @@ Larger pipelines run on [Hillstar](https://github.com/evoclock/hillstar-orchestr
                        │  when: predicates, tool registry             │
                        └──────────────┬───────────────────────────────┘
                                       ▼
- ┌─────────────┬──────────────┬─────────────┬────────────┬────────────┐
- ▼             ▼              ▼             ▼            ▼            ▼
-Permissions   Sanitisers   Connectors     Data        Models      Runtime
-• fs read/    • PII (~50   • local_file   • DuckDB    • ollama    • build_docker_argv
-  write       countries)   • https_get    • Databricks  _chat     • Dockerfile
-• net egress  • prompt     • extract_       (extra)               • Runner
-• proc spawn  injection      document    Outputs                  • IsolationProfile
-• scan-then-  • OWASP web                 • file
-  permit      + MCP                       • chat
-  gate        • hidden                    • dashboard      Audit (JSONL)
+ ┌─────────────┬──────────────┬─────────────┬────────────┬────────────┬────────────┐
+ ▼             ▼              ▼             ▼            ▼            ▼            ▼
+Permissions   Sanitisers   Connectors     Data        Models     Prompts      Runtime
+• fs read/    • PII (~50   • local_file   • DuckDB    • ollama   • XML        • build_docker_argv
+  write       countries)   • https_get    • Databricks  _chat      template   • Dockerfile
+• net egress  • prompt     • extract_       (extra)               • {{var}}   • Runner
+• proc spawn  injection      document    Outputs                    subst.    • IsolationProfile
+• scan-then-  • OWASP web                 • file                  • strict
+  permit      + MCP                       • chat                    unresolved
+  gate        • hidden                    • dashboard      Audit (JSONL)        check
               unicode                     • ticket         • workflow_start
               • output-side                                • step_start/end
               pipeline                                     • permission_*
@@ -244,7 +251,7 @@ A workflow without `permissions` and `isolation` blocks runs under deny-by-defau
 - A multi-tenant orchestrator. One runtime per machine in v0.x.
 - A general-purpose sandbox. Testudo is shaped for *agent* execution: tool-call patterns, structured workflow steps, audit trails. A general-purpose Linux sandbox is a different product.
 
-## Docker status, honestly
+## Docker status
 
 The Docker isolation primitive is architected and scaffolded but is not the default execution path in v0.1.5. `build_docker_argv` builds the canonical `docker run` argv from a workflow's `IsolationProfile`; the `Dockerfile` produces `testudo:0.1`; `Runner` wires the audit log around the container invocation. But the v0.1.x CLI / FastAPI default path runs the orchestrator in-process on the host. Wiring the Docker path into `testudo run` and `POST /runs` is the priority-1 item for v0.1.6 in [NEXT_ACTIONS.md](../NEXT_ACTIONS.md).
 

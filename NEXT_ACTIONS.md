@@ -3,7 +3,45 @@
 Companion to `STATUS.md`. Lists what the next session should pick up,
 in priority order, with the user's current intent attached.
 
-## Priority 0 -- user-side setup (unblocks several deferred items)
+Refreshed 2026-05-13 after wave 2 follow-ups landed.
+
+## Priority 0 -- v0.1.6 release-blockers
+
+These three close the loop on the "containerised execution" promise the
+tagline makes. Until they land, `testudo run` is in-process Python; the
+container scaffolding ships unwired.
+
+- **Wire the Docker default execution path.** `testudo run` and the
+  bridge's `POST /runs` should default to `docker run` built from the
+  workflow's `IsolationProfile`. Stream container stdout / stderr back
+  into the audit log. Marshal inputs (workflow JSON + input values) and
+  outputs (audit log + written files) across the host-container
+  boundary. The argv builder, the Dockerfile, and the Runner already
+  exist; v0.1.6 plumbs them.
+- **Per-workflow egress allow-list at the iptables layer.** Today
+  `IsolationProfile` carries the allow-list as a field but it is not
+  enforced beyond the host-side permission check. v0.1.6 enforces at
+  the container's `iptables` layer so workflows that need Ollama,
+  Databricks, or public HTTPS get exactly the destinations they declare
+  and nothing more.
+- **CLI helper for ruleset inspection.** `testudo allow-list <workflow.json>`
+  prints the merged ruleset (workflow allow-list + operator overrides)
+  before the container starts. Lets operators sanity-check the network
+  surface in restricted environments (corporate proxy, VPN, on-prem).
+- **Wire the prompt template assembler into the orchestrator.** Today
+  `testudo.prompts.PromptTemplate` exists with tests; workflow steps
+  embed XML inline. v0.1.6 adds a `template:` field to the step schema
+  so steps can reference a named template + pass `vars:`.
+
+## Priority 1 -- compose smoke-test round-trip
+
+- Drive `docs/COMPOSE-SMOKE-TEST.md` end-to-end on the UI: build the
+  4-step chain on the Compose canvas, save, switch to Workflow tab, run.
+  Confirms the `POST /workflows` -> reload -> run cycle works for a
+  user-authored composition with no external deps. Should take ~15
+  minutes at the desktop.
+
+## Priority 2 -- user-side setup (unblocks several deferred items)
 
 These need user input or external accounts; they are the only items
 intentionally deferred.
@@ -49,7 +87,7 @@ v0.2 supplemental for higher recall on names / places / organisations.
 
 - Sketch is in `src/testudo/sanitisers/pii.py` docstring (v0.2 plan
   section). Code path: install `presidio-analyzer` + `presidio-anonymizer`
-  + `spacy`; download `en_core_web_lg` (~750 MB).
+  - `spacy`; download `en_core_web_lg` (~750 MB).
 - Hybrid pipeline: regex findings (high precision) + Presidio findings
   (higher recall) + confidence-merged result. Per Protecto's "Why
   Regex Fails for PII Detection in Unstructured Text".
@@ -83,10 +121,28 @@ From `CHANGELOG.md` "Deferred to v0.2":
 - Async / parallel step execution in the orchestrator.
 - Network egress allow-list enforcement at the Docker layer.
 
-## Done this sprint (do not re-do)
+## Done in wave 2 (do not re-do)
 
-See `STATUS.md` "Sprint scope (delivered this session)" for the
-exhaustive list. Highlights:
+See `STATUS.md` "Post-tag follow-ups, wave 2 (2026-05-13)" for the full
+list. Highlights:
+
+- Custom DAG node template (status stripe + tool/id stack + status row).
+- Activity panel collapsed-by-default with chevron-expand.
+- Two-tier header with the 80s wordmark logo + env strip.
+- Floating GIF inset in the WorkflowGraph pane.
+- Pre-bridge empty-state visual (dashed outlines + CTA card).
+- Workflow READMEs render as HTML (react-markdown + remark-gfm).
+- Note input on every run mode threaded through to Activity.
+- Quit button in the header.
+- Logo asset pipeline (rembg + trim) for the 80s wordmark, full 80s logo, original turtle, and the GIF.
+- Socket Firewall install discipline (sfw 1.8.0 + PreToolUse hook + ~/.claude/CLAUDE.md policy).
+- Local language packs (Krebs trick) installed.
+- `docs/COMPOSE-SMOKE-TEST.md` design committed for the round-trip exercise.
+
+## Done in wave 1 (do not re-do)
+
+See `STATUS.md` "Post-tag follow-ups, wave 1 (2026-05-12)" for the full
+list. Highlights:
 
 - Hillstar redaction parity (16 missing patterns ported).
 - ~50 country-specific PII patterns.
@@ -104,9 +160,3 @@ exhaustive list. Highlights:
 - `GET /env-check` endpoint + UI badges for Ollama + Databricks readiness.
 - File-mode model picker for mistral / minimax-m2.5 / jan-code-4b / chandra-ocr-2.
 - DAG composition mode (Compose tab) with `GET /tools` + `POST /workflows`.
-
-## Open user questions
-
-None outstanding. Last user message of session 2026-05-12 was a
-sequence of corrections / scope expansions, all addressed in this
-sprint.

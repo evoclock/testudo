@@ -4,7 +4,24 @@ All notable changes to this project will be documented in this file. Format foll
 
 ## [Unreleased]
 
-### v0.1.5 follow-ups (2026-05-12, post-tag)
+### v0.1.5 follow-ups, wave 2 (2026-05-13, post-tag)
+
+- **Custom DAG node template** in `WorkflowGraph.tsx`: each node renders as a 4 px coloured status stripe + tool name (mono muted) + step id (mono text) + status row (dot + label + duration). `nodeTypes={{testudo: TestudoNode}}` registered with React Flow. Edges restyled to a quieter 1.5 px dark-grey. Replaces the default React Flow rectangles.
+- **Activity panel rewritten** (`ResultLog.tsx`): entries collapsed by default, one-line strip showing status dot + workflow name + status word + finding-count chips + timestamp + chevron. Click to expand reveals note + chat-channel block + step list + audit-log path. Errors auto-expand on first render.
+- **Two-tier header** in `App.tsx`: top tier holds the 80s wordmark logo (`assets/testudo_80s_font.png`, rembg-trimmed), bridge status badge, version, workflows count, Stop / Start / Quit. Bottom tier carries the env-check strip with bullet badges (ollama, databricks).
+- **Floating GIF inset** in the WorkflowGraph pane: rembg-processed `Testudo-trans.gif` (180x150 source, displayed 72x60) anchored top-right, semi-transparent panel backdrop with backdrop-blur, `pointer-events-none` so DAG interaction is not blocked.
+- **Pre-bridge empty state** in `App.tsx`: dashed-outline placeholders of the panels-to-come + centred CTA card carrying bridge state, welcome copy, and a Start bridge button. Replaces the bare centred-text "Bridge stopped" message.
+- **Workflow READMEs render as HTML** in the Workflow tab via `react-markdown` + `remark-gfm` (for tables). Custom Tailwind-themed component overrides keep heading hierarchy + inline-code chips visually consistent with the dark theme.
+- **Note input on every run mode**: WorkflowPanel gained a textarea that flows through `runWorkflow` -> `submit` -> the user LogEntry, so per-run context surfaces in Activity.
+- **Quit button** in the header (red-on-hover; SIGTERMs the bridge subprocess via the existing `before-quit` hook before exit).
+- **Logo asset pipeline**: rembg + trim across `assets/testudo_80s_font.png`, `assets/Testudo_80s.png`, and `assets/testudo.png`. Originals untouched; `*-trans.png` and `*-trans-tight.png` copies committed alongside. README swapped to `assets/Testudo_80s-trans-tight.png`. Renderer header uses `testudo-wordmark.png` (the trimmed wordmark).
+- **`docs/COMPOSE-SMOKE-TEST.md`**: 4-step composition spec (`local_file -> pii_and_injection -> outputs.file -> outputs.chat`) for round-trip validation of the Compose -> Save -> Run cycle. Pure-local, no external deps, exercises three module families.
+- **README**: added "What Testudo is and is not" section, "Supply-chain hardening for contributors" section (Socket Firewall + scripts caveat + language packs + lockfile/audit), Development disclosure (AI-assisted, human-gated). Roadmap section made committal about v0.1.6 Docker scope and the per-workflow iptables allow-list.
+- **OLLAMA_SETUP.md** rewritten to match the actual 6-cloud + 4-local picker, the `:cloud` suffix convention, and v0.2 deferred items (multi-provider adapters, streaming).
+- **`.gitignore`** updated to exclude internal-only docs (`docs/aesthetic-proposal.html`, `docs/logo-preview.html`, `docs/previews/`) and stray draft assets.
+- **Quality**: 316 tests passing, 84% coverage, ruff clean, both Electron tsconfigs typecheck clean. `react-markdown@^10.1.0` and `remark-gfm@^4` added to renderer deps.
+
+### v0.1.5 follow-ups, wave 1 (2026-05-12, post-tag)
 
 - **Bridge lifecycle is now in the UI**: Electron main process owns the `testudo serve` subprocess via `BridgeManager`. Renderer header gets **Start bridge** / **Stop bridge** buttons + a coloured status badge. Closing the window kills the bridge. Token never reaches renderer scope except through the explicit `bridge:status` IPC return value.
 - **`GET /env-check` bridge endpoint**: probes Ollama at `TESTUDO_OLLAMA_URL` and reports `{ollama_running, ollama_models, databricks_env_set, file_ops_extra_installed, databricks_extra_installed}`. UI header shows badges (`ollama up/down`, `databricks ready/n/a`) with detail tooltips. Refactored as a module-level `_probe_ollama(url)` helper so tests can `monkeypatch.setattr` without httpx-mocking gymnastics.

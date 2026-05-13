@@ -1,19 +1,35 @@
 # Testudo repo status
 
-Snapshot at v0.1.5 + follow-ups, written 2026-05-12. The original
-v0.1.5 release section below is frozen as a handover artefact;
-"Post-tag follow-ups" captures everything that landed after the tag.
+Snapshot at v0.1.5 + extended follow-ups, refreshed 2026-05-13. The
+original v0.1.5 release section below is frozen as a handover artefact;
+"Post-tag follow-ups" captures the in-tree work since.
 
 ## Top line
 
-- **Version:** 0.1.5 (with multiple follow-up commits on top; see CHANGELOG.md).
-- **Tests:** 317 passing, 0 failing, 0 skipped. 87% line coverage.
+- **Version:** 0.1.5 (with two waves of follow-up commits on top; see CHANGELOG.md).
+- **Tests:** 316 passing, 0 failing, 0 skipped. 84% line coverage.
 - **Lint:** `ruff check` clean. `ruff format` clean. Both Electron tsconfigs typecheck clean.
-- **License:** Apache 2.0; sole author Julen Gamboa; no co-author bylines on commits.
+- **License:** Apache 2.0.
 - **Confidentiality:** zero references to `agentic-orchestrator` or any
   private fork content. testudo is OSS only.
+- **Install discipline:** Socket Firewall (`sfw 1.8.0`) is the host-side gate; PreToolUse hook at `~/.claude/hooks/sfw_enforce.py` blocks unwrapped installs in Claude Code sessions. See README "Supply-chain hardening for contributors".
 
-## Post-tag follow-ups (since 2026-05-12 v0.1.5)
+## Post-tag follow-ups, wave 2 (2026-05-13)
+
+- **Custom DAG node template** in `WorkflowGraph.tsx`: status stripe (4 px, coloured by step status) + tool name (mono muted) + step id (mono text) + status row (dot + label + duration). Edges restyled to a quieter 1.5 px dark-grey. Replaces the default React Flow rectangles.
+- **Activity panel rebuilt** (`ResultLog.tsx`): entries collapsed by default. One-line strip shows status dot, workflow name, status word, finding-count chips, timestamp, chevron. Click expands to show note + chat-channel block + step list + audit-log path. Errors auto-expand on first render.
+- **Two-tier header with wordmark**: `assets/testudo_80s_font.png` (rembg + trimmed) as the logo on the top tier; env-check strip on the bottom tier with bullet badges. Bridge state badge + version + workflow count live next to the logo. Stop / Start / Quit on the right.
+- **Floating GIF inset in DAG pane**: rembg-processed `Testudo-trans.gif` (180x150 source, 72x60 inset) sits in the top-right of the WorkflowGraph component, `pointer-events-none` so DAG interaction isn't blocked.
+- **Pre-bridge empty state**: dashed-outline placeholder of the panels-to-come + centred CTA card with bridge state, welcome copy, and Start bridge button. Replaces the bare centred-text `Bridge stopped` message.
+- **Workflow READMEs render as HTML** in the Workflow tab (`react-markdown` + `remark-gfm` for tables). Custom Tailwind-themed component overrides keep heading hierarchy + inline-code chips + tables visually consistent with the dark theme.
+- **Note input on every run mode**: WorkflowPanel gained a textarea threaded through `runWorkflow` -> `submit` so the user's chat-context note appears in the Activity entry alongside the workflow's chat-channel response.
+- **Quit button** in the header (red on hover; uses the existing `before-quit` hook to SIGTERM the bridge subprocess before exit).
+- **Logo assets pipeline**: `assets/testudo_80s_font.png` and `assets/Testudo_80s.png` ship as the wordmark + full README logo. All three logos plus the GIF were processed through `rembg` (u2net, CPU backend) for clean transparency. Originals untouched; `*-trans.png` and `*-trans-tight.png` copies live alongside.
+- **Socket Firewall posture**: `sfw 1.8.0` installed; PreToolUse hook at `~/.claude/hooks/sfw_enforce.py` registered in `~/.claude/settings.json` blocks unwrapped npm / pnpm / yarn / pip / uv / pipx / cargo installs across every Claude Code session. Cargo build/test/run get an advisory message but allow. Bypass flags do not exempt. Policy paragraph in `~/.claude/CLAUDE.md` so every session loads the rule.
+- **Local language packs** (Krebs trick): Russian, Ukrainian, Chinese (Simplified + Traditional), Hebrew installed on the host.
+- **Compose smoke-test design** committed to `docs/COMPOSE-SMOKE-TEST.md`: a 4-step linear chain (`local_file -> pii_and_injection -> outputs.file -> outputs.chat`) with no external deps for round-trip validation of the Compose -> Save -> Run flow.
+
+## Post-tag follow-ups, wave 1 (2026-05-12)
 
 - **Bridge lifecycle in the UI**: Electron main process owns the `testudo serve` subprocess via `BridgeManager`. Header has Start / Stop buttons + a coloured status badge. Closing the window kills the bridge. Token never reaches renderer scope except via explicit `bridge:status` IPC return values.
 - **`testudo ui`** alternative CLI: one command spawns bridge + renderer with a shared token; Ctrl-C tears both down.
@@ -61,7 +77,7 @@ practices.
     indirect-injection callback.
   - **OWASP Top 10 web** (new): SQL / NoSQL injection; command injection
     with metachars + process substitution; path traversal raw + encoded
-    + absolute-escape; XXE; SSRF (cloud metadata, gopher / file / dict
+    - absolute-escape; XXE; SSRF (cloud metadata, gopher / file / dict
     protocols); template injection; XSS; LDAP; XPath.
   - **OWASP MCP Top 10** (new): tool poisoning; rug-pull marker;
     SharePoint indirect-injection; instruction-in-document; confused

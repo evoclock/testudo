@@ -9,7 +9,11 @@ title: "Testudo docs index"
 
 ## Setup guides
 
-- [OLLAMA_SETUP.md](OLLAMA_SETUP.md) -- install Ollama, pull `minimax-m2.5`, point testudo at the daemon, use the `models.ollama_chat` tool from a workflow.
+- [OLLAMA_SETUP.md](OLLAMA_SETUP.md) -- install Ollama, the `:cloud` suffix convention, the 6-cloud + 4-local picker, point testudo at the daemon, use the `models.ollama_chat` tool from a workflow.
+
+## Validation
+
+- [COMPOSE-SMOKE-TEST.md](COMPOSE-SMOKE-TEST.md) -- 4-step round-trip exercise for the Compose -> Save -> Run cycle. No external deps; exercises `connectors.local_file -> sanitisers.pii_and_injection -> outputs.file -> outputs.chat`.
 
 ## Repo-root state docs
 
@@ -34,10 +38,13 @@ These live at the repo root, not under `docs/`, because they're frequently rewri
 
 ## Example workflows
 
-Under `examples/` at the repo root. All loadable via the Workflow tab once `testudo serve --workflows-dir examples` is running:
+Under `examples/` at the repo root. All loadable via the Workflow tab once `testudo serve --workflows-dir examples` is running. The `*-v015` ones are the canonical demos surfaced in the UI; the older two are kept as reference:
 
-- `workflow-meeting-debrief.json` -- transcript + DuckDB query demo (from the v0.1 vertical slice).
-- `workflow-pdf-debrief.json` -- extract a document, sanitise, write debrief. No LLM in the loop.
-- `workflow-pdf-summarise.json` -- extract a document, ask Ollama to summarise, sanitise the model output, write summary.
-- `workflow-url-fetch.json` -- HTTPS GET (public Drive URLs welcome), sanitise, write.
-- `workflow-db-query.json` -- DuckDB SQL → markdown.
+- `workflow-pdf-summarise.json` (v015) -- extract a document, ask Ollama to summarise, sanitise the model output, write summary, chat-respond.
+- `workflow-url-fetch.json` (v015) -- HTTPS GET (public Drive URLs auto-rewrite), sanitise, write, chat-respond.
+- `workflow-db-query.json` (v015) -- DuckDB SQL -> sanitise -> markdown -> chat-respond. Bundled demo db at `examples/data/demo.duckdb`.
+- `workflow-databricks-query.json` (v015) -- Databricks SQL -> sanitise -> markdown -> chat-respond. Reads `DATABRICKS_*` env vars.
+- `workflow-meeting-debrief.json` -- transcript + DuckDB query demo (from the v0.1 vertical slice; reference).
+- `workflow-pdf-debrief.json` -- extract a document, sanitise, write debrief. No LLM in the loop (reference).
+
+Each currently-loaded workflow ships a human-readable README at `examples/readmes/<name>.md` covering inputs, common failures, and what a healthy run looks like. The Workflow tab fetches and renders them inline as HTML (collapsible).
