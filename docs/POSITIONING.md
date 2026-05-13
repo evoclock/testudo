@@ -227,7 +227,7 @@ understanding bar):
 - Inline JSON view alongside the canvas for users who want to edit the
   underlying workflow.json directly.
 
-### 2. No marketplace - REJECTED expansion
+### 2. No marketplace - Not something we want as a solution at this time
 
 **Decision**: we do not build a third-party connector marketplace.
 Connectors live in `src/testudo/connectors/` and `src/testudo/data/`
@@ -412,14 +412,14 @@ Headline: Microsoft 365 + Slack connectors + auth helper.
 | Compliance docs scaffold: `docs/compliance/{SOC2,ISO27001,FedRAMP,GDPR}-*.md` | docs | doc-only |
 | Example workflows: `workflow-sharepoint-summarise-teams-post.json`, `workflow-sharepoint-summarise-slack-post.json` | `examples/` + readmes | docs |
 
-### Realistic timeline
+### Development timeline
 
-3-5 focused sessions. Split into two phases if helpful:
+Split into two phases:
 
 - **v0.1.7-alpha**: auth helpers + Teams connector + scope enforcement
-  - one example workflow. End-to-end demo possible. ~2 sessions.
+  - one example workflow. End-to-end demo possible.
 - **v0.1.7-beta**: SharePoint connectors + Slack connector + compliance
-  doc scaffold + second example workflow. ~2-3 sessions.
+  doc scaffold + second example workflow.
 
 ### What this milestone does not include
 
@@ -438,9 +438,62 @@ Headline: Microsoft 365 + Slack connectors + auth helper.
 | Locked-down corporate machine, Copilot-only policy, can run local Ollama | Testudo if your AUP allows local LLMs at all; otherwise neither |
 | Sensitive data (PII / secrets / regulated content) that must be sanitised before reaching M365 | Testudo, even pre-v0.1.7 - the data-path security depth is the differentiator |
 | Open-source / auditability requirement | Testudo |
+| You need a workable dev loop on the agent itself: prototype, test, validate, score outputs, iterate. This is the case **even when only vendor-approved models are available** | Testudo - see "The broken dev loop" below |
 | 5000-user enterprise rollout, global compliance, central tenant admin needed | Copilot Studio - Testudo's deliberate architectural choices do not target this scope |
 | Non-technical users authoring their own agents | Copilot Studio - Testudo will not be no-code by design |
 | You already pay for E5 / Power Platform; want zero build cost | Copilot Studio - the lift Testudo asks of the operator is real even if small |
+
+## The broken dev loop on vendor-GUI platforms
+
+The most-cited reason for adopting Testudo in environments that already
+have Copilot Studio or Power Automate licensing is not model availability;
+it is that the **development loop itself is broken** on GUI-first platforms,
+regardless of which approved model the agent points at:
+
+- **Prototyping**: every iteration is a click-through in the flow
+  editor. There is no diff between version N and N+1; reviewing what
+  changed means walking the canvas. Reverting means manually undoing
+  steps in a particular order. There is no `git checkout`.
+- **Testing**: workflow definitions are not unit-testable as code. No
+  pytest, no fixtures, no CI run that says "the workflow's contract
+  still holds after this change". Validation is "click Test and watch
+  it run".
+- **Validation**: assertions about workflow behaviour (this step must
+  not reach the network; this output must never contain PII; this run
+  must complete within N seconds) have no declarative home. Each one
+  becomes a manual check or a side-channel monitor.
+- **Output scoring**: rating the quality of generated outputs against
+  a held-out set or a rubric is a separate exercise in a separate
+  tool. There is no place inside the platform to put a scoring step,
+  collect scores, and gate releases on a regression threshold.
+- **Iteration speed**: the round trip from "I think this prompt would
+  be better" to "the agent now uses the new prompt and I can see the
+  effect" is measured in minutes per change at best. Compared to a
+  text-editor save + rerun cycle, the gap is two orders of magnitude.
+
+Testudo's answers, all native:
+
+- Workflow JSON in git. Diffable, reviewable, revertible, mergeable.
+- Tests are `pytest`. Each example workflow ships with a smoke test;
+  the CI matrix runs them on every push.
+- Validation is declarative in the workflow itself:
+  `permissions.network.egress` is the explicit allow-list, `when:`
+  predicates short-circuit unsafe branches, sanitisers reject before
+  exit. The audit log records the verdict per step.
+- Output scoring is just another step. Add a `models.ollama_chat` step
+  that scores the previous step's output against a rubric; aggregate
+  with `outputs.dashboard`; gate the next CI release on the score with
+  a `when:` predicate. The whole loop lives in the workflow shape that
+  already produced the output you are scoring.
+- Iteration speed is whatever your terminal cycle is. Edit JSON, save,
+  `testudo run`, observe. No GUI in between.
+
+This is independent of the model-availability argument. Even with
+Copilot Studio configured to use the same `:cloud` Ollama models or the
+same Azure OpenAI deployment Testudo would call, the dev loop on the
+vendor platform remains GUI-bound. For teams that need to build, test,
+and ship agents iteratively, the vendor platform imposes a real cost
+that compounds across every prototype cycle.
 
 ## Related
 
