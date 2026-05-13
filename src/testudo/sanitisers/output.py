@@ -43,7 +43,7 @@ import re
 from testudo.sanitisers.injection import detect_injection
 from testudo.sanitisers.patterns import SECRET_PATTERNS
 from testudo.sanitisers.pii import redact_pii
-from testudo.sanitisers.result import Finding, SanitisationResult, Severity
+from testudo.sanitisers.result import Decision, Finding, SanitisationResult, Severity
 from testudo.sanitisers.threat import detect_threats
 from testudo.sanitisers.unicode_payload import strip_hidden
 
@@ -102,6 +102,7 @@ def sanitise_output(content: str) -> SanitisationResult:
         hidden_findings + secret_findings + pii_findings + injection_findings + threat_findings
     )
 
+    decision: Decision
     if injection_findings or threat_findings:
         decision = "reject"
     elif hidden_findings or secret_findings or pii_findings:

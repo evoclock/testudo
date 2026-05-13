@@ -48,9 +48,14 @@ class PromptTemplate:
         """
         result = self.text
         for key, value in variables.items():
+            replacement = str(value)
+
+            def _replace(_m: re.Match[str], v: str = replacement) -> str:
+                return v
+
             result = re.sub(
                 r"\{\{\s*" + re.escape(key) + r"\s*\}\}",
-                lambda _m, v=str(value): v,
+                _replace,
                 result,
             )
         if strict:

@@ -26,7 +26,7 @@ from testudo.sanitisers.patterns import (
     MCP_THREAT_PATTERNS,
     OWASP_INJECTION_PATTERNS,
 )
-from testudo.sanitisers.result import Finding, SanitisationResult, Severity
+from testudo.sanitisers.result import Decision, Finding, SanitisationResult, Severity
 
 
 def detect_owasp(content: str) -> list[Finding]:
@@ -73,7 +73,7 @@ def detect_threats(content: str) -> list[Finding]:
 def sanitise_threat(content: str) -> SanitisationResult:
     """Top-level threat sanitisation: reject on any finding."""
     findings = detect_threats(content)
-    decision = "reject" if findings else "accept"
+    decision: Decision = "reject" if findings else "accept"
     return SanitisationResult(decision=decision, content=content, findings=findings)
 
 

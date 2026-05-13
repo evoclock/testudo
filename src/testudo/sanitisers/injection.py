@@ -20,7 +20,7 @@ prefer the agent scanner's per-rule thresholds rather than blanket rejection.
 from __future__ import annotations
 
 from testudo.sanitisers.patterns import PROMPT_INJECTION_PATTERNS
-from testudo.sanitisers.result import Finding, SanitisationResult, Severity
+from testudo.sanitisers.result import Decision, Finding, SanitisationResult, Severity
 
 
 def detect_injection(content: str) -> list[Finding]:
@@ -49,5 +49,5 @@ def sanitise_injection(content: str) -> SanitisationResult:
     intent and silently strip legitimate content).
     """
     findings = detect_injection(content)
-    decision = "reject" if findings else "accept"
+    decision: Decision = "reject" if findings else "accept"
     return SanitisationResult(decision=decision, content=content, findings=findings)

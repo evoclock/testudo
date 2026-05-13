@@ -50,7 +50,7 @@ detector.
 from __future__ import annotations
 
 from testudo.sanitisers.patterns import ALL_PII_PATTERNS
-from testudo.sanitisers.result import Finding, SanitisationResult, Severity
+from testudo.sanitisers.result import Decision, Finding, SanitisationResult, Severity
 
 
 def detect_pii(content: str) -> list[Finding]:
@@ -116,12 +116,12 @@ def sanitise_pii(content: str, *, redact: bool = False) -> SanitisationResult:
     """
     if redact:
         cleaned, findings = redact_pii(content)
-        decision = "redact" if findings else "accept"
-        return SanitisationResult(decision=decision, content=cleaned, findings=findings)
+        redact_decision: Decision = "redact" if findings else "accept"
+        return SanitisationResult(decision=redact_decision, content=cleaned, findings=findings)
 
     findings = detect_pii(content)
-    decision = "reject" if findings else "accept"
-    return SanitisationResult(decision=decision, content=content, findings=findings)
+    detect_decision: Decision = "reject" if findings else "accept"
+    return SanitisationResult(decision=detect_decision, content=content, findings=findings)
 
 
 def _short_label(label: str) -> str:

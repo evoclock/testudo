@@ -110,5 +110,20 @@ strict = true
 warn_unused_ignores = true
 warn_return_any = true
 
+# Optional-extra modules (file_ops, databricks) and untyped third-party libs.
+# CI installs only `.[dev]` so these are not present at type-check time;
+# their imports are guarded at the call sites with try/except blocks.
+[[tool.mypy.overrides]]
+module = [
+    "pypdf",
+    "pypdf.*",
+    "docx",
+    "docx.*",
+    "databricks",
+    "databricks.*",
+    "yaml",
+]
+ignore_missing_imports = true
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/testudo"]

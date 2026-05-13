@@ -24,7 +24,7 @@ from testudo.orchestrator.context import StepContext
 from testudo.orchestrator.registry import register_tool
 from testudo.sanitisers.injection import sanitise_injection
 from testudo.sanitisers.pii import sanitise_pii
-from testudo.sanitisers.result import SanitisationResult
+from testudo.sanitisers.result import Decision, SanitisationResult
 
 
 def _coerce_to_text(content: Any) -> str:
@@ -95,6 +95,7 @@ def combined_tool(_ctx: StepContext, *, content: Any, redact: bool = False) -> d
     inj_result = sanitise_injection(pii_result.content)
 
     findings = pii_result.findings + inj_result.findings
+    decision: Decision
     if not findings:
         decision = "accept"
     elif inj_result.findings:

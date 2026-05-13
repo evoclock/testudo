@@ -33,7 +33,7 @@ from testudo.sanitisers.patterns import (
     HIDDEN_UNICODE_PATTERNS,
     INVISIBLE_CHARS,
 )
-from testudo.sanitisers.result import Finding, SanitisationResult, Severity
+from testudo.sanitisers.result import Decision, Finding, SanitisationResult, Severity
 
 
 def detect_hidden(content: str) -> list[Finding]:
@@ -112,5 +112,5 @@ def sanitise_hidden(content: str) -> SanitisationResult:
     "accept" otherwise.
     """
     cleaned, findings = strip_hidden(content)
-    decision = "redact" if findings else "accept"
+    decision: Decision = "redact" if findings else "accept"
     return SanitisationResult(decision=decision, content=cleaned, findings=findings)

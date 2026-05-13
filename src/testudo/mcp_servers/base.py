@@ -65,12 +65,12 @@ class BaseMCPServer:
         req_id = request.get("id")
 
         if method == "initialize":
-            result = {
+            init_result: dict[str, Any] = {
                 "protocolVersion": self.protocol_version,
                 "capabilities": {"tools": {}},
                 "serverInfo": {"name": self.name, "version": "0.1.5"},
             }
-            return self._envelope(req_id, result=result)
+            return self._envelope(req_id, result=init_result)
 
         if method == "tools/list":
             tools = [
@@ -94,14 +94,15 @@ class BaseMCPServer:
                     error={"code": -32601, "message": f"Unknown tool: {tool_name!r}"},
                 )
 
+            tool_result: dict[str, Any]
             try:
-                result = self.tools[tool_name].handler(arguments)
+                tool_result = self.tools[tool_name].handler(arguments)
             except Exception as exc:
-                result = {
+                tool_result = {
                     "isError": True,
                     "content": [{"type": "text", "text": f"{type(exc).__name__}: {exc}"}],
                 }
-            return self._envelope(req_id, result=result)
+            return self._envelope(req_id, result=tool_result)
 
         if req_id is None:
             return None
@@ -119,6 +120,7 @@ class BaseMCPServer:
             line = line.strip()
             if not line:
                 continue
+            response: dict[str, Any] | None
             try:
                 request = json.loads(line)
             except json.JSONDecodeError as exc:

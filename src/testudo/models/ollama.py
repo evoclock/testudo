@@ -111,6 +111,7 @@ def _extract_content(data: dict[str, Any]) -> str:
     """
     if isinstance(data.get("message"), dict):
         return str(data["message"].get("content", ""))
-    if isinstance(data.get("response"), str):
-        return data["response"]
+    response_value = data.get("response")
+    if isinstance(response_value, str):
+        return response_value
     return ""

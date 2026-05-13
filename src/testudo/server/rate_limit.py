@@ -22,6 +22,7 @@ import time
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from typing import Any
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -95,7 +96,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     EXEMPT_PATHS: frozenset[str] = frozenset({"/health", "/metrics"})
 
-    def __init__(self, app, *, limiter: RateLimiter | None = None) -> None:
+    def __init__(self, app: Any, *, limiter: RateLimiter | None = None) -> None:
         super().__init__(app)
         self._limiter = limiter or RateLimiter()
 
