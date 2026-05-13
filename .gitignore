@@ -69,3 +69,14 @@ CLAUDE.md
 .cursor/
 .windsurf/
 outputs-ui/
+
+# Internal-only docs and working artefacts (not for the public repo)
+docs/aesthetic-proposal.html
+docs/logo-preview.html
+docs/previews/
+
+# Stray draft / unused asset files (kept locally, not shipped)
+assets/A.png
+assets/B.png
+assets/C.png
+assets/D.png
