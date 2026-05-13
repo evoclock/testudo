@@ -77,7 +77,10 @@ INTERNATIONAL_PII_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ),
     ("Credit card (Visa)", re.compile(r"\b4\d{12}(?:\d{3})?\b")),
     # Mastercard: legacy 51-55 BIN range + 2017-era 2221-2720 BIN range
-    ("Credit card (Mastercard)", re.compile(r"\b(?:5[1-5]\d{14}|2(?:2[2-9]\d|[3-6]\d{2}|7[01]\d|720)\d{12})\b")),
+    (
+        "Credit card (Mastercard)",
+        re.compile(r"\b(?:5[1-5]\d{14}|2(?:2[2-9]\d|[3-6]\d{2}|7[01]\d|720)\d{12})\b"),
+    ),
     ("Credit card (Amex)", re.compile(r"\b3[47]\d{13}\b")),
     ("Credit card (Discover)", re.compile(r"\b6(?:011|5\d{2})\d{12}\b")),
     ("Credit card (JCB)", re.compile(r"\b35(?:2[89]|[3-8]\d)\d{12}\b")),

@@ -29,6 +29,7 @@ def test_fetch_https_returns_staged_input_on_200() -> None:
 
 def test_fetch_https_accepts_octet_stream_for_drive_compat() -> None:
     """Regression: Drive serves shared files as octet-stream; must accept."""
+
     def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(
             200,
