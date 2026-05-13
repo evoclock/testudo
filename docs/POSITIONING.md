@@ -445,7 +445,7 @@ Split into two phases:
 
 ## The broken dev loop on vendor-GUI platforms
 
-The most-cited reason for adopting Testudo in environments that already
+One of the most compelling reasons for adopting Testudo in environments that already
 have Copilot Studio or Power Automate licensing is not model availability;
 it is that the **development loop itself is broken** on GUI-first platforms,
 regardless of which approved model the agent points at:
