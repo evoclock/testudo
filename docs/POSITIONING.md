@@ -167,18 +167,54 @@ Friction point by friction point, with the architectural choice
 documented. The plan deliberately rejects two paths and commits to
 seven.
 
-### 1. No drag-drop GUI - REJECTED expansion
+### 1. Low-code yes, no-code no
 
-**Decision**: Compose (React Flow canvas, tool palette, node inspector,
-save-as-workflow-JSON) is the GUI ceiling. We do not pursue a no-code
-"describe in English what you want" generator.
+**Position**: Testudo offers **low-code** authoring through the Compose
+canvas: tool palette, React Flow editing surface, per-node param
+inspector, save-as-workflow-JSON. The author drags and wires; they do
+not need to write Python. That is the GUI ceiling and a deliberate one.
+Testudo does **not** offer a **no-code** "describe in English what you
+want and we will generate the agent" surface.
 
-**Reason**: pitching no-code users as the audience for agent generation
-ignores that this audience is not natively aware of system limitations
-and needs when developing software or agentic tools. The result is
-agents that fail in production with no clear failure mode for the
-non-technical author to debug. The right audience for Testudo is
-technical operators who want lower friction than Copilot Studio.
+**Why the distinction matters**: low-code removes the typing burden;
+no-code claims to remove the understanding burden too. The
+understanding cannot actually be removed — agentic-tooling failure
+modes are subtle. A misconfigured connector silently leaks data to a
+destination the operator did not intend; a prompt-injection chain
+produces output that looks correct but is wrong; a sanitiser misapplied
+to the wrong field redacts the signal and ships the noise. The "anyone
+can build an agent" position is appealing as a marketing line but
+tends to externalise the cost of these failure modes onto downstream
+consumers (the people who receive the bad output).
+
+Testudo's position: the assumption of good system-design and
+implementation understanding rests with the author. Compose makes that
+authoring lighter (you compose from primitives rather than write code),
+not optional (you still need to know what each primitive does and how
+they compose). The required understanding includes: which connectors
+touch the network, what each sanitiser pass means for the data
+flowing through, how the isolation profile bounds the blast radius if
+a step misbehaves, when to use a chat-channel output versus a file
+write, why XML-tagged prompt templates are the convention.
+
+**What we will do** (technical-user comfort, not lower the
+understanding bar):
+
+- Template gallery: fork-from-template flow in Compose. Each shipped
+  workflow becomes a starter template so the author starts from a
+  working example rather than a blank canvas.
+- "Test step" action in Compose's node inspector: run an isolated step
+  with synthetic inputs and surface the output / error inline.
+- Param validation feedback in Compose (already present for missing
+  required inputs; extend to type-mismatch and schema-violation hints).
+- Inline JSON view alongside the canvas for authors who want to edit
+  the underlying workflow.json directly.
+- In-app hover-help for every connector and sanitiser describing what
+  it does, what data it touches, and what its failure modes are.
+- A short "what could go wrong" linting pass in Compose that flags
+  patterns known to misbehave (e.g. an `outputs.file` step writing to
+  a path outside the workflow's filesystem allow-list; a `models.*`
+  step whose downstream consumers do not run `sanitise_output` first).
 
 **What we will do instead** (technical-user comfort, not no-code):
 
