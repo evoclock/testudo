@@ -113,7 +113,7 @@ on the existing env-loader pattern.
   version-controlled.
 - Local development, no staging environments.
 - Open source. Every line of code that handles your data is auditable.
-- No vendor lock-in: the same `workflow.json` runs on Hillstar.
+- No vendor lock-in.
 
 ### Where Testudo is higher friction today
 
@@ -309,7 +309,7 @@ collection automated by Drata / Vanta / Secureframe.
 How Testudo supports the deployer's certification:
 
 - Security: defence-in-depth sanitiser pipeline + permissions framework
-  + scan-before-permit gate + container isolation profile.
+  - scan-before-permit gate + container isolation profile.
 - Availability: per-run audit log captures every workflow start /
   step / error / completion with timestamps. Bridge has health
   endpoint.
@@ -417,7 +417,7 @@ Headline: Microsoft 365 + Slack connectors + auth helper.
 3-5 focused sessions. Split into two phases if helpful:
 
 - **v0.1.7-alpha**: auth helpers + Teams connector + scope enforcement
-  + one example workflow. End-to-end demo possible. ~2 sessions.
+  - one example workflow. End-to-end demo possible. ~2 sessions.
 - **v0.1.7-beta**: SharePoint connectors + Slack connector + compliance
   doc scaffold + second example workflow. ~2-3 sessions.
 

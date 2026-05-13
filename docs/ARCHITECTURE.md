@@ -253,7 +253,17 @@ A workflow without `permissions` and `isolation` blocks runs under deny-by-defau
 
 ## Docker status
 
-The Docker isolation primitive is architected and scaffolded but is not the default execution path in v0.1.5. `build_docker_argv` builds the canonical `docker run` argv from a workflow's `IsolationProfile`; the `Dockerfile` produces `testudo:0.1`; `Runner` wires the audit log around the container invocation. But the v0.1.x CLI / FastAPI default path runs the orchestrator in-process on the host. Wiring the Docker path into `testudo run` and `POST /runs` is the priority-1 item for v0.1.6 in [NEXT_ACTIONS.md](../NEXT_ACTIONS.md).
+The Docker isolation primitive is architected and scaffolded but is not the default execution path in v0.1.5. `build_docker_argv` builds the canonical `docker run` argv from a workflow's `IsolationProfile`; the `Dockerfile` produces `testudo:0.1`; `Runner` wires the audit log around the container invocation. The v0.1.x CLI / FastAPI default path runs the orchestrator in-process on the host. v0.1.6 wires the Docker path into `testudo run` and `POST /runs` as the default, plus per-workflow egress allow-lists at the container's `iptables` layer. See [NEXT_ACTIONS.md](../NEXT_ACTIONS.md) Priority 0.
+
+## Connector / auth layer (v0.1.7 forward-looking)
+
+The connector library today covers local file I/O, generic HTTPS, document extraction, DuckDB, Databricks, Ollama, plus four output channels (file, chat, dashboard spec, ticket via webhook). The v0.1.7 milestone adds Microsoft 365 and Slack:
+
+- `testudo.auth.microsoft` (new package): MSAL wrapper supporting both client-credentials (service-principal agent identity) and device-code (delegated user) flows. Token cache file-based and gitignored at `~/.config/testudo/tokens/` with proactive refresh.
+- `testudo.auth.slack` (new package): static bot-token loader, no refresh.
+- `connectors.teams_post`, `connectors.sharepoint_read`, `connectors.sharepoint_write`, `connectors.slack_post` use the same shape as the existing Databricks / Ollama connectors and run their output through `sanitise_output` before the network call.
+- Per-workflow resource binding (channel IDs, site IDs, drive IDs) in `workflow.json`; runtime refuses to start a workflow whose declared resources are not granted by the loaded tokens and surfaces the missing-scope name to the operator.
+- Access control is gated at the external resource (Entra ID app consent for Microsoft, workspace admin approval for Slack), not at a Testudo-internal admin surface. The architectural rationale and the close-the-gap plan against the wider class of vendor agent platforms is in [POSITIONING.md](POSITIONING.md).
 
 ## Repo layout
 
@@ -274,9 +284,12 @@ testudo/
 │   └── server/         # FastAPI app, auth, rate limit
 ├── electron/           # TS + React + electron-vite renderer
 ├── examples/           # demo workflows + sample data
-├── tests/              # 279 tests
-├── docs/               # ARCHITECTURE, ROADMAP, INDEX, naming
+├── tests/              # 316 tests, 84% coverage
+├── docs/               # ARCHITECTURE, ROADMAP, INDEX, POSITIONING,
+│                       # OLLAMA_SETUP, COMPOSE-SMOKE-TEST
 ├── Dockerfile          # testudo:0.1 image
-├── STATUS.md           # repo state snapshot at v0.1.5
+├── .pre-commit-config.yaml  # ruff format + ruff + mypy + detect-private-key
+├── STATUS.md           # repo state snapshot
+├── CHANGELOG.md        # release history
 └── NEXT_ACTIONS.md     # next-session priorities
 ```

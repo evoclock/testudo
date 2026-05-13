@@ -13,6 +13,8 @@ original v0.1.5 release section below is frozen as a handover artefact;
 - **Confidentiality:** zero references to `agentic-orchestrator` or any
   private fork content. testudo is OSS only.
 - **Install discipline:** Socket Firewall (`sfw 1.8.0`) is the host-side gate; PreToolUse hook at `~/.claude/hooks/sfw_enforce.py` blocks unwrapped installs in Claude Code sessions. See README "Supply-chain hardening for contributors".
+- **Repo:** public at `github.com/evoclock/testudo`. History scrubbed of a previously-leaked Databricks PAT via `git-filter-repo` (token rotated before push, scrub verified on remote). GitHub Actions CI green on both `test(3.11)` and `test(3.12)`.
+- **Pre-commit hook installed**: `.pre-commit-config.yaml` runs ruff format + ruff check + mypy + detect-private-key + large-file checks on every commit. Mirrors the CI sequence locally.
 
 ## Post-tag follow-ups, wave 2 (2026-05-13)
 
@@ -28,6 +30,12 @@ original v0.1.5 release section below is frozen as a handover artefact;
 - **Socket Firewall posture**: `sfw 1.8.0` installed; PreToolUse hook at `~/.claude/hooks/sfw_enforce.py` registered in `~/.claude/settings.json` blocks unwrapped npm / pnpm / yarn / pip / uv / pipx / cargo installs across every Claude Code session. Cargo build/test/run get an advisory message but allow. Bypass flags do not exempt. Policy paragraph in `~/.claude/CLAUDE.md` so every session loads the rule.
 - **Local language packs** (Krebs trick): Russian, Ukrainian, Chinese (Simplified + Traditional), Hebrew installed on the host.
 - **Compose smoke-test design** committed to `docs/COMPOSE-SMOKE-TEST.md`: a 4-step linear chain (`local_file -> pii_and_injection -> outputs.file -> outputs.chat`) with no external deps for round-trip validation of the Compose -> Save -> Run flow.
+- **`docs/POSITIONING.md`** (new): positioning vs the class of restrictive enterprise agent platforms (Microsoft Copilot Studio lead example, plus Vertex AI Agent Builder, Bedrock Agents, Agentforce, ServiceNow Now Assist, watsonx Orchestrate, Rovo, Glean, etc.). Connector gap, friction comparison, security comparison, close-the-gap plan, decision matrix.
+- **v0.1.7 milestone** scoped in ROADMAP and NEXT_ACTIONS: Microsoft 365 + Slack connectors (`connectors.teams_post`, `connectors.sharepoint_read`, `connectors.sharepoint_write`, `connectors.slack_post`) + `testudo.auth.microsoft` (MSAL wrapper) + `testudo.auth.slack` (bot-token loader) + per-workflow resource binding + `testudo m365 doctor` CLI + compliance control-mapping scaffolds.
+- **Low-code-yes-no-code-no position** stated explicitly in the README and POSITIONING.md: Compose is a low-code authoring surface; the understanding burden rests with the author. The "anyone can build an agent" framing externalises agentic-tooling failure modes onto downstream consumers.
+- **Mypy strict mode green**: 21 errors fixed across `sanitisers/*` (Decision Literal annotation), `mcp_servers/base.py` (typed result variables), `prompts/template.py` (lambda -> def), `models/ollama.py` (typed local), `server/rate_limit.py` (Any annotation). Per-module overrides for optional-extra modules (pypdf, docx, databricks, yaml) in pyproject.toml.
+- **`.pre-commit-config.yaml`**: ruff-format + ruff + mypy + trailing-whitespace + detect-private-key + large-file checks. Runs on every commit. Mirrors the GitHub Actions CI sequence locally so format / mypy regressions cannot reach CI.
+- **GitHub push live**: repo public at `github.com/evoclock/testudo`. Force-push from local main; remote's auto-generated `Initial commit` replaced with full history. History scrubbed of a previously-leaked Databricks PAT via `git-filter-repo --replace-text` (token rotated in Databricks console first; scrub verified on remote with `git log -p -S`). `git-filter-repo` installed via `sfw uv tool install`. GitHub Actions CI green on both Python 3.11 and 3.12 matrix jobs.
 
 ## Post-tag follow-ups, wave 1 (2026-05-12)
 
