@@ -11,6 +11,7 @@ title: "Testudo docs index"
 ## Setup guides
 
 - [OLLAMA_SETUP.md](OLLAMA_SETUP.md) -- install Ollama, the `:cloud` suffix convention, the 6-cloud + 4-local picker, point testudo at the daemon, use the `models.ollama_chat` tool from a workflow.
+- [PACKAGING.md](PACKAGING.md) -- build a clickable `.app` (Mac) or `AppImage` (Linux) with no CLI prerequisites on the target. Covers prerequisites, PyInstaller + electron-builder sequence, smoke test, env file placement, and distribution to the corporate Mac.
 
 ## Validation
 
