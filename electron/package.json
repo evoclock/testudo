@@ -10,11 +10,35 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
+    "pack:mac": "electron-vite build && electron-builder --mac",
+    "pack:linux": "electron-vite build && electron-builder --linux",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "lint": "eslint src --ext .ts,.tsx",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,json,md}\""
+  },
+  "build": {
+    "appId": "io.testudo.shell",
+    "productName": "Testudo",
+    "executableName": "Testudo",
+    "directories": {
+      "output": "../dist-electron"
+    },
+    "files": ["out/**/*"],
+    "extraResources": [
+      {
+        "from": "../dist/testudo-bridge",
+        "to": "testudo-bridge"
+      }
+    ],
+    "mac": {
+      "target": ["dmg", "dir"],
+      "category": "public.app-category.developer-tools"
+    },
+    "linux": {
+      "target": ["AppImage", "dir"]
+    }
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -25,6 +49,7 @@
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
+    "electron-builder": "^25.1.8",
     "@types/node": "^22.7.5",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",
