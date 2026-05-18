@@ -6,6 +6,7 @@
  * process. Token + URL live here and only leak to the renderer through
  * the explicit getStatus() return value.
  */
+import { app } from "electron";
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -214,11 +215,13 @@ export class BridgeManager {
   }
 
   private loadEnvFiles(): Record<string, string> {
-    const repoRoot = resolve(__dirname, "../../..");
+    const envDir = app.isPackaged
+      ? app.getPath("userData")
+      : resolve(__dirname, "../../..");
     const files = [".env.testudo", ".env.databricks", ".env.ollama"];
     const out: Record<string, string> = {};
     for (const name of files) {
-      const path = join(repoRoot, name);
+      const path = join(envDir, name);
       if (!existsSync(path)) continue;
       try {
         const raw = readFileSync(path, "utf-8");
@@ -257,6 +260,12 @@ export class BridgeManager {
     if (env && existsSync(env)) {
       process.stderr.write(`[bridge] resolved testudo via TESTUDO_CLI=${env}\n`);
       return env;
+    }
+
+    if (app.isPackaged) {
+      const bundled = join(process.resourcesPath, "testudo-bridge");
+      process.stderr.write(`[bridge] packaged: using bundled binary at ${bundled}\n`);
+      return bundled;
     }
 
     const repoRoot = resolve(__dirname, "../../..");
