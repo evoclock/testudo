@@ -15,7 +15,7 @@ state must be **Anyone with the link**; folder URLs are not supported
 | Name | Required | Example | Notes |
 |---|---|---|---|
 | `url` | yes | `https://raw.githubusercontent.com/.../README.md` | Any HTTPS URL returning text. Drive `/file/d/<ID>/view` URLs auto-rewrite to `/uc?export=download&id=<ID>` in the UI's URL tab. |
-| `output_path` | yes | `/home/jgamboa/testudo/outputs-ui/url-fetch-readme.md` | Where the redacted body is written. |
+| `output_path` | yes | `~/testudo/outputs-ui/url-fetch-readme.md` | Where the redacted body is written. |
 | `max_bytes` | no | `10485760` (default 10 MiB) | Hard cap on response size to prevent runaway memory use. |
 
 ## What the workflow does

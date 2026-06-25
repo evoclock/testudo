@@ -15,10 +15,10 @@ inline as the chat response.
 
 | Name | Required | Example | Notes |
 |---|---|---|---|
-| `pdf_path` | yes | `/home/jgamboa/testudo/examples/data/sample.md` | Local path to the document. PDF / DOCX / PPTX / HTML / JSON / TXT / MD all supported. |
+| `pdf_path` | yes | `~/testudo/examples/data/sample.md` | Local path to the document. PDF / DOCX / PPTX / HTML / JSON / TXT / MD all supported. |
 | `model` | no | `minimax-m2.7:cloud` (default) | Ollama tag. Cloud-served models use `:cloud` suffix. See [OLLAMA_SETUP.md](../../docs/OLLAMA_SETUP.md) for the recommended seven. |
 | `system_prompt` | no | XML-tagged role+constraints (default) | The system message sent to the model. Default constrains output to five bullet points, source-only, no speculation. |
-| `output_path` | yes | `/home/jgamboa/testudo/outputs-ui/pdf-summarise-<name>.md` | Where the redacted summary is written. |
+| `output_path` | yes | `~/testudo/outputs-ui/pdf-summarise-<name>.md` | Where the redacted summary is written. |
 
 ## What the workflow does
 

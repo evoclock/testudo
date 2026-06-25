@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Julen Gamboa <j.a.r.gamboa@gmail.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Testudo server package.
 
 Purpose: FastAPI bridge between the Electron UI (or any HTTP client) and the

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Julen Gamboa <j.a.r.gamboa@gmail.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Testudo orchestrator package.
 
 Purpose: lightweight in-container workflow runner. Reads Hillstar's

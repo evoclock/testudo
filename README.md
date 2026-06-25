@@ -4,9 +4,15 @@
   <img src="assets/Testudo_80s-trans-tight.png" alt="Testudo" width="240">
 </p>
 
+<p align="center">
+  <a href="https://github.com/evoclock/testudo/actions/workflows/ci.yml"><img src="https://github.com/evoclock/testudo/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPLv3%20%2B%20Attribution-blue?style=flat" alt="License"/></a>
+  <img src="https://img.shields.io/badge/python-3.11%2B-3776AB?style=flat&logo=python&logoColor=white" alt="Python 3.11+"/>
+</p>
+
 > Hardened agent runtime: a containerised executor that runs an entire agent workflow end-to-end with declarative permissioning, layered sanitisation, MCP server isolation, audit logging, and a typed TS/React renderer. Comes with a CLI and a FastAPI bridge.
 
-**Status:** v0.1.5 + in-tree follow-ups (Electron UX hardening, Databricks adapter, env-check badges, resizable panes, per-workflow READMEs + starters, collapsible help sections, chat-channel surfacing in Activity, custom DAG node template, collapsed Activity entries, two-tier header with wordmark, Socket Firewall install discipline). 316 tests passing, 84% coverage, ruff clean. Apache 2.0.
+**Status:** v0.1.6 with the licence consolidation pass landed plus in-tree follow-ups (Electron UX hardening, Databricks adapter, env-check badges, resizable panes, per-workflow READMEs + starters, collapsible help sections, chat-channel surfacing in Activity, custom DAG node template, collapsed Activity entries, two-tier header with wordmark, Socket Firewall install discipline). 316 tests passing, 84% coverage, ruff clean. AGPLv3 + Section 7(b) attribution clause.
 
 ## Development disclosure
 
@@ -70,7 +76,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the layered view, the broad
 **Testudo is:**
 
 - A hardened agent runtime: container-isolated execution of declarative workflows with defence-in-depth sanitisation on every byte of input and output.
-- A multi-provider, multi-MCP host (in-house). The model adapter layer is built around `models.<provider>` tools; today `models.ollama_chat` is the shipped adapter, with Anthropic / OpenAI / Mistral / Google adapters planned for v0.2 under the same shape and the same sanitise-on-return invariant. The MCP server layer is in-house only (no third-party MCP server hosting); we ship `llm_response_capturer`, `file_writer`, and `file_extractor` and will add more in-house servers behind the same security boundary as needed.
+- A multi-provider, multi-MCP host (in-house). The model adapter layer is built around `models.<provider>` tools; today `models.ollama_chat` is the shipped adapter, with additional commercial-provider adapters planned for v0.2 under the same shape and the same sanitise-on-return invariant. The MCP server layer is in-house only (no third-party MCP server hosting); we ship `llm_response_capturer`, `file_writer`, and `file_extractor` and will add more in-house servers behind the same security boundary as needed.
 - A workflow composer with a graph editor (the **Compose** tab). Drag tools from a palette, wire `needs:` edges on a React Flow canvas, edit per-step `with:` params in the inspector, save as a workflow JSON via `POST /workflows`. The composer covers the same workflow shape Testudo executes; advanced authoring (sub-workflows, looping, branching beyond `when:` predicates) is intentionally deferred to Hillstar.
 
 **Testudo is not:**
@@ -121,7 +127,7 @@ M365 auth, compliance attestations, per-resource gating).
 | Permissions | Filesystem read/write prefixes; network egress allow-list; process-spawn deny-by-default; scan-before-permit gate for MCP-config / skill artifacts |
 | Data | DuckDB by default; Databricks adapter behind `[databricks]` extra |
 | Orchestration | Hillstar-compatible `workflow.json`; topological dependency ordering; `${...}` reference resolution; `when:` predicates; tool registry |
-| Model adapters | `models.ollama_chat` against an Ollama-served model (default `minimax-m2.7:cloud` in the UI; cloud-served models use the `:cloud` suffix); response auto-routed through `sanitise_output` before return. Multi-provider planned for v0.2 (Anthropic / OpenAI / Mistral / Groq under the same `models.*` shape). |
+| Model adapters | `models.ollama_chat` against an Ollama-served model (default backend is configurable in the UI; cloud-served models use the `:cloud` suffix). Response auto-routed through `sanitise_output` before return. Additional commercial-provider adapters planned for v0.2 under the same `models.*` shape. |
 | Prompt templates | `testudo.prompts.PromptTemplate` loads XML-shaped templates with `{{placeholder}}` substitution and `strict=True` unresolved-placeholder detection. Sample template at `examples/prompts/meeting_debrief.xml`. Orchestrator wiring (workflow steps referencing templates by name rather than embedding XML inline) is in flight for v0.1.6. |
 | MCP servers | In-house base (JSON-RPC 2.0 + STDIO); read-only `llm_response_capturer` with HMAC-signed receipts; write-only `file_writer` (receipt-gated); read-only `file_extractor` |
 | Runtime | Docker argv builder, `Dockerfile`, Runner, IsolationProfile (deny-by-default network, read-only root, tmpfs `/tmp`, configurable cpu / memory) |
@@ -131,23 +137,23 @@ M365 auth, compliance attestations, per-resource gating).
 | UI | Electron + TypeScript + React 18 + Tailwind + React Flow (renderer via `electron-vite`, sandboxed; bridge token flows via preload `contextBridge`) |
 | Output | File writer, chat-inline, dashboard component spec, ticket via webhook |
 | Demo workflows | `pdf-summarise-v015` (extract + LLM + sanitise + chat-respond), `url-fetch-v015` (HTTPS + sanitise + chat-respond), `db-query-v015` (DuckDB + sanitise + chat-respond), `databricks-query-v015` (Databricks SQL + sanitise + chat-respond), plus `meeting-debrief` / `pdf-debrief` as legacy reference. Each currently-loaded workflow ships a README under `examples/readmes/` surfaced in the Workflow tab. |
-| UI modes | Five-tab picker (File / URL / Database / Workflow / Compose). File runs `pdf-summarise-v015` against a chosen Ollama model (cloud-served `minimax-m2.7:cloud` default, plus 6 alternatives in the picker). URL runs `url-fetch-v015` with auto-rewrite of Drive share URLs. Database routes to `db-query-v015` (DuckDB, bundled demo db at `examples/data/demo.duckdb`) or `databricks-query-v015` (when `DATABRICKS_*` env vars are exported). Workflow renders any workflow's input schema as a form, surfaces its README, and ships starter buttons that pre-fill known-working inputs. Compose authors workflows visually (tool palette, React Flow canvas, node inspector, save via `POST /workflows`). DAG panel shows the staged workflow's step graph with post-run OK/FAIL/SKIP colour; Activity panel renders the workflow's chat-channel output prominently alongside any per-run note. |
+| UI modes | Five-tab picker (File / URL / Database / Workflow / Compose). File runs `pdf-summarise-v015` against a chosen Ollama model (default backend is selectable from the picker, plus a free-text field for any other model). URL runs `url-fetch-v015` with auto-rewrite of Drive share URLs. Database routes to `db-query-v015` (DuckDB, bundled demo db at `examples/data/demo.duckdb`) or `databricks-query-v015` (when `DATABRICKS_*` env vars are exported). Workflow renders any workflow's input schema as a form, surfaces its README, and ships starter buttons that pre-fill known-working inputs. Compose authors workflows visually (tool palette, React Flow canvas, node inspector, save via `POST /workflows`). DAG panel shows the staged workflow's step graph with post-run OK/FAIL/SKIP colour; Activity panel renders the workflow's chat-channel output prominently alongside any per-run note. |
 | UI shell | Header surfaces bridge state (`stopped`/`starting`/`online`/`error`), bridge port, version, and live env-check badges (`ollama up/down`, `databricks ready/n/a`) sourced from `GET /env-check`. The renderer/DAG/Activity split is fully resizable via drag handles (`react-resizable-panels`). Starter-query and schema-hint sections are collapsible so first-time users get guidance and repeat users get pane space. |
 
 ## Quick start
 
 ```bash
 # Install (default)
-uv pip install -e .
+sfw uv pip install -e .
 
 # Install with the FastAPI bridge
-uv pip install -e ".[serve]"
+sfw uv pip install -e ".[serve]"
 
 # Install with file_ops extras (pypdf, python-docx) for PDF / DOCX extraction
-uv pip install -e ".[file_ops]"
+sfw uv pip install -e ".[file_ops]"
 
 # Install with development tooling (pytest, ruff, mypy)
-uv pip install -e ".[dev]"
+sfw uv pip install -e ".[dev]"
 ```
 
 ### Run the demo workflows on the host
@@ -158,9 +164,9 @@ python examples/data/seed_demo.py   # idempotent; commits a fresh demo.duckdb
 testudo run examples/workflow-db-query.json \
   --inputs-json <(echo '{"database_path": "examples/data/demo.duckdb", "query": "SELECT name, role FROM attendees WHERE meeting_id = '"'"'M-001'"'"'", "parameters": [], "output_path": "runs/db-query.md"}')
 
-# PDF summarise (needs an Ollama-served model; defaults to minimax-m2.7:cloud)
+# PDF summarise (needs an Ollama-served model; pick any backend from the picker)
 testudo run examples/workflow-pdf-summarise.json \
-  --inputs-json <(echo '{"pdf_path": "examples/data/sample.md", "model": "minimax-m2.7:cloud", "output_path": "runs/pdf-summarise.md"}')
+  --inputs-json <(echo '{"pdf_path": "examples/data/sample.md", "model": "<your-ollama-model>", "output_path": "runs/pdf-summarise.md"}')
 
 # URL fetch (public HTTPS; Drive share URLs auto-rewrite to direct-download form)
 testudo run examples/workflow-url-fetch.json \
@@ -184,10 +190,10 @@ Workflow tab in the UI fetches and renders these inline (collapsible).
 
 ```bash
 # Python side
-uv pip install -e ".[serve]"
+sfw uv pip install -e ".[serve]"
 
 # Renderer side
-cd electron && npm install && cd ..
+cd electron && sfw npm install && cd ..
 ```
 
 #### Launch the renderer
@@ -303,14 +309,50 @@ small CLI helper to inspect and edit the merged ruleset before the
 container starts.
 
 **v0.2** adds the Presidio NLP hybrid (regex + spaCy NER + confidence
-merge), additional in-house `models.*` adapters (Anthropic / OpenAI /
-Mistral / Groq under the same shape and the same sanitise-on-return
-invariant), service-principal Databricks auth, async parallel step
-execution, and dashboard embed channels.
+merge), additional in-house `models.*` adapters covering the major
+commercial providers under the same shape and the same
+sanitise-on-return invariant, service-principal Databricks auth, async
+parallel step execution, and dashboard embed channels.
 
-## License
+## Acknowledgements
 
-Apache License 2.0. See [LICENSE](LICENSE).
+Designed and built by Julen Gamboa, who drove system design,
+implementation, agent orchestration, and code review. Claude Code
+and Hermes operated as spec-driven agents, executing implementation
+tasks under that direction.
+
+## Licence
+
+**GNU Affero General Public License v3 (AGPLv3)** plus a Section 7(b)
+author-attribution clause. See [`LICENSE`](LICENSE) for the full text.
+
+The plain-English version:
+
+- **If you are using Testudo in an open-source project**: you are
+  asked to credit Julen Gamboa as the original author in your README
+  or equivalent primary documentation, with a link back to this
+  repository. It is a courtesy ask; the project will not chase you to
+  the ends of the earth to enforce it. The AGPL terms still apply
+  (source disclosure on conveyance and network use), and that is the
+  part with real teeth. We support genuine open-source use without
+  friction.
+- **If you are a for-profit entity or you are using Testudo in a paid
+  product or service**: you need a commercial licence. AGPLv3 is
+  genuinely viral for network use (Section 13), which materially
+  applies to Testudo because the FastAPI bridge and the renderer make
+  it natural to expose Testudo as a remote-access service. The
+  commercial licence waives those obligations. Contact the author for
+  details; pricing is flexible and case-by-case rather than triggered
+  by a revenue threshold.
+- **The split exists** because we have a problem with the pattern of
+  enterprises that exploit open-source projects without contributing
+  back, not with open-source contributors themselves. AGPLv3 plus a
+  commercial offering is the standard, OSI-approved pattern
+  (Nextcloud, Plausible, Cal.com, iText) for distinguishing the two
+  populations cleanly.
+
+A commercial licence template will be published in this repository
+at `COMMERCIAL.md` once finalised. Until then, reach out directly.
 
 ## Citation
 

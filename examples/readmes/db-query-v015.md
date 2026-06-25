@@ -14,10 +14,10 @@ Run a parameterised SQL query against a DuckDB database file (or
 
 | Name | Required | Example | Notes |
 |---|---|---|---|
-| `database_path` | yes | `/home/jgamboa/testudo/examples/data/demo.duckdb` or `:memory:` | Path to the DuckDB file. `:memory:` runs a transient session. |
+| `database_path` | yes | `~/testudo/examples/data/demo.duckdb` or `:memory:` | Path to the DuckDB file. `:memory:` runs a transient session. |
 | `query` | yes | `SELECT name, role FROM attendees WHERE meeting_id = 'M-001'` | Standard SQL. |
 | `parameters` | no | `[]` (default) | Positional binds for `?` placeholders. |
-| `output_path` | yes | `/home/jgamboa/testudo/outputs-ui/db-query-result.md` | Where the rows JSON is written. |
+| `output_path` | yes | `~/testudo/outputs-ui/db-query-result.md` | Where the rows JSON is written. |
 
 ## Starter (click in Workflow tab → Starters)
 

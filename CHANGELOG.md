@@ -4,6 +4,61 @@ All notable changes to this project will be documented in this file. Format foll
 
 ## [Unreleased]
 
+### v0.1.6 — licence consolidation pass (2026-05-29)
+
+- **Licence changed from Apache 2.0 to GNU Affero General Public
+  License v3 (AGPLv3) plus a Section 7(b) author-attribution
+  clause.** AGPLv3 is OSI-approved and delivers a structural
+  source-disclosure obligation on conveyance and on network-exposed
+  deployment (Section 13). Section 13's network-use trigger applies
+  materially to Testudo because the FastAPI bridge and the renderer
+  make it natural to expose Testudo as a remote-access service. The
+  Section 7(b) additional term preserves author attribution
+  explicitly. Both obligations are waived under a commercial licence
+  available for for-profit and paid-product use. Same pattern landed
+  across the evoclock product line during the consolidation pass.
+- `pyproject.toml`: licence field updated to `{ file = "LICENSE" }`;
+  PyPI classifier updated to OSI-approved AGPLv3+; version bumped
+  0.1.5 to 0.1.6.
+- `LICENSE` now contains: a project preamble, the verbatim FSF
+  AGPLv3 text, the Section 7(b) additional terms section, and a
+  Commercial Licence Option notice pointing to a forthcoming
+  `COMMERCIAL.md`.
+- `CITATION.cff`: licence updated to `AGPL-3.0-or-later`; version
+  bumped to 0.1.6 (was out of sync at 0.0.1); date-released
+  refreshed.
+- `CLAUDE.md`: hard-rule line that pinned the licence updated to the
+  new licence pair.
+- SPDX-FileCopyrightText and SPDX-License-Identifier headers added
+  to all 102 Python source / test files (previously testudo carried
+  no SPDX headers; this is a new convention introduced with the
+  licence switch).
+- README licence section rewritten with the plain-English split
+  between open-source use (courtesy attribution requested, AGPL
+  terms apply) and commercial use (commercial licence required,
+  AGPL waived).
+- README canonical Acknowledgements section added.
+- README badges added (CI, licence, Python version).
+
+### v0.1.6 — documentation and hygiene cleanup (2026-05-29)
+
+- Removed hardcoded `/home/jgamboa/testudo/` paths from 6 files
+  (example readmes, COMPOSE-SMOKE-TEST docs, and one source file)
+  in favour of `~/testudo/` notation. Same rule that applies to all
+  evoclock repos; prevents the maintainer's username from leaking
+  into public mirrors.
+- Removed specific model names from documentation
+  (CHANGELOG / STATUS / NEXT_ACTIONS / README) in favour of
+  generic backend descriptions. Specific model names are
+  ephemeral; documentation that lists them ages out as model
+  availability changes. The model picker UI still surfaces
+  installed-on-host backends via the env-check endpoint; the docs
+  no longer enumerate which ones are recommended.
+- README install commands wrapped with `sfw` (Socket Firewall) for
+  consistency with the project's install discipline.
+
+
+
 ### v0.1.5 follow-ups, wave 2 (2026-05-13, post-tag)
 
 - **Custom DAG node template** in `WorkflowGraph.tsx`: each node renders as a 4 px coloured status stripe + tool name (mono muted) + step id (mono text) + status row (dot + label + duration). `nodeTypes={{testudo: TestudoNode}}` registered with React Flow. Edges restyled to a quieter 1.5 px dark-grey. Replaces the default React Flow rectangles.
@@ -32,7 +87,7 @@ All notable changes to this project will be documented in this file. Format foll
 
 - **Bridge lifecycle is now in the UI**: Electron main process owns the `testudo serve` subprocess via `BridgeManager`. Renderer header gets **Start bridge** / **Stop bridge** buttons + a coloured status badge. Closing the window kills the bridge. Token never reaches renderer scope except through the explicit `bridge:status` IPC return value.
 - **`GET /env-check` bridge endpoint**: probes Ollama at `TESTUDO_OLLAMA_URL` and reports `{ollama_running, ollama_models, databricks_env_set, file_ops_extra_installed, databricks_extra_installed}`. UI header shows badges (`ollama up/down`, `databricks ready/n/a`) with detail tooltips. Refactored as a module-level `_probe_ollama(url)` helper so tests can `monkeypatch.setattr` without httpx-mocking gymnastics.
-- **Recommended model picker in File mode**: four cards for `mistral` (default), `minimax-m2.5`, `jan-code-4b`, `chandra-ocr-2`. Each card flips to `installed` (green) or `pull` (grey) based on the env-check response. Free-text field below for any other model. workflow-pdf-summarise default model changed from `minimax-m2.5` to `mistral`.
+- **Recommended model picker in File mode**: shortlist cards for common Ollama-served backends. Each card flips to `installed` (green) or `pull` (grey) based on the env-check response. Free-text field below for any other model. The pdf-summarise default backend was updated as part of this pass.
 - **`testudo ui` alternative CLI**: one command launches the bridge + renderer with a shared token. Ctrl-C cleans up both. `--no-renderer` flag for bridge-only mode.
 - **Ollama model adapter**: `testudo.models.ollama_chat` POSTs to a local Ollama daemon and routes the response through `sanitise_output` before returning. Default base URL `http://localhost:11434`, override via `TESTUDO_OLLAMA_URL`.
 - **DAG composition mode** in the UI (new "Compose" tab): tool palette down the left, editable React Flow canvas, node inspector with `with:` param editing, save via `POST /workflows`. New `GET /tools` bridge endpoint introspects `DEFAULT_REGISTRY` via Python `inspect` and returns each tool's kwarg signature with type annotations and defaults.

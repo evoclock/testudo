@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Julen Gamboa <j.a.r.gamboa@gmail.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Tests for the output-side sanitiser pipeline."""
 
 from __future__ import annotations

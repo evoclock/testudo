@@ -20,9 +20,9 @@ Linear chain. Each step depends only on the immediately previous one.
 
 | Step id          | Tool                              | `with:` params                                                                                                                                                                                       |
 |------------------|-----------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `read_sample`    | `connectors.local_file`           | `path = "/home/jgamboa/testudo/examples/data/sample.md"`                                                                                                                                             |
+| `read_sample`    | `connectors.local_file`           | `path = "~/testudo/examples/data/sample.md"`                                                                                                                                             |
 | `scan`           | `sanitisers.pii_and_injection`    | `content = "${steps.read_sample.content}"`, `redact = true`                                                                                                                                          |
-| `write_redacted` | `outputs.file`                    | `path = "/home/jgamboa/testudo/outputs-ui/compose-smoke-redacted.md"`, `content = "${steps.scan.content}"`                                                                                           |
+| `write_redacted` | `outputs.file`                    | `path = "~/testudo/outputs-ui/compose-smoke-redacted.md"`, `content = "${steps.scan.content}"`                                                                                           |
 | `respond`        | `outputs.chat`                    | `text = "Compose smoke run finished. Critical: ${steps.scan.critical_count}, High: ${steps.scan.high_count}. Redacted file written."`, `attachments = []`                                            |
 
 ## Edges (`needs`)
@@ -69,7 +69,7 @@ handle of a node to the left handle of the next.
   with `N` and `M` reflecting the PII fixtures currently in `sample.md`.
 - The DAG panel turns all four step boxes green (`OK`).
 - The redacted file lands at
-  `/home/jgamboa/testudo/outputs-ui/compose-smoke-redacted.md`.
+  `~/testudo/outputs-ui/compose-smoke-redacted.md`.
 - The audit-log path is rendered below the run badge; opening it shows
   one JSONL entry per step lifecycle event.
 

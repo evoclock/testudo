@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Julen Gamboa <j.a.r.gamboa@gmail.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 Module: testudo.data.tools
 
@@ -56,7 +59,7 @@ def databricks_query_tool(
         except KeyError as exc:
             raise RuntimeError(
                 f"data.databricks_query needs the {exc.args[0]} env var "
-                "(set in /home/jgamboa/testudo/.env.databricks and the bridge "
+                "(set in ~/testudo/.env.databricks and the bridge "
                 "auto-loads it on Start)"
             ) from exc
 

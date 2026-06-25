@@ -182,5 +182,5 @@ list. Highlights:
 - Bridge lifecycle inside the UI (Start / Stop in header).
 - `testudo ui` turnkey CLI launcher.
 - `GET /env-check` endpoint + UI badges for Ollama + Databricks readiness.
-- File-mode model picker for mistral / minimax-m2.5 / jan-code-4b / chandra-ocr-2.
+- File-mode model picker with shortlist for common Ollama backends plus free-text override.
 - DAG composition mode (Compose tab) with `GET /tools` + `POST /workflows`.

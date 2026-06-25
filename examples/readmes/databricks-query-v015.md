@@ -20,7 +20,7 @@ counts.
 |---|---|---|---|
 | `query` | yes | `SELECT * FROM samples.bakehouse.sales_transactions LIMIT 10` | Free Edition workspaces ship the `samples.bakehouse` schema (sales_transactions, media_customer_reviews, sales_customers, sales_franchises, sales_suppliers, media_gold_reviews_chunked). |
 | `parameters` | no | `[]` (default) | Positional binds for `?` placeholders in the query. Leave `[]` if your query has no `?`. Example: `WHERE customerID = ?` with `parameters: [42]`. |
-| `output_path` | yes | `/home/jgamboa/testudo/outputs-ui/databricks-result.md` | Where the redacted rows are written. Pre-fills to a sensible default. |
+| `output_path` | yes | `~/testudo/outputs-ui/databricks-result.md` | Where the redacted rows are written. Pre-fills to a sensible default. |
 
 ## What the workflow does
 

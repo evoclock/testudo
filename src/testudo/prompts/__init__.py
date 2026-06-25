@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Julen Gamboa <j.a.r.gamboa@gmail.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Testudo prompts package.
 
 Purpose: prompt assembly. Loads XML-format templates from a workflow's prompt

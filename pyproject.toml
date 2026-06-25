@@ -4,11 +4,11 @@ build-backend = "hatchling.build"
 
 [project]
 name = "testudo"
-version = "0.1.5"
+version = "0.1.6"
 description = "Dockerised agent runtime with declarative permissioning, audit logging, rollback semantics, and an embedded lightweight orchestrator."
 readme = "README.md"
 requires-python = ">=3.11"
-license = "Apache-2.0"
+license = { file = "LICENSE" }
 authors = [
     { name = "Julen Gamboa" },
 ]
@@ -27,7 +27,7 @@ keywords = [
 ]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
-    "License :: OSI Approved :: Apache Software License",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",

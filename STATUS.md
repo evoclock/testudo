@@ -9,7 +9,7 @@ original v0.1.5 release section below is frozen as a handover artefact;
 - **Version:** 0.1.5 (with two waves of follow-up commits on top; see CHANGELOG.md).
 - **Tests:** 316 passing, 0 failing, 0 skipped. 84% line coverage.
 - **Lint:** `ruff check` clean. `ruff format` clean. Both Electron tsconfigs typecheck clean.
-- **License:** Apache 2.0.
+- **Licence:** GNU Affero General Public License v3 (AGPLv3) plus a Section 7(b) author-attribution clause. Commercial licence available separately.
 - **Confidentiality:** zero references to `agentic-orchestrator` or any
   private fork content. testudo is OSS only.
 - **Install discipline:** Socket Firewall (`sfw 1.8.0`) is the host-side gate; PreToolUse hook at `~/.claude/hooks/sfw_enforce.py` blocks unwrapped installs in Claude Code sessions. See README "Supply-chain hardening for contributors".
@@ -42,7 +42,7 @@ original v0.1.5 release section below is frozen as a handover artefact;
 - **Bridge lifecycle in the UI**: Electron main process owns the `testudo serve` subprocess via `BridgeManager`. Header has Start / Stop buttons + a coloured status badge. Closing the window kills the bridge. Token never reaches renderer scope except via explicit `bridge:status` IPC return values.
 - **`testudo ui`** alternative CLI: one command spawns bridge + renderer with a shared token; Ctrl-C tears both down.
 - **Env-check endpoint** (`GET /env-check`): bridge probes Ollama at `TESTUDO_OLLAMA_URL`, reports `databricks_env_set`, and reports which optional extras are installed. UI header shows `ollama up/down` and `databricks ready/n/a` badges with detail-tooltip on hover.
-- **Recommended models** surfaced in File mode: `mistral` (default), `minimax-m2.5`, `jan-code-4b`, `chandra-ocr-2`. Each shows `installed` / `pull` based on the env-check response. Free-text field for any other model.
+- **Recommended models** surfaced in File mode: shortlist cards for common Ollama-served backends. Each shows `installed` / `pull` based on the env-check response. Free-text field for any other model.
 - **Ollama adapter** (`testudo.models.ollama_chat`); response sanitised before return.
 - **DAG composition mode** in the renderer (Compose tab); `GET /tools` and `POST /workflows` bridge endpoints.
 - **Five-tab UI** (File / URL / Database / Workflow / Compose) with DAG panel under each mode.

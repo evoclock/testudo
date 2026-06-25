@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Julen Gamboa <j.a.r.gamboa@gmail.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Tests for the Ollama adapter and the ``models.ollama_chat`` tool.
 
 Uses ``httpx.MockTransport`` so no real Ollama daemon is required. Confirms

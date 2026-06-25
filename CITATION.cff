@@ -6,9 +6,9 @@ authors:
   - given-names: Julen
     family-names: Gamboa
 repository-code: "https://github.com/evoclock/testudo"
-license: Apache-2.0
-version: "0.0.1"
-date-released: "2026-05-12"
+license: AGPL-3.0-or-later
+version: "0.1.6"
+date-released: "2026-05-29"
 keywords:
   - agent
   - agentic
