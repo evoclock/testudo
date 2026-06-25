@@ -11,6 +11,10 @@ repos:
       - id: check-added-large-files
         args: [--maxkb=500]
       - id: detect-private-key
+        # The sanitiser's own test fixtures contain canonical PEM key-header markers
+        # (the RSA/EC private-key BEGIN lines) that the detection regexes must match;
+        # exclude that fixture file so the hook does not false-positive on it.
+        exclude: '^tests/test_sanitisers_patterns\.py$'
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.12
