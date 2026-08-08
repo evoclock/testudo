@@ -1,0 +1,38 @@
+# Testudo stdlib-only native-container transport smoke.
+# No package manager or install command is permitted in this image recipe:
+# every guest component is COPYed from the repository at its pinned path and
+# nothing is fetched at build time. This image exists for Apple's native
+# container runtime smoke only - it is never a Docker runtime fallback.
+FROM docker.io/library/python@sha256:dd29372629eeba2dd003fd9e9d35a5b8236c44727875a0364254b5127af88e65
+
+LABEL org.opencontainers.image.title="testudo-native-smoke"
+LABEL org.opencontainers.image.description="Bounded stdio transport smoke for Apple's native container runtime"
+LABEL org.opencontainers.image.licenses="AGPL-3.0-only"
+
+# The in-image guest supervisor is the required entrypoint: it verifies the
+# containment taxonomy digest, starts the containment watchers, and launches
+# the guest entrypoint. The monitor, taxonomy, and bootstrap are installed
+# read-only next to it; the thin transport smoke guest is installed as the
+# selectable smoke entrypoint.
+COPY guest/testudo_guest_smoke.py /opt/testudo/testudo_guest_smoke.py
+COPY guest/testudo_guest_bootstrap.py /opt/testudo/testudo_guest_bootstrap.py
+COPY guest/testudo_contained_guest.sh /opt/testudo/testudo_contained_guest.sh
+COPY guest/testudo_containment_monitor.sh /opt/testudo/testudo_containment_monitor.sh
+COPY src/testudo/runtime/guest_containment_taxonomy.v1.json /opt/testudo/guest_containment_taxonomy.v1.json
+
+# The bootstrap imports the installed Testudo package (orchestrator, broker,
+# containment, guest modules); the image carries the source tree read-only so
+# the stdlib-only guest can import it without any install step.
+COPY src /opt/testudo/src
+
+ENV TESTUDO_CONTAINMENT_MONITOR=/opt/testudo/testudo_containment_monitor.sh
+ENV TESTUDO_GUEST_BOOTSTRAP=/opt/testudo/testudo_guest_smoke.py
+ENV TESTUDO_CONTAINMENT_TAXONOMY=/opt/testudo/guest_containment_taxonomy.v1.json
+ENV PYTHONPATH=/opt/testudo/src
+
+USER 65532:65532
+WORKDIR /runs
+# The supervisor script is the containment entry: the native-container
+# adapter requires it as command[0] and it owns the watchers and the
+# killswitch path.
+ENTRYPOINT ["/opt/testudo/testudo_contained_guest.sh"]
