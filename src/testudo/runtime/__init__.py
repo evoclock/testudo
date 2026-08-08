@@ -19,6 +19,8 @@ Assumptions: v0.1 targets Docker on Linux. The Docker daemon must be
 reachable; the host user must have permission to invoke ``docker run``.
 """
 
+from testudo.artifacts import ArtifactStore, EgressRejected, ExportManifest
+from testudo.runtime.attestation import RuntimeAttestation, issue_attestation, write_attestation
 from testudo.runtime.docker import RunResult, build_docker_argv, invoke
 from testudo.runtime.isolation import (
     IsolationPrimitive,
@@ -29,12 +31,18 @@ from testudo.runtime.isolation import (
 from testudo.runtime.runner import Runner
 
 __all__ = [
+    "ArtifactStore",
+    "EgressRejected",
+    "ExportManifest",
     "IsolationPrimitive",
     "IsolationProfile",
     "NetworkMode",
     "RunResult",
     "Runner",
+    "RuntimeAttestation",
     "build_docker_argv",
     "invoke",
+    "issue_attestation",
     "load_isolation",
+    "write_attestation",
 ]

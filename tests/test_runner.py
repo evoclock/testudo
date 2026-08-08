@@ -5,11 +5,13 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from testudo.artifacts import ArtifactStore
 from testudo.audit import AuditLog
 from testudo.runtime import docker
 from testudo.runtime.isolation import IsolationProfile
@@ -166,3 +168,78 @@ def test_runner_creates_runs_root_if_missing(
     )
     run_dirs = [p for p in nested.iterdir() if p.is_dir()]
     assert len(run_dirs) == 1
+
+
+def test_runner_mounts_exchange_not_audit_and_promotes_scanned_output(
+    monkeypatch: pytest.MonkeyPatch, workflow_file: Path, runs_root: Path, tmp_path: Path
+) -> None:
+    captured: dict[str, Any] = {}
+
+    def fake_invoke(**kwargs: Any) -> docker.RunResult:
+        exchange = kwargs["runs_dir"]
+        captured["runs_dir"] = exchange
+        (exchange / "result.txt").write_text("accepted")
+        return docker.RunResult(exit_status=0, stdout="", stderr="", runtime_ms=1)
+
+    monkeypatch.setattr(docker, "invoke", fake_invoke)
+    store = ArtifactStore(tmp_path / "store", store_id="mac-small")
+    runner = Runner(runs_root)
+    runner.run(
+        workflow_path=workflow_file,
+        workflow_name="demo",
+        isolation=IsolationProfile(),
+        artifact_store=store,
+        egress_scanner=lambda path, relative: None,
+        egress_scanner_id="test-scanner",
+        egress_policy_hash="policy-test",
+    )
+
+    run_dir = next(runs_root.iterdir())
+    assert captured["runs_dir"] == run_dir / "exchange"
+    assert (run_dir / "audit.jsonl").is_file()
+    assert (tmp_path / "store/runs").is_dir()
+    assert len(list((tmp_path / "store/objects").rglob("*"))) >= 3
+
+
+def test_runner_requires_scanner_for_artifact_store(
+    workflow_file: Path, runs_root: Path, tmp_path: Path
+) -> None:
+    runner = Runner(runs_root)
+    with pytest.raises(ValueError, match="egress_scanner"):
+        runner.run(
+            workflow_path=workflow_file,
+            workflow_name="demo",
+            isolation=IsolationProfile(),
+            artifact_store=ArtifactStore(tmp_path / "store", store_id="linux-large"),
+        )
+
+
+def test_runner_contained_run_writes_attestation_and_passes_read_only_contract(
+    monkeypatch: pytest.MonkeyPatch, workflow_file: Path, runs_root: Path, tmp_path: Path
+) -> None:
+    lease = tmp_path / "lease.json"
+    lease.write_text("{}")
+    captured: dict[str, Any] = {}
+
+    def fake_invoke(**kwargs: Any) -> docker.RunResult:
+        captured.update(kwargs)
+        return docker.RunResult(exit_status=0, stdout="", stderr="", runtime_ms=1)
+
+    monkeypatch.setattr(docker, "invoke", fake_invoke)
+    runner = Runner(runs_root)
+    runner.run(
+        workflow_path=workflow_file,
+        workflow_name="demo",
+        isolation=IsolationProfile(image=f"testudo@sha256:{'a' * 64}"),
+        lease_path=lease,
+        authorization_env={"CANTUS_APPROVAL_HASH": "approval"},
+        lease_id="lease-1",
+        image_digest=f"sha256:{'a' * 64}",
+    )
+
+    run_dir = next(runs_root.iterdir())
+    attestation = json.loads((run_dir / "runtime-attestation.json").read_text())
+    assert attestation["runtime"] == "testudo"
+    assert attestation["leaseId"] == "lease-1"
+    assert captured["lease_path"] == lease
+    assert captured["attestation_path"] == run_dir / "runtime-attestation.json"

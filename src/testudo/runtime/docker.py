@@ -1,40 +1,30 @@
-# SPDX-FileCopyrightText: 2026 Julen Gamboa <j.a.r.gamboa@gmail.com>
+# SPDX-FileCopyrightText: 2026 Julen Gamboa <[REDACTED:email_address]>
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""
-Module: testudo.runtime.docker
-
-Purpose: Docker subprocess wrapper. Provides a pure ``build_docker_argv``
-function that turns a workflow path, run directory, optional inputs
-directory, and an ``IsolationProfile`` into the canonical ``docker run``
-argv. ``invoke`` runs the constructed argv as a subprocess and returns a
-``RunResult`` with exit status, stdio, and wall-clock runtime in
-milliseconds.
-
-Inputs: paths plus an ``IsolationProfile``; optional timeout in seconds.
-
-Outputs: a list of strings (argv) from ``build_docker_argv``; a
-``RunResult`` from ``invoke``.
-
-Assumptions: Docker is available on the host. ``invoke`` does not check
-upfront; ``subprocess.run`` will raise ``FileNotFoundError`` if ``docker``
-is missing, which the caller should convert into a friendlier message. The
-v0.1 image (``testudo:0.1``) sets its entrypoint to the in-container
-orchestrator, so callers only need to pass the workflow path as CMD.
-
-Failure modes: subprocess timeout raises ``subprocess.TimeoutExpired``;
-non-zero exit codes from the container are returned as ``RunResult.exit_status``
-without raising.
-"""
+"""Host-side Docker invocation with read-only contained-work inputs."""
 
 from __future__ import annotations
 
 import subprocess
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
 from testudo.runtime.isolation import IsolationProfile
+
+_AUTH_ENV_NAMES = frozenset(
+    {
+        "CANTUS_APPROVAL_HASH",
+        "CANTUS_APPROVAL_REF",
+        "CANTUS_TASK_HASH",
+        "CANTUS_TICKET_HASH",
+        "CANTUS_SPEC_HASH",
+        "CANTUS_DOD_HASH",
+        "CANTUS_WORK_STARTED_AT",
+        "CANTUS_RUNTIME_ATTESTATION_HASH",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,22 +43,33 @@ def build_docker_argv(
     runs_dir: Path,
     isolation: IsolationProfile,
     inputs_dir: Path | None = None,
+    lease_path: Path | None = None,
+    attestation_path: Path | None = None,
+    authorization_env: Mapping[str, str] | None = None,
 ) -> list[str]:
-    """Build the canonical ``docker run`` argv for a workflow invocation.
+    """Build ``docker run`` argv with no writable host control mounts.
 
-    The argv mounts:
-      - ``workflow_path`` at ``/workflow.json`` (read-only)
-      - ``inputs_dir`` (if provided) at ``/inputs`` (read-only)
-      - ``runs_dir`` at ``/runs`` (read-write; the rollback/output layer)
-
-    Resource and isolation flags come from ``isolation``: ``--cpus``,
-    ``--memory``, ``--network``, ``--read-only`` plus ``--tmpfs /tmp`` when
-    the root filesystem is read-only, and ``-w`` for the working directory.
-    The image's ENTRYPOINT runs the orchestrator; only the workflow path is
-    appended as CMD.
+    ``runs_dir`` is the only writable mount.  If a lease is supplied, both the
+    lease and the short-lived Testudo runtime attestation are mounted read-only
+    under ``/run/testudo`` and the unattended flag is injected by the host.
+    Arbitrary environment variables are rejected in contained mode.
     """
-    argv: list[str] = ["docker", "run", "--rm"]
+    contained = lease_path is not None or attestation_path is not None or authorization_env is not None
+    if contained and (lease_path is None or attestation_path is None):
+        raise ValueError("lease_path and attestation_path are required together")
+    if contained and authorization_env is None:
+        raise ValueError("authorization_env is required for contained mode")
+    if not contained and authorization_env:
+        raise ValueError("authorization_env requires a lease and attestation")
+    if lease_path is not None and not lease_path.is_file():
+        raise ValueError(f"lease file does not exist: {lease_path}")
+    if attestation_path is not None and not attestation_path.is_file():
+        raise ValueError(f"attestation file does not exist: {attestation_path}")
+    if authorization_env is not None and set(authorization_env) - _AUTH_ENV_NAMES:
+        unknown = sorted(set(authorization_env) - _AUTH_ENV_NAMES)
+        raise ValueError(f"unsupported authorization environment: {', '.join(unknown)}")
 
+    argv: list[str] = ["docker", "run", "--rm"]
     argv.extend(["--cpus", isolation.cpu])
     argv.extend(["--memory", isolation.memory])
     argv.extend(["--network", isolation.network])
@@ -82,10 +83,19 @@ def build_docker_argv(
         argv.extend(["-v", f"{inputs_dir.resolve()}:/inputs:ro"])
     argv.extend(["-v", f"{runs_dir.resolve()}:/runs"])
 
+    if contained:
+        assert lease_path is not None and attestation_path is not None and authorization_env is not None
+        argv.extend(["-v", f"{lease_path.resolve()}:/run/testudo/lease.json:ro"])
+        argv.extend(["-v", f"{attestation_path.resolve()}:/run/testudo/attestation.json:ro"])
+        argv.extend(["--env", "CANTUS_UNATTENDED=1"])
+        argv.extend(["--env", "CANTUS_LEASE_FILE=/run/testudo/lease.json"])
+        argv.extend(["--env", "CANTUS_RUNTIME_ATTESTATION_FILE=/run/testudo/attestation.json"])
+        for key in sorted(authorization_env):
+            argv.extend(["--env", f"{key}={authorization_env[key]}"])
+
     argv.extend(["-w", isolation.workdir])
     argv.append(isolation.image)
     argv.append("/workflow.json")
-
     return argv
 
 
@@ -96,18 +106,19 @@ def invoke(
     isolation: IsolationProfile,
     inputs_dir: Path | None = None,
     timeout: float | None = None,
+    lease_path: Path | None = None,
+    attestation_path: Path | None = None,
+    authorization_env: Mapping[str, str] | None = None,
 ) -> RunResult:
-    """Execute a workflow inside a Docker container; return ``RunResult``.
-
-    Wall-clock runtime is measured around the subprocess call (host-side),
-    not inside the container. Non-zero container exits are returned as
-    ``exit_status`` rather than raised.
-    """
+    """Execute a workflow inside Docker and return its host-observed result."""
     argv = build_docker_argv(
         workflow_path=workflow_path,
         runs_dir=runs_dir,
         isolation=isolation,
         inputs_dir=inputs_dir,
+        lease_path=lease_path,
+        attestation_path=attestation_path,
+        authorization_env=authorization_env,
     )
 
     start = time.monotonic()
