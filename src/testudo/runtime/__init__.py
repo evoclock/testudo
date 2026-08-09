@@ -21,7 +21,16 @@ reachable; the host user must have permission to invoke ``docker run``.
 
 from testudo.artifacts import ArtifactStore, EgressRejected, ExportManifest
 from testudo.runtime.attestation import RuntimeAttestation, issue_attestation, write_attestation
+from testudo.runtime.capability import (
+    CapabilityError,
+    CapabilityToken,
+    SupervisorEvent,
+    WorkerSupervisor,
+    WorkerTerminated,
+    write_token,
+)
 from testudo.runtime.docker import RunResult, build_docker_argv, invoke
+from testudo.runtime.publisher import Checkpoint, GitBundlePublisher, PublicationError, PublicationReceipt
 from testudo.runtime.isolation import (
     IsolationPrimitive,
     IsolationProfile,
@@ -38,11 +47,21 @@ __all__ = [
     "IsolationProfile",
     "NetworkMode",
     "RunResult",
+    "Checkpoint",
+    "GitBundlePublisher",
+    "PublicationError",
+    "PublicationReceipt",
     "Runner",
     "RuntimeAttestation",
+    "CapabilityError",
+    "CapabilityToken",
+    "SupervisorEvent",
+    "WorkerSupervisor",
+    "WorkerTerminated",
     "build_docker_argv",
     "invoke",
     "issue_attestation",
     "load_isolation",
     "write_attestation",
+    "write_token",
 ]
