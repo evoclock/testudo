@@ -2,8 +2,8 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from testudo.runtime import WorkerLifecycle
 from testudo.runtime.capability import CapabilityToken, WorkerTerminated
-from testudo.runtime.worker import WorkerLifecycle
 
 NOW = datetime(2026, 8, 8, 12, 0, tzinfo=UTC)
 

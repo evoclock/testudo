@@ -19,8 +19,12 @@ def test_attestation_is_hash_bound_and_short_lived(tmp_path: Path) -> None:
         now=now,
         nonce="nonce-1234567890123456",
     )
-    payload = {key: value for key, value in attestation.to_dict().items() if key != "attestationHash"}
-    expected = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    payload = {
+        key: value for key, value in attestation.to_dict().items() if key != "attestationHash"
+    }
+    expected = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
     assert attestation.runtime == "testudo"
     assert attestation.attestation_hash == expected
     assert attestation.expires_at.endswith("Z")

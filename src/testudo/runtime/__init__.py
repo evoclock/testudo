@@ -59,6 +59,7 @@ from testudo.runtime.transport import (
     read_frame,
     write_frame,
 )
+from testudo.runtime.worker import ProcessHandle, VMHandle, WorkerLifecycle
 
 __all__ = [
     "MAX_FRAME_BYTES",
@@ -80,6 +81,7 @@ __all__ = [
     "IsolationProfile",
     "NetworkMode",
     "P256Signer",
+    "ProcessHandle",
     "PublicationError",
     "PublicationReceipt",
     "RunResult",
@@ -89,6 +91,8 @@ __all__ = [
     "SupervisorEvent",
     "TokenSigner",
     "TransportError",
+    "VMHandle",
+    "WorkerLifecycle",
     "WorkerSupervisor",
     "WorkerTerminated",
     "build_api_requests",

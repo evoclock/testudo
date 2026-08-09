@@ -1,6 +1,8 @@
 """Host-side Git bundle/checkpoint verification and publication."""
+
 from __future__ import annotations
 
+import builtins
 import hashlib
 import json
 import re
@@ -67,18 +69,28 @@ class Checkpoint:
             result["work_head_sha"] = self.work_head_sha
         return result
 
-    def bytes(self) -> bytes:
+    def bytes(self) -> builtins.bytes:
         return (json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":")) + "\n").encode()
 
     @classmethod
-    def from_bytes(cls, value: bytes) -> Checkpoint:
+    def from_bytes(cls, value: builtins.bytes) -> Checkpoint:
         try:
             data = json.loads(value)
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise PublicationError("checkpoint is not valid JSON") from exc
         if not isinstance(data, dict) or data.get("schema") != cls.SCHEMA:
             raise PublicationError("unsupported checkpoint schema")
-        strings = ("run_id", "task_id", "lease_id", "repository", "branch", "base_sha", "created_at", "completed_subtask", "next_action")
+        strings = (
+            "run_id",
+            "task_id",
+            "lease_id",
+            "repository",
+            "branch",
+            "base_sha",
+            "created_at",
+            "completed_subtask",
+            "next_action",
+        )
         if any(not isinstance(data.get(name), str) or not data[name] for name in strings):
             raise PublicationError("checkpoint identity or progress field is missing")
         if not _ID_RE.fullmatch(data["run_id"]):
@@ -91,7 +103,9 @@ class Checkpoint:
             raise PublicationError("artifact_refs must be an object list")
         clean_refs: list[dict[str, str]] = []
         for ref in refs:
-            if not all(isinstance(key, str) and isinstance(value, str) for key, value in ref.items()):
+            if not all(
+                isinstance(key, str) and isinstance(value, str) for key, value in ref.items()
+            ):
                 raise PublicationError("artifact references must contain strings")
             digest = ref.get("sha256")
             if digest is not None:
@@ -101,10 +115,17 @@ class Checkpoint:
         if work_head is not None:
             _require_sha(work_head, "work_head_sha")
         return cls(
-            run_id=data["run_id"], task_id=data["task_id"], lease_id=data["lease_id"],
-            repository=data["repository"], branch=data["branch"], base_sha=base_sha,
-            created_at=data["created_at"], completed_subtask=data["completed_subtask"],
-            next_action=data["next_action"], artifact_refs=tuple(clean_refs), work_head_sha=work_head,
+            run_id=data["run_id"],
+            task_id=data["task_id"],
+            lease_id=data["lease_id"],
+            repository=data["repository"],
+            branch=data["branch"],
+            base_sha=base_sha,
+            created_at=data["created_at"],
+            completed_subtask=data["completed_subtask"],
+            next_action=data["next_action"],
+            artifact_refs=tuple(clean_refs),
+            work_head_sha=work_head,
         )
 
 
@@ -124,10 +145,16 @@ class PublicationReceipt:
 
     def to_dict(self) -> dict[str, str]:
         return {
-            "schema": self.SCHEMA, "repository": self.repository, "branch": self.branch,
-            "base_sha": self.base_sha, "head_sha": self.head_sha,
-            "checkpoint_sha256": self.checkpoint_sha256, "bundle_sha256": self.bundle_sha256,
-            "scanner_id": self.scanner_id, "policy_hash": self.policy_hash, "remote": self.remote,
+            "schema": self.SCHEMA,
+            "repository": self.repository,
+            "branch": self.branch,
+            "base_sha": self.base_sha,
+            "head_sha": self.head_sha,
+            "checkpoint_sha256": self.checkpoint_sha256,
+            "bundle_sha256": self.bundle_sha256,
+            "scanner_id": self.scanner_id,
+            "policy_hash": self.policy_hash,
+            "remote": self.remote,
         }
 
 
@@ -172,16 +199,34 @@ class GitBundlePublisher:
         quarantine_ref = f"refs/testudo/quarantine/{checkpoint.run_id}"
         self._git(repo_path, "fetch", "--no-tags", str(bundle_path), f"{head_sha}:{quarantine_ref}")
         try:
-            if self._git(repo_path, "merge-base", "--is-ancestor", checkpoint.base_sha, quarantine_ref, check=False).returncode != 0:
+            if (
+                self._git(
+                    repo_path,
+                    "merge-base",
+                    "--is-ancestor",
+                    checkpoint.base_sha,
+                    quarantine_ref,
+                    check=False,
+                ).returncode
+                != 0
+            ):
                 raise PublicationError("bundle head is not based on the approved base SHA")
 
             ref = f"refs/heads/{checkpoint.branch}"
             existing = self._git(repo_path, "rev-parse", "--verify", ref, check=False)
             old_sha = existing.stdout.decode().strip() if existing.returncode == 0 else ""
-            if old_sha and self._git(repo_path, "merge-base", "--is-ancestor", old_sha, quarantine_ref, check=False).returncode != 0:
+            if (
+                old_sha
+                and self._git(
+                    repo_path, "merge-base", "--is-ancestor", old_sha, quarantine_ref, check=False
+                ).returncode
+                != 0
+            ):
                 raise PublicationError("existing agent branch would be rewritten")
 
-            committed_checkpoint = self._git(repo_path, "show", f"{quarantine_ref}:{checkpoint.path}").stdout
+            committed_checkpoint = self._git(
+                repo_path, "show", f"{quarantine_ref}:{checkpoint.path}"
+            ).stdout
             parsed_checkpoint = Checkpoint.from_bytes(committed_checkpoint)
             if parsed_checkpoint.to_dict() != checkpoint.to_dict():
                 raise PublicationError("checkpoint in bundle differs from supplied checkpoint")
@@ -190,16 +235,25 @@ class GitBundlePublisher:
         finally:
             self._git(repo_path, "update-ref", "-d", quarantine_ref, check=False)
         return PublicationReceipt(
-            repository=repository_name, branch=checkpoint.branch, base_sha=checkpoint.base_sha,
-            head_sha=head_sha, checkpoint_sha256=_digest(committed_checkpoint),
-            bundle_sha256=actual_bundle_sha, scanner_id=scanner_id, policy_hash=policy_hash,
+            repository=repository_name,
+            branch=checkpoint.branch,
+            base_sha=checkpoint.base_sha,
+            head_sha=head_sha,
+            checkpoint_sha256=_digest(committed_checkpoint),
+            bundle_sha256=actual_bundle_sha,
+            scanner_id=scanner_id,
+            policy_hash=policy_hash,
             remote=remote,
         )
 
     @staticmethod
     def _head_for_branch(output: str, branch: str) -> str:
         expected = f"refs/heads/{branch}"
-        matches = [line.split()[0] for line in output.splitlines() if len(line.split()) >= 2 and line.split()[1] == expected]
+        matches = [
+            line.split()[0]
+            for line in output.splitlines()
+            if len(line.split()) >= 2 and line.split()[1] == expected
+        ]
         if len(matches) != 1:
             raise PublicationError("bundle must contain exactly one approved branch head")
         return matches[0]

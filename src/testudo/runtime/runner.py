@@ -72,8 +72,12 @@ class Runner:
         selected_backend = coerce_backend(backend or self.backend)
         if selected_backend is ExecutionBackend.MICROVM and self.microvm_invoke is None:
             raise RuntimeError("microVM backend selected but no host microVM adapter is configured")
-        if artifact_store is not None and (egress_scanner is None or not egress_scanner_id or not egress_policy_hash):
-            raise ValueError("egress_scanner, egress_scanner_id, and egress_policy_hash are required with artifact_store")
+        if artifact_store is not None and (
+            egress_scanner is None or not egress_scanner_id or not egress_policy_hash
+        ):
+            raise ValueError(
+                "egress_scanner, egress_scanner_id, and egress_policy_hash are required with artifact_store"
+            )
         contained = (
             lease_path is not None
             or capability_token_path is not None

@@ -38,9 +38,16 @@ def make_source(tmp_path):
     branch = "agent/T-0254/run-1"
     git(source, "checkout", "-b", branch)
     checkpoint = Checkpoint(
-        run_id="run-1", task_id="T-0254", lease_id="lease-1", repository="testudo-agents",
-        branch=branch, base_sha=base_sha, created_at="2026-08-08T12:00:00Z",
-        completed_subtask="publisher", next_action="review", artifact_refs=(),
+        run_id="run-1",
+        task_id="T-0254",
+        lease_id="lease-1",
+        repository="testudo-agents",
+        branch=branch,
+        base_sha=base_sha,
+        created_at="2026-08-08T12:00:00Z",
+        completed_subtask="publisher",
+        next_action="review",
+        artifact_refs=(),
     )
     checkpoint_path = source / checkpoint.path
     checkpoint_path.parent.mkdir(parents=True)
@@ -57,11 +64,17 @@ def test_publisher_verifies_imports_and_pushes_agent_branch(tmp_path):
     target, remote, bundle, checkpoint = make_source(tmp_path)
     bundle_sha = hashlib.sha256(bundle.read_bytes()).hexdigest()
     receipt = {
-        "accepted": True, "sha256": bundle_sha, "scanner_id": "host-egress-v1", "policy_hash": "b" * 64,
+        "accepted": True,
+        "sha256": bundle_sha,
+        "scanner_id": "host-egress-v1",
+        "policy_hash": "b" * 64,
     }
     publication = GitBundlePublisher().publish(
-        bundle=bundle, repository=target, repository_name="testudo-agents",
-        checkpoint=checkpoint, scan_receipt=receipt,
+        bundle=bundle,
+        repository=target,
+        repository_name="testudo-agents",
+        checkpoint=checkpoint,
+        scan_receipt=receipt,
     )
     assert publication.branch == checkpoint.branch
     assert publication.head_sha
@@ -74,22 +87,36 @@ def test_publisher_rejects_unscanned_or_tampered_bundle(tmp_path):
     target, _remote, bundle, checkpoint = make_source(tmp_path)
     with pytest.raises(PublicationError, match="scanner receipt"):
         GitBundlePublisher().publish(
-            bundle=bundle, repository=target, repository_name="testudo-agents",
-            checkpoint=checkpoint, scan_receipt={"accepted": False},
+            bundle=bundle,
+            repository=target,
+            repository_name="testudo-agents",
+            checkpoint=checkpoint,
+            scan_receipt={"accepted": False},
         )
     receipt = {"accepted": True, "sha256": "0" * 64, "scanner_id": "scan", "policy_hash": "b" * 64}
     with pytest.raises(PublicationError, match="does not match"):
         GitBundlePublisher().publish(
-            bundle=bundle, repository=target, repository_name="testudo-agents",
-            checkpoint=checkpoint, scan_receipt=receipt,
+            bundle=bundle,
+            repository=target,
+            repository_name="testudo-agents",
+            checkpoint=checkpoint,
+            scan_receipt=receipt,
         )
 
 
 def test_checkpoint_rejects_unsafe_branch_and_invalid_digest():
     data = {
-        "schema": "agent_checkpoint.v1", "run_id": "run-1", "task_id": "T-0254", "lease_id": "lease-1",
-        "repository": "testudo-agents", "branch": "main", "base_sha": "a" * 40,
-        "created_at": "now", "completed_subtask": "x", "next_action": "y", "artifact_refs": [],
+        "schema": "agent_checkpoint.v1",
+        "run_id": "run-1",
+        "task_id": "T-0254",
+        "lease_id": "lease-1",
+        "repository": "testudo-agents",
+        "branch": "main",
+        "base_sha": "a" * 40,
+        "created_at": "now",
+        "completed_subtask": "x",
+        "next_action": "y",
+        "artifact_refs": [],
     }
     with pytest.raises(PublicationError, match="agent branch"):
         Checkpoint.from_bytes((json.dumps(data)).encode())

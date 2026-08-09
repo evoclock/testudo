@@ -1,4 +1,5 @@
 """Host-issued capability tokens and fail-closed worker supervision."""
+
 from __future__ import annotations
 
 import hashlib
@@ -207,7 +208,19 @@ class CapabilityToken:
         signature_algorithm: str | None = None,
         key_id: str | None = None,
     ) -> CapabilityToken:
-        names = ("token_id", "run_id", "lease_id", "host_id", "vm_id", "repository", "branch", "base_sha", "issued_at", "expires_at", "nonce")
+        names = (
+            "token_id",
+            "run_id",
+            "lease_id",
+            "host_id",
+            "vm_id",
+            "repository",
+            "branch",
+            "base_sha",
+            "issued_at",
+            "expires_at",
+            "nonce",
+        )
         if any(not isinstance(payload.get(name), str) or not payload[name] for name in names):
             raise CapabilityError("token identity or time field is missing")
         lists: list[tuple[str, ...]] = []
@@ -218,15 +231,31 @@ class CapabilityToken:
             lists.append(tuple(value))
         algorithm = signature_algorithm or payload.get("signature_alg", "HS256")
         token_key_id = key_id or payload.get("key_id", "prototype")
-        if not isinstance(algorithm, str) or not algorithm or not isinstance(token_key_id, str) or not token_key_id:
+        if (
+            not isinstance(algorithm, str)
+            or not algorithm
+            or not isinstance(token_key_id, str)
+            or not token_key_id
+        ):
             raise CapabilityError("token signer metadata is invalid")
         token = cls(
-            token_id=payload["token_id"], run_id=payload["run_id"], lease_id=payload["lease_id"],
-            host_id=payload["host_id"], vm_id=payload["vm_id"], repository=payload["repository"],
-            branch=payload["branch"], base_sha=payload["base_sha"], capabilities=lists[0],
-            allowed_paths=lists[1], allowed_commands=lists[2], issued_at=payload["issued_at"],
-            expires_at=payload["expires_at"], nonce=payload["nonce"], signature=signature,
-            signature_algorithm=algorithm, key_id=token_key_id,
+            token_id=payload["token_id"],
+            run_id=payload["run_id"],
+            lease_id=payload["lease_id"],
+            host_id=payload["host_id"],
+            vm_id=payload["vm_id"],
+            repository=payload["repository"],
+            branch=payload["branch"],
+            base_sha=payload["base_sha"],
+            capabilities=lists[0],
+            allowed_paths=lists[1],
+            allowed_commands=lists[2],
+            issued_at=payload["issued_at"],
+            expires_at=payload["expires_at"],
+            nonce=payload["nonce"],
+            signature=signature,
+            signature_algorithm=algorithm,
+            key_id=token_key_id,
         )
         _parse_time(token.issued_at)
         _parse_time(token.expires_at)
@@ -245,10 +274,15 @@ class WorkerSupervisor:
     """Host-side expiry and kill/wipe boundary for one worker VM."""
 
     def __init__(
-        self, token: CapabilityToken, *, signing_key: bytes | None = None,
+        self,
+        token: CapabilityToken,
+        *,
+        signing_key: bytes | None = None,
         signer: TokenSigner | None = None,
-        kill_vm: Callable[[], None], wipe_vm: Callable[[], None],
-        revoke_token: Callable[[str], None], event_sink: Callable[[SupervisorEvent], None] | None = None,
+        kill_vm: Callable[[], None],
+        wipe_vm: Callable[[], None],
+        revoke_token: Callable[[str], None],
+        event_sink: Callable[[SupervisorEvent], None] | None = None,
         now: Callable[[], datetime] | None = None,
     ) -> None:
         if (signing_key is None) == (signer is None):
@@ -280,7 +314,9 @@ class WorkerSupervisor:
         self.check_expiry()
         return _parse_time(self.token.expires_at) - self._now().astimezone(UTC) <= margin
 
-    def request(self, capability: str, *, target: str = "microvm", destructive: bool = False) -> None:
+    def request(
+        self, capability: str, *, target: str = "microvm", destructive: bool = False
+    ) -> None:
         self.check_expiry()
         if target != "microvm":
             self.trip("host_boundary_operation_attempt")
@@ -308,7 +344,9 @@ def write_token(path: Path | str, token: CapabilityToken) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_name(f".{target.name}.{secrets.token_hex(8)}")
     try:
-        temporary.write_text(json.dumps(token.to_dict(), sort_keys=True, separators=(",", ":")) + "\n")
+        temporary.write_text(
+            json.dumps(token.to_dict(), sort_keys=True, separators=(",", ":")) + "\n"
+        )
         temporary.replace(target)
     finally:
         temporary.unlink(missing_ok=True)

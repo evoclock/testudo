@@ -49,7 +49,13 @@ def test_symlink_is_rejected_before_scanner(tmp_path: Path) -> None:
 
     store = ArtifactStore(tmp_path / "store", store_id="linux-large")
     with pytest.raises(EgressRejected, match="symlink"):
-        store.export_tree(source, run_id="run-2", scanner=lambda p, r: scanned.append(r), scanner_id="test-scanner", policy_hash="policy-test")
+        store.export_tree(
+            source,
+            run_id="run-2",
+            scanner=lambda p, r: scanned.append(r),
+            scanner_id="test-scanner",
+            policy_hash="policy-test",
+        )
     assert scanned == []
     assert not any(path.is_file() for path in (tmp_path / "store/objects").rglob("*"))
 
@@ -64,7 +70,13 @@ def test_scanner_rejection_never_promotes_object(tmp_path: Path) -> None:
 
     store = ArtifactStore(tmp_path / "store", store_id="spark-model")
     with pytest.raises(EgressRejected, match="scanner rejected"):
-        store.export_tree(source, run_id="run-3", scanner=reject, scanner_id="test-scanner", policy_hash="policy-test")
+        store.export_tree(
+            source,
+            run_id="run-3",
+            scanner=reject,
+            scanner_id="test-scanner",
+            policy_hash="policy-test",
+        )
     digest = hashlib.sha256(b"token").hexdigest()
     assert not store.object_path(digest).exists()
 
@@ -79,7 +91,13 @@ def test_scanner_mutation_is_detected(tmp_path: Path) -> None:
 
     store = ArtifactStore(tmp_path / "store", store_id="mac-small")
     with pytest.raises(EgressRejected, match="changed during scan"):
-        store.export_tree(source, run_id="run-4", scanner=mutate, scanner_id="test-scanner", policy_hash="policy-test")
+        store.export_tree(
+            source,
+            run_id="run-4",
+            scanner=mutate,
+            scanner_id="test-scanner",
+            policy_hash="policy-test",
+        )
 
 
 def test_quota_rejects_before_cas_promotion(tmp_path: Path) -> None:
@@ -88,5 +106,11 @@ def test_quota_rejects_before_cas_promotion(tmp_path: Path) -> None:
     (source / "large.txt").write_text("12345")
     store = ArtifactStore(tmp_path / "store", store_id="mac-small", max_bytes=4)
     with pytest.raises(EgressRejected, match="byte limit"):
-        store.export_tree(source, run_id="run-quota", scanner=lambda path, relative: None, scanner_id="test-scanner", policy_hash="policy-test")
+        store.export_tree(
+            source,
+            run_id="run-quota",
+            scanner=lambda path, relative: None,
+            scanner_id="test-scanner",
+            policy_hash="policy-test",
+        )
     assert not any(path.is_file() for path in (tmp_path / "store/objects").rglob("*"))

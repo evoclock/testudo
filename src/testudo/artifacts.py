@@ -200,6 +200,7 @@ class ArtifactStore:
 
 def _walk_regular_files(root: Path) -> Iterator[tuple[Path, PurePosixPath]]:
     """Yield sorted regular files and reject links/special files."""
+
     def walk(directory: Path, relative: PurePosixPath) -> Iterator[tuple[Path, PurePosixPath]]:
         try:
             entries = sorted(os.scandir(directory), key=lambda entry: entry.name)
@@ -247,7 +248,9 @@ def _copy_regular(path: Path, destination: Path, expected: os.stat_result) -> tu
         raise EgressRejected(f"cannot open output file {path}: {exc}") from exc
     try:
         opened = os.fstat(fd)
-        if not stat.S_ISREG(opened.st_mode) or _stat_fingerprint(opened) != _stat_fingerprint(expected):
+        if not stat.S_ISREG(opened.st_mode) or _stat_fingerprint(opened) != _stat_fingerprint(
+            expected
+        ):
             raise EgressRejected(f"output file changed before read: {path}")
         digest = hashlib.sha256()
         size = 0

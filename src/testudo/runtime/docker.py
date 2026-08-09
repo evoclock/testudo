@@ -61,8 +61,12 @@ def build_docker_argv(
         or capability_token_path is not None
         or authorization_env is not None
     )
-    if contained and (lease_path is None or attestation_path is None or capability_token_path is None):
-        raise ValueError("lease_path, attestation_path, and capability_token_path are required together")
+    if contained and (
+        lease_path is None or attestation_path is None or capability_token_path is None
+    ):
+        raise ValueError(
+            "lease_path, attestation_path, and capability_token_path are required together"
+        )
     if contained and authorization_env is None:
         raise ValueError("authorization_env is required for contained mode")
     if not contained and authorization_env:
@@ -100,7 +104,9 @@ def build_docker_argv(
         )
         argv.extend(["-v", f"{lease_path.resolve()}:/run/testudo/lease.json:ro"])
         argv.extend(["-v", f"{attestation_path.resolve()}:/run/testudo/attestation.json:ro"])
-        argv.extend(["-v", f"{capability_token_path.resolve()}:/run/testudo/capability-token.json:ro"])
+        argv.extend(
+            ["-v", f"{capability_token_path.resolve()}:/run/testudo/capability-token.json:ro"]
+        )
         argv.extend(["--env", "CANTUS_UNATTENDED=1"])
         argv.extend(["--env", "CANTUS_LEASE_FILE=/run/testudo/lease.json"])
         argv.extend(["--env", "CANTUS_RUNTIME_ATTESTATION_FILE=/run/testudo/attestation.json"])

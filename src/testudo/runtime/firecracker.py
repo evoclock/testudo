@@ -60,7 +60,10 @@ class FirecrackerConfig:
             raise FirecrackerError("guest CID must be in the Firecracker range")
         if self.vcpu_count < 1 or self.mem_size_mib < 128:
             raise FirecrackerError("vcpu_count and mem_size_mib are below safe minimums")
-        for name, candidate in (("API socket", self.api_socket), ("vsock socket", self.vsock_socket)):
+        for name, candidate in (
+            ("API socket", self.api_socket),
+            ("vsock socket", self.vsock_socket),
+        ):
             if candidate is None:
                 continue
             if len(str(candidate)) >= 104:
@@ -161,7 +164,9 @@ class FirecrackerAPI:
         finally:
             connection.close()
         if not 200 <= response.status < 300:
-            raise FirecrackerError(f"Firecracker API rejected {path}: {response.status} {response_body}")
+            raise FirecrackerError(
+                f"Firecracker API rejected {path}: {response.status} {response_body}"
+            )
 
     def configure_and_start(self, config: FirecrackerConfig) -> None:
         """Apply the fixed request sequence and start the instance."""
@@ -212,7 +217,9 @@ def _wait_for_socket(path: Path, process: subprocess.Popen[str], timeout: float)
         if path.exists():
             return
         if process.poll() is not None:
-            raise FirecrackerError(f"Firecracker exited before API socket appeared: {process.returncode}")
+            raise FirecrackerError(
+                f"Firecracker exited before API socket appeared: {process.returncode}"
+            )
         time.sleep(0.01)
     raise FirecrackerError(f"Firecracker API socket did not appear: {path}")
 

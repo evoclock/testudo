@@ -32,10 +32,17 @@ def test_capability_token_uses_es256_metadata() -> None:
     signer = P256Signer.generate("secure-enclave-key")
     token = CapabilityToken.issue(
         signer=signer,
-        run_id="run-1", lease_id="lease-1", host_id="mac-mini", vm_id="vm-1",
-        repository="testudo-agents", branch="agent/T-0254/run-1",
-        base_sha="a" * 40, capabilities=("export",),
-        allowed_paths=("agents/checkpoints/",), lifetime=timedelta(minutes=10), now=NOW,
+        run_id="run-1",
+        lease_id="lease-1",
+        host_id="mac-mini",
+        vm_id="vm-1",
+        repository="testudo-agents",
+        branch="agent/T-0254/run-1",
+        base_sha="a" * 40,
+        capabilities=("export",),
+        allowed_paths=("agents/checkpoints/",),
+        lifetime=timedelta(minutes=10),
+        now=NOW,
     )
 
     serialized = token.to_dict()
@@ -56,6 +63,7 @@ def test_external_sign_callback_does_not_export_private_key() -> None:
         # remains owned by the separate signer in this deterministic fixture.
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.asymmetric import ec
+
         return source.private_key.sign(payload, ec.ECDSA(hashes.SHA256()))  # type: ignore[union-attr]
 
     external = P256Signer.from_external(

@@ -61,9 +61,7 @@ def test_runner_defaults_to_microvm_and_fails_closed_without_adapter(
         )
 
 
-def test_runner_can_use_explicit_microvm_adapter(
-    workflow_file: Path, runs_root: Path
-) -> None:
+def test_runner_can_use_explicit_microvm_adapter(workflow_file: Path, runs_root: Path) -> None:
     calls: list[dict[str, Any]] = []
 
     def microvm_invoke(**kwargs: Any) -> docker.RunResult:
