@@ -12,7 +12,7 @@ only through the scanned egress importer after the container exits.
 from __future__ import annotations
 
 import uuid
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import timedelta
 from pathlib import Path
 
@@ -20,14 +20,23 @@ from testudo.artifacts import ArtifactStore, ChunkScanner
 from testudo.audit import AuditEvent, AuditLog
 from testudo.runtime import docker
 from testudo.runtime.attestation import issue_attestation, write_attestation
+from testudo.runtime.backend import ExecutionBackend, coerce_backend
 from testudo.runtime.isolation import IsolationProfile
 
 
 class Runner:
     """Coordinate audit logging and optional scanned output promotion."""
 
-    def __init__(self, runs_root: Path) -> None:
+    def __init__(
+        self,
+        runs_root: Path,
+        *,
+        backend: ExecutionBackend | str = ExecutionBackend.MICROVM,
+        microvm_invoke: Callable[..., docker.RunResult] | None = None,
+    ) -> None:
         self.runs_root = runs_root
+        self.backend = coerce_backend(backend)
+        self.microvm_invoke = microvm_invoke
         runs_root.mkdir(parents=True, exist_ok=True)
 
     def run(
@@ -36,6 +45,7 @@ class Runner:
         workflow_path: Path,
         workflow_name: str,
         isolation: IsolationProfile,
+        backend: ExecutionBackend | str | None = None,
         inputs_dir: Path | None = None,
         timeout: float | None = None,
         artifact_store: ArtifactStore | None = None,
@@ -55,7 +65,13 @@ class Runner:
         The container can write only to ``exchange``; the audit log remains
         outside the writable mount and every output file is scanned before
         promotion into the host-local CAS.
+
+        ``microvm`` is the governed default. Docker is an explicit compatibility
+        backend for callers that opt in with ``backend="docker"``.
         """
+        selected_backend = coerce_backend(backend or self.backend)
+        if selected_backend is ExecutionBackend.MICROVM and self.microvm_invoke is None:
+            raise RuntimeError("microVM backend selected but no host microVM adapter is configured")
         if artifact_store is not None and (egress_scanner is None or not egress_scanner_id or not egress_policy_hash):
             raise ValueError("egress_scanner, egress_scanner_id, and egress_policy_hash are required with artifact_store")
         contained = (
@@ -105,6 +121,7 @@ class Runner:
                 workflow=workflow_name,
                 args={
                     "isolation": isolation.model_dump(),
+                    "backend": selected_backend.value,
                     "contained": contained,
                     **({"attestation_hash": attestation.attestation_hash} if attestation else {}),
                 },
@@ -112,7 +129,13 @@ class Runner:
         )
 
         try:
-            result = docker.invoke(
+            invoker: Callable[..., docker.RunResult]
+            if selected_backend is ExecutionBackend.DOCKER:
+                invoker = docker.invoke
+            else:
+                assert self.microvm_invoke is not None
+                invoker = self.microvm_invoke
+            result = invoker(
                 workflow_path=workflow_path,
                 runs_dir=exchange_dir,
                 isolation=isolation,

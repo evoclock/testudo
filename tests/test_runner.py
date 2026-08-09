@@ -14,6 +14,7 @@ import pytest
 from testudo.artifacts import ArtifactStore
 from testudo.audit import AuditLog
 from testudo.runtime import docker
+from testudo.runtime.backend import ExecutionBackend
 from testudo.runtime.isolation import IsolationProfile
 from testudo.runtime.runner import Runner
 
@@ -48,12 +49,43 @@ def _stub_invoke(
     return stub
 
 
+def test_runner_defaults_to_microvm_and_fails_closed_without_adapter(
+    workflow_file: Path, runs_root: Path
+) -> None:
+    runner = Runner(runs_root)
+    with pytest.raises(RuntimeError, match="microVM backend"):
+        runner.run(
+            workflow_path=workflow_file,
+            workflow_name="demo",
+            isolation=IsolationProfile(),
+        )
+
+
+def test_runner_can_use_explicit_microvm_adapter(
+    workflow_file: Path, runs_root: Path
+) -> None:
+    calls: list[dict[str, Any]] = []
+
+    def microvm_invoke(**kwargs: Any) -> docker.RunResult:
+        calls.append(kwargs)
+        return docker.RunResult(exit_status=0, stdout="microvm", stderr="", runtime_ms=2)
+
+    runner = Runner(runs_root, backend=ExecutionBackend.MICROVM, microvm_invoke=microvm_invoke)
+    result = runner.run(
+        workflow_path=workflow_file,
+        workflow_name="demo",
+        isolation=IsolationProfile(),
+    )
+    assert result.stdout == "microvm"
+    assert len(calls) == 1
+
+
 def test_runner_creates_per_run_directory(
     monkeypatch: pytest.MonkeyPatch, workflow_file: Path, runs_root: Path
 ) -> None:
     monkeypatch.setattr(docker, "invoke", _stub_invoke())
 
-    runner = Runner(runs_root)
+    runner = Runner(runs_root, backend="docker")
     runner.run(
         workflow_path=workflow_file,
         workflow_name="demo",
@@ -70,7 +102,7 @@ def test_runner_emits_workflow_start_then_workflow_end(
 ) -> None:
     monkeypatch.setattr(docker, "invoke", _stub_invoke(exit_status=0, runtime_ms=42))
 
-    runner = Runner(runs_root)
+    runner = Runner(runs_root, backend="docker")
     runner.run(
         workflow_path=workflow_file,
         workflow_name="demo",
@@ -90,7 +122,7 @@ def test_runner_workflow_start_records_isolation_args(
 ) -> None:
     monkeypatch.setattr(docker, "invoke", _stub_invoke())
 
-    runner = Runner(runs_root)
+    runner = Runner(runs_root, backend="docker")
     runner.run(
         workflow_path=workflow_file,
         workflow_name="demo",
@@ -114,7 +146,7 @@ def test_runner_emits_error_event_when_invoke_raises(
 
     monkeypatch.setattr(docker, "invoke", raising_invoke)
 
-    runner = Runner(runs_root)
+    runner = Runner(runs_root, backend="docker")
     with pytest.raises(RuntimeError):
         runner.run(
             workflow_path=workflow_file,
@@ -140,7 +172,7 @@ def test_runner_returns_run_result_from_invoke(
         _stub_invoke(exit_status=0, stdout="ok", stderr="warn", runtime_ms=99),
     )
 
-    runner = Runner(runs_root)
+    runner = Runner(runs_root, backend="docker")
     result = runner.run(
         workflow_path=workflow_file,
         workflow_name="demo",
@@ -158,7 +190,7 @@ def test_runner_creates_runs_root_if_missing(
     monkeypatch.setattr(docker, "invoke", _stub_invoke())
 
     nested = tmp_path / "deeply" / "nested" / "runs"
-    runner = Runner(nested)
+    runner = Runner(nested, backend="docker")
     assert nested.is_dir()
 
     runner.run(
@@ -183,7 +215,7 @@ def test_runner_mounts_exchange_not_audit_and_promotes_scanned_output(
 
     monkeypatch.setattr(docker, "invoke", fake_invoke)
     store = ArtifactStore(tmp_path / "store", store_id="mac-small")
-    runner = Runner(runs_root)
+    runner = Runner(runs_root, backend="docker")
     runner.run(
         workflow_path=workflow_file,
         workflow_name="demo",
@@ -204,7 +236,7 @@ def test_runner_mounts_exchange_not_audit_and_promotes_scanned_output(
 def test_runner_requires_scanner_for_artifact_store(
     workflow_file: Path, runs_root: Path, tmp_path: Path
 ) -> None:
-    runner = Runner(runs_root)
+    runner = Runner(runs_root, backend="docker")
     with pytest.raises(ValueError, match="egress_scanner"):
         runner.run(
             workflow_path=workflow_file,
@@ -228,7 +260,7 @@ def test_runner_contained_run_writes_attestation_and_passes_read_only_contract(
         return docker.RunResult(exit_status=0, stdout="", stderr="", runtime_ms=1)
 
     monkeypatch.setattr(docker, "invoke", fake_invoke)
-    runner = Runner(runs_root)
+    runner = Runner(runs_root, backend="docker")
     runner.run(
         workflow_path=workflow_file,
         workflow_name="demo",
