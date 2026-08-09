@@ -27,40 +27,61 @@ from testudo.runtime.capability import (
     write_token,
 )
 from testudo.runtime.docker import RunResult, build_docker_argv, invoke
-from testudo.runtime.publisher import Checkpoint, GitBundlePublisher, PublicationError, PublicationReceipt
+from testudo.runtime.firecracker import (
+    ApiRequest,
+    FirecrackerAPI,
+    FirecrackerConfig,
+    FirecrackerError,
+    FirecrackerHandle,
+    build_api_requests,
+    launch,
+)
 from testudo.runtime.isolation import (
     IsolationPrimitive,
     IsolationProfile,
     NetworkMode,
     load_isolation,
 )
+from testudo.runtime.publisher import (
+    Checkpoint,
+    GitBundlePublisher,
+    PublicationError,
+    PublicationReceipt,
+)
 from testudo.runtime.runner import Runner
 
 __all__ = [
+    "ApiRequest",
     "ArtifactStore",
+    "CapabilityError",
+    "CapabilityToken",
+    "Checkpoint",
     "EgressRejected",
+    "ExecutionBackend",
     "ExportManifest",
+    "FirecrackerAPI",
+    "FirecrackerConfig",
+    "FirecrackerError",
+    "FirecrackerHandle",
+    "GitBundlePublisher",
     "IsolationPrimitive",
     "IsolationProfile",
     "NetworkMode",
-    "RunResult",
-    "Checkpoint",
-    "GitBundlePublisher",
     "PublicationError",
     "PublicationReceipt",
+    "RunResult",
     "Runner",
     "RuntimeAttestation",
-    "ExecutionBackend",
-    "CapabilityError",
-    "CapabilityToken",
     "SupervisorEvent",
     "WorkerSupervisor",
     "WorkerTerminated",
+    "build_api_requests",
     "build_docker_argv",
+    "coerce_backend",
     "invoke",
     "issue_attestation",
+    "launch",
     "load_isolation",
     "write_attestation",
     "write_token",
-    "coerce_backend",
 ]
