@@ -218,7 +218,9 @@ def test_runner_contained_run_writes_attestation_and_passes_read_only_contract(
     monkeypatch: pytest.MonkeyPatch, workflow_file: Path, runs_root: Path, tmp_path: Path
 ) -> None:
     lease = tmp_path / "lease.json"
+    token = tmp_path / "capability-token.json"
     lease.write_text("{}")
+    token.write_text("{}")
     captured: dict[str, Any] = {}
 
     def fake_invoke(**kwargs: Any) -> docker.RunResult:
@@ -232,6 +234,7 @@ def test_runner_contained_run_writes_attestation_and_passes_read_only_contract(
         workflow_name="demo",
         isolation=IsolationProfile(image=f"testudo@sha256:{'a' * 64}"),
         lease_path=lease,
+        capability_token_path=token,
         authorization_env={"CANTUS_APPROVAL_HASH": "approval"},
         lease_id="lease-1",
         image_digest=f"sha256:{'a' * 64}",
@@ -242,4 +245,5 @@ def test_runner_contained_run_writes_attestation_and_passes_read_only_contract(
     assert attestation["runtime"] == "testudo"
     assert attestation["leaseId"] == "lease-1"
     assert captured["lease_path"] == lease
+    assert captured["capability_token_path"] == token
     assert captured["attestation_path"] == run_dir / "runtime-attestation.json"

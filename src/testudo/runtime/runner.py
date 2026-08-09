@@ -43,6 +43,7 @@ class Runner:
         egress_scanner_id: str | None = None,
         egress_policy_hash: str | None = None,
         lease_path: Path | None = None,
+        capability_token_path: Path | None = None,
         authorization_env: Mapping[str, str] | None = None,
         lease_id: str | None = None,
         image_digest: str | None = None,
@@ -57,9 +58,21 @@ class Runner:
         """
         if artifact_store is not None and (egress_scanner is None or not egress_scanner_id or not egress_policy_hash):
             raise ValueError("egress_scanner, egress_scanner_id, and egress_policy_hash are required with artifact_store")
-        contained = lease_path is not None or authorization_env is not None
-        if contained and (lease_path is None or authorization_env is None or not lease_id or not image_digest):
-            raise ValueError("contained runs require lease_path, authorization_env, lease_id, and image_digest")
+        contained = (
+            lease_path is not None
+            or capability_token_path is not None
+            or authorization_env is not None
+        )
+        if contained and (
+            lease_path is None
+            or capability_token_path is None
+            or authorization_env is None
+            or not lease_id
+            or not image_digest
+        ):
+            raise ValueError(
+                "contained runs require lease_path, capability_token_path, authorization_env, lease_id, and image_digest"
+            )
         if contained:
             assert image_digest is not None
             if image_digest not in isolation.image:
@@ -107,6 +120,7 @@ class Runner:
                 timeout=timeout,
                 lease_path=lease_path,
                 attestation_path=attestation_path,
+                capability_token_path=capability_token_path,
                 authorization_env=authorization_env,
             )
             manifest = None

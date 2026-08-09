@@ -45,18 +45,24 @@ def build_docker_argv(
     inputs_dir: Path | None = None,
     lease_path: Path | None = None,
     attestation_path: Path | None = None,
+    capability_token_path: Path | None = None,
     authorization_env: Mapping[str, str] | None = None,
 ) -> list[str]:
     """Build ``docker run`` argv with no writable host control mounts.
 
-    ``runs_dir`` is the only writable mount.  If a lease is supplied, both the
-    lease and the short-lived Testudo runtime attestation are mounted read-only
-    under ``/run/testudo`` and the unattended flag is injected by the host.
-    Arbitrary environment variables are rejected in contained mode.
+    ``runs_dir`` is the only writable mount. If a lease is supplied, the lease,
+    short-lived runtime attestation and host-issued capability token are mounted
+    read-only under ``/run/testudo`` and the unattended flag is injected by the
+    host. Arbitrary environment variables are rejected in contained mode.
     """
-    contained = lease_path is not None or attestation_path is not None or authorization_env is not None
-    if contained and (lease_path is None or attestation_path is None):
-        raise ValueError("lease_path and attestation_path are required together")
+    contained = (
+        lease_path is not None
+        or attestation_path is not None
+        or capability_token_path is not None
+        or authorization_env is not None
+    )
+    if contained and (lease_path is None or attestation_path is None or capability_token_path is None):
+        raise ValueError("lease_path, attestation_path, and capability_token_path are required together")
     if contained and authorization_env is None:
         raise ValueError("authorization_env is required for contained mode")
     if not contained and authorization_env:
@@ -65,6 +71,8 @@ def build_docker_argv(
         raise ValueError(f"lease file does not exist: {lease_path}")
     if attestation_path is not None and not attestation_path.is_file():
         raise ValueError(f"attestation file does not exist: {attestation_path}")
+    if capability_token_path is not None and not capability_token_path.is_file():
+        raise ValueError(f"capability token file does not exist: {capability_token_path}")
     if authorization_env is not None and set(authorization_env) - _AUTH_ENV_NAMES:
         unknown = sorted(set(authorization_env) - _AUTH_ENV_NAMES)
         raise ValueError(f"unsupported authorization environment: {', '.join(unknown)}")
@@ -84,12 +92,19 @@ def build_docker_argv(
     argv.extend(["-v", f"{runs_dir.resolve()}:/runs"])
 
     if contained:
-        assert lease_path is not None and attestation_path is not None and authorization_env is not None
+        assert (
+            lease_path is not None
+            and attestation_path is not None
+            and capability_token_path is not None
+            and authorization_env is not None
+        )
         argv.extend(["-v", f"{lease_path.resolve()}:/run/testudo/lease.json:ro"])
         argv.extend(["-v", f"{attestation_path.resolve()}:/run/testudo/attestation.json:ro"])
+        argv.extend(["-v", f"{capability_token_path.resolve()}:/run/testudo/capability-token.json:ro"])
         argv.extend(["--env", "CANTUS_UNATTENDED=1"])
         argv.extend(["--env", "CANTUS_LEASE_FILE=/run/testudo/lease.json"])
         argv.extend(["--env", "CANTUS_RUNTIME_ATTESTATION_FILE=/run/testudo/attestation.json"])
+        argv.extend(["--env", "TESTUDO_CAPABILITY_TOKEN_FILE=/run/testudo/capability-token.json"])
         for key in sorted(authorization_env):
             argv.extend(["--env", f"{key}={authorization_env[key]}"])
 
@@ -108,6 +123,7 @@ def invoke(
     timeout: float | None = None,
     lease_path: Path | None = None,
     attestation_path: Path | None = None,
+    capability_token_path: Path | None = None,
     authorization_env: Mapping[str, str] | None = None,
 ) -> RunResult:
     """Execute a workflow inside Docker and return its host-observed result."""
@@ -118,6 +134,7 @@ def invoke(
         inputs_dir=inputs_dir,
         lease_path=lease_path,
         attestation_path=attestation_path,
+        capability_token_path=capability_token_path,
         authorization_env=authorization_env,
     )
 
