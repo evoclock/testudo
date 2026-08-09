@@ -131,7 +131,7 @@ M365 auth, compliance attestations, per-resource gating).
 | Model adapters | `models.ollama_chat` against an Ollama-served model (default backend is configurable in the UI; cloud-served models use the `:cloud` suffix). Response auto-routed through `sanitise_output` before return. Additional commercial-provider adapters planned for v0.2 under the same `models.*` shape. |
 | Prompt templates | `testudo.prompts.PromptTemplate` loads XML-shaped templates with `{{placeholder}}` substitution and `strict=True` unresolved-placeholder detection. Sample template at `examples/prompts/meeting_debrief.xml`. Orchestrator wiring (workflow steps referencing templates by name rather than embedding XML inline) is in flight for v0.1.6. |
 | MCP servers | In-house base (JSON-RPC 2.0 + STDIO); read-only `llm_response_capturer` with HMAC-signed receipts; write-only `file_writer` (receipt-gated); read-only `file_extractor` |
-| Runtime | Docker argv builder, `Dockerfile`, Runner, IsolationProfile (deny-by-default network, read-only root, tmpfs `/tmp`, configurable cpu / memory) |
+| Runtime | MicroVM backend is the governed default; Docker argv builder, `Dockerfile`, Runner and IsolationProfile remain an explicit compatibility backend (deny-by-default network, read-only root, tmpfs `/tmp`, configurable CPU / memory) |
 | Audit | Append-only JSONL per run; workflow + step lifecycle + permission decisions + errors |
 | CLI | `testudo run`, `testudo serve`, `testudo inspect`, `testudo ui` |
 | API | FastAPI bridge: `/health`, `/workflows`, `POST /runs`, `GET /runs/{id}`; bearer-token auth; in-house token-bucket rate limiter |

@@ -14,9 +14,10 @@ Outputs: an ``IsolationProfile`` instance with sensible defaults
 (testudo:0.1 image, 1 CPU, 2 GB memory, no network, read-only root with
 tmpfs for /tmp, writable rollback layer at /runs).
 
-Assumptions: v0.1 ships Docker as the only isolation primitive. Firejail and
-Python-level sandboxes are deferred until v0.2 or later; the ``primitive``
-field is a Literal so adding new primitives is a deliberate change.
+Assumptions: the governed Runner selects a host microVM by default. The
+profile's Docker-compatible image/resource fields are retained for the
+explicit Docker compatibility backend; adding another backend is a deliberate
+Runner change.
 """
 
 from __future__ import annotations
