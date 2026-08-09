@@ -251,9 +251,19 @@ A workflow without `permissions` and `isolation` blocks runs under deny-by-defau
 - A multi-tenant orchestrator. One runtime per machine in v0.x.
 - A general-purpose sandbox. Testudo is shaped for *agent* execution: tool-call patterns, structured workflow steps, audit trails. A general-purpose Linux sandbox is a different product.
 
-## Docker status
+## Execution backend status
 
-The Docker isolation primitive is architected and scaffolded but is not the default execution path in v0.1.5. `build_docker_argv` builds the canonical `docker run` argv from a workflow's `IsolationProfile`; the `Dockerfile` produces `testudo:0.1`; `Runner` wires the audit log around the container invocation. The v0.1.x CLI / FastAPI default path runs the orchestrator in-process on the host. v0.1.6 wires the Docker path into `testudo run` and `POST /runs` as the default, plus per-workflow egress allow-lists at the container's `iptables` layer. See [NEXT_ACTIONS.md](../NEXT_ACTIONS.md) Priority 0.
+The governed execution default is **Testudo inside a host-selected microVM**.
+`Runner` selects the `microvm` backend by default and fails closed when no
+host microVM adapter is configured. The host supervisor owns placement,
+short-lived capability tokens, the VM lifecycle, vsock export and wipe.
+
+Docker remains a complete, explicit compatibility backend for operators who
+choose it. `build_docker_argv` and `docker.invoke` retain deny-by-default
+networking, read-only control mounts, lease/attestation/token mounts and
+scanned output exchange; callers must opt in with `backend="docker"`.
+Docker is not the governed security boundary and is never an implicit fallback
+from the microVM backend.
 
 ## Connector / auth layer (v0.1.7 forward-looking)
 

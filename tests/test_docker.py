@@ -272,3 +272,66 @@ def test_real_docker_hello_world(tmp_path: Path) -> None:
     )
     assert completed.returncode == 0, completed.stderr
     assert "Hello from Docker" in completed.stdout
+
+
+def test_argv_mounts_lease_and_attestation_read_only(
+    workflow_file: Path, runs_dir: Path, tmp_path: Path
+) -> None:
+    lease = tmp_path / "lease.json"
+    attestation = tmp_path / "attestation.json"
+    token = tmp_path / "capability-token.json"
+    lease.write_text("{}")
+    attestation.write_text("{}")
+    token.write_text("{}")
+    argv = docker.build_docker_argv(
+        workflow_path=workflow_file,
+        runs_dir=runs_dir,
+        isolation=IsolationProfile(),
+        lease_path=lease,
+        attestation_path=attestation,
+        capability_token_path=token,
+        authorization_env={"CANTUS_APPROVAL_HASH": "hash"},
+    )
+    assert f"{lease}:/run/testudo/lease.json:ro" in argv
+    assert f"{attestation}:/run/testudo/attestation.json:ro" in argv
+    assert f"{token}:/run/testudo/capability-token.json:ro" in argv
+    assert "CANTUS_UNATTENDED=1" in argv
+    assert "TESTUDO_CAPABILITY_TOKEN_FILE=/run/testudo/capability-token.json" in argv
+    assert "CANTUS_LEASE_FILE=/run/testudo/lease.json" in argv
+    assert "CANTUS_APPROVAL_HASH=hash" in argv
+
+
+def test_contained_argv_requires_both_read_only_contract_files(
+    workflow_file: Path, runs_dir: Path, tmp_path: Path
+) -> None:
+    lease = tmp_path / "lease.json"
+    lease.write_text("{}")
+    with pytest.raises(ValueError, match="required together"):
+        docker.build_docker_argv(
+            workflow_path=workflow_file,
+            runs_dir=runs_dir,
+            isolation=IsolationProfile(),
+            lease_path=lease,
+            authorization_env={},
+        )
+
+
+def test_contained_argv_rejects_unknown_environment(
+    workflow_file: Path, runs_dir: Path, tmp_path: Path
+) -> None:
+    lease = tmp_path / "lease.json"
+    attestation = tmp_path / "attestation.json"
+    token = tmp_path / "capability-token.json"
+    lease.write_text("{}")
+    attestation.write_text("{}")
+    token.write_text("{}")
+    with pytest.raises(ValueError, match="unsupported authorization"):
+        docker.build_docker_argv(
+            workflow_path=workflow_file,
+            runs_dir=runs_dir,
+            isolation=IsolationProfile(),
+            lease_path=lease,
+            attestation_path=attestation,
+            capability_token_path=token,
+            authorization_env={"AWS_SECRET_ACCESS_KEY": "bad"},
+        )

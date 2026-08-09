@@ -79,6 +79,11 @@ Electron scaffold, demo workflow + integration test.
 
 Headline release. Closes the loop on the "containerised executor" tagline.
 
+**T-0254 governance note:** for bounded unattended work, the microVM + Testudo
+backend supersedes Docker as the default containment boundary. The Docker
+items below describe the explicit compatibility path only; they must not be
+used as an implicit fallback for governed runs.
+
 - **Wire `docker run` into `testudo run` and `POST /runs`.** The argv builder, the Dockerfile, and the Runner already exist. v0.1.6 plumbs them: spawn the container with the `IsolationProfile`-derived argv, stream stdout / stderr back into the audit log, marshal inputs (workflow JSON + values) and outputs (audit log + written files) across the host-container boundary.
 - **Per-workflow egress allow-list at the iptables layer.** Solves the reachability tension: workflows that legitimately need Ollama, Databricks, or public HTTPS declare exactly the destinations they need; the container's `iptables` ruleset enforces. No `--network=host` fallback.
 - **`testudo allow-list <workflow.json>` CLI helper.** Inspects the merged allow-list (workflow declaration + operator overrides) before the container starts. Useful in restricted environments (corporate proxy, VPN, on-prem).

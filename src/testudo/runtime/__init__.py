@@ -3,38 +3,109 @@
 
 """Testudo runtime package.
 
-Purpose: process-isolated execution primitives. v0.1 ships a Docker-backed
-runtime; alternative primitives (Firejail, Python-level sandbox) are
-planned for v0.2+. Wraps the host-side ``docker run`` invocation so
-``runtime/orchestrator/permissions/audit/connectors/...`` can hand it a
-workflow plus an isolation profile and get back a ``RunResult``.
+Purpose: process-isolated execution primitives. Governed runs select the
+microVM backend by default; Docker remains an explicit compatibility backend
+for callers that opt in. The Runner passes a workflow, isolation profile and
+host-issued contract to the selected boundary and returns a ``RunResult``.
 
-Inputs: a workflow path plus an ``IsolationProfile``; optional inputs
-directory and timeout.
+Inputs: a workflow path plus an ``IsolationProfile``; optional inputs,
+lease, attestation and capability-token paths.
 
 Outputs: a ``RunResult`` (exit status, stdio, wall-clock runtime); a
 per-run audit log file written by the ``Runner``.
-
-Assumptions: v0.1 targets Docker on Linux. The Docker daemon must be
-reachable; the host user must have permission to invoke ``docker run``.
 """
 
+from testudo.artifacts import ArtifactStore, EgressRejected, ExportManifest
+from testudo.runtime.attestation import RuntimeAttestation, issue_attestation, write_attestation
+from testudo.runtime.backend import ExecutionBackend, coerce_backend
+from testudo.runtime.capability import (
+    CapabilityError,
+    CapabilityToken,
+    SupervisorEvent,
+    WorkerSupervisor,
+    WorkerTerminated,
+    write_token,
+)
 from testudo.runtime.docker import RunResult, build_docker_argv, invoke
+from testudo.runtime.firecracker import (
+    ApiRequest,
+    FirecrackerAPI,
+    FirecrackerConfig,
+    FirecrackerError,
+    FirecrackerHandle,
+    build_api_requests,
+    launch,
+)
 from testudo.runtime.isolation import (
     IsolationPrimitive,
     IsolationProfile,
     NetworkMode,
     load_isolation,
 )
+from testudo.runtime.publisher import (
+    Checkpoint,
+    GitBundlePublisher,
+    PublicationError,
+    PublicationReceipt,
+)
 from testudo.runtime.runner import Runner
+from testudo.runtime.signing import P256Signer, SigningError, TokenSigner
+from testudo.runtime.transport import (
+    MAX_FRAME_BYTES,
+    Frame,
+    TransportError,
+    decode_frame,
+    encode_frame,
+    read_frame,
+    write_frame,
+)
+from testudo.runtime.worker import ProcessHandle, VMHandle, WorkerLifecycle
 
 __all__ = [
+    "MAX_FRAME_BYTES",
+    "ApiRequest",
+    "ArtifactStore",
+    "CapabilityError",
+    "CapabilityToken",
+    "Checkpoint",
+    "EgressRejected",
+    "ExecutionBackend",
+    "ExportManifest",
+    "FirecrackerAPI",
+    "FirecrackerConfig",
+    "FirecrackerError",
+    "FirecrackerHandle",
+    "Frame",
+    "GitBundlePublisher",
     "IsolationPrimitive",
     "IsolationProfile",
     "NetworkMode",
+    "P256Signer",
+    "ProcessHandle",
+    "PublicationError",
+    "PublicationReceipt",
     "RunResult",
     "Runner",
+    "RuntimeAttestation",
+    "SigningError",
+    "SupervisorEvent",
+    "TokenSigner",
+    "TransportError",
+    "VMHandle",
+    "WorkerLifecycle",
+    "WorkerSupervisor",
+    "WorkerTerminated",
+    "build_api_requests",
     "build_docker_argv",
+    "coerce_backend",
+    "decode_frame",
+    "encode_frame",
     "invoke",
+    "issue_attestation",
+    "launch",
     "load_isolation",
+    "read_frame",
+    "write_attestation",
+    "write_frame",
+    "write_token",
 ]
