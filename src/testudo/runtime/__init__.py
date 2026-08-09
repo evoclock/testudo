@@ -50,8 +50,18 @@ from testudo.runtime.publisher import (
 )
 from testudo.runtime.runner import Runner
 from testudo.runtime.signing import P256Signer, SigningError, TokenSigner
+from testudo.runtime.transport import (
+    MAX_FRAME_BYTES,
+    Frame,
+    TransportError,
+    decode_frame,
+    encode_frame,
+    read_frame,
+    write_frame,
+)
 
 __all__ = [
+    "MAX_FRAME_BYTES",
     "ApiRequest",
     "ArtifactStore",
     "CapabilityError",
@@ -64,6 +74,7 @@ __all__ = [
     "FirecrackerConfig",
     "FirecrackerError",
     "FirecrackerHandle",
+    "Frame",
     "GitBundlePublisher",
     "IsolationPrimitive",
     "IsolationProfile",
@@ -77,15 +88,20 @@ __all__ = [
     "SigningError",
     "SupervisorEvent",
     "TokenSigner",
+    "TransportError",
     "WorkerSupervisor",
     "WorkerTerminated",
     "build_api_requests",
     "build_docker_argv",
     "coerce_backend",
+    "decode_frame",
+    "encode_frame",
     "invoke",
     "issue_attestation",
     "launch",
     "load_isolation",
+    "read_frame",
     "write_attestation",
+    "write_frame",
     "write_token",
 ]
