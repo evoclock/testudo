@@ -11,6 +11,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from testudo.runtime.signing import TokenSigner
+
 
 class CapabilityError(ValueError):
     """A token or requested capability is invalid."""
@@ -36,7 +38,23 @@ def _canonical(payload: Mapping[str, object]) -> bytes:
 
 
 def _signature(key: bytes, payload: Mapping[str, object]) -> str:
+    """Return the legacy HMAC prototype signature for migration compatibility."""
     return hmac.new(key, _canonical(payload), hashlib.sha256).hexdigest()
+
+
+def _sign_payload(
+    payload: dict[str, object], *, signing_key: bytes | None, signer: TokenSigner | None
+) -> tuple[str, str, str]:
+    """Sign a payload and return ``(signature, algorithm, key_id)``."""
+    if signer is not None and signing_key is not None:
+        raise CapabilityError("provide signer or signing_key, not both")
+    if signer is not None:
+        payload["signature_alg"] = signer.algorithm
+        payload["key_id"] = signer.key_id
+        return signer.sign(_canonical(payload)), signer.algorithm, signer.key_id
+    if signing_key:
+        return _signature(signing_key, payload), "HS256", "prototype"
+    raise CapabilityError("a host signer is required")
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,11 +81,13 @@ class CapabilityToken:
     expires_at: str
     nonce: str
     signature: str
+    signature_algorithm: str = "HS256"
+    key_id: str = "prototype"
 
     SCHEMA = "contained_capability.v1"
 
     def payload(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "schema": self.SCHEMA,
             "token_id": self.token_id,
             "run_id": self.run_id,
@@ -84,6 +104,10 @@ class CapabilityToken:
             "expires_at": self.expires_at,
             "nonce": self.nonce,
         }
+        if self.signature_algorithm != "HS256":
+            payload["signature_alg"] = self.signature_algorithm
+            payload["key_id"] = self.key_id
+        return payload
 
     def to_dict(self) -> dict[str, object]:
         return {**self.payload(), "signature": self.signature}
@@ -92,7 +116,8 @@ class CapabilityToken:
     def issue(
         cls,
         *,
-        signing_key: bytes,
+        signing_key: bytes | None = None,
+        signer: TokenSigner | None = None,
         run_id: str,
         lease_id: str,
         host_id: str,
@@ -106,8 +131,8 @@ class CapabilityToken:
         lifetime: timedelta,
         now: datetime | None = None,
     ) -> CapabilityToken:
-        if not signing_key or lifetime <= timedelta(0):
-            raise CapabilityError("signing key and positive lifetime are required")
+        if (signing_key is None) == (signer is None) or lifetime <= timedelta(0):
+            raise CapabilityError("exactly one host signer and a positive lifetime are required")
         if not all((run_id, lease_id, host_id, vm_id, repository, branch, base_sha)):
             raise CapabilityError("run, lease, host, VM, repository and scope are required")
         if not branch.startswith("agent/"):
@@ -115,7 +140,7 @@ class CapabilityToken:
         if len(base_sha) not in (40, 64) or any(c not in "0123456789abcdef" for c in base_sha):
             raise CapabilityError("base_sha must be a lowercase Git/object digest")
         issued = (now or datetime.now(UTC)).astimezone(UTC)
-        payload = {
+        payload: dict[str, object] = {
             "schema": cls.SCHEMA,
             "token_id": secrets.token_hex(16),
             "run_id": run_id,
@@ -132,23 +157,38 @@ class CapabilityToken:
             "expires_at": _time(issued + lifetime),
             "nonce": secrets.token_hex(16),
         }
-        return cls._from_payload(payload, _signature(signing_key, payload))
+        signature, algorithm, key_id = _sign_payload(
+            payload, signing_key=signing_key, signer=signer
+        )
+        return cls._from_payload(payload, signature, signature_algorithm=algorithm, key_id=key_id)
 
     @classmethod
     def verify(
         cls,
         value: Mapping[str, Any],
         *,
-        signing_key: bytes,
+        signing_key: bytes | None = None,
+        signer: TokenSigner | None = None,
         now: datetime | None = None,
     ) -> CapabilityToken:
-        if not signing_key or not isinstance(value, Mapping):
-            raise CapabilityError("token and signing key are required")
+        if (signing_key is None) == (signer is None) or not isinstance(value, Mapping):
+            raise CapabilityError("exactly one token verifier is required")
         signature = value.get("signature")
         payload = {key: value[key] for key in value if key != "signature"}
         if payload.get("schema") != cls.SCHEMA or not isinstance(signature, str):
             raise CapabilityError("unsupported or unsigned token")
-        if not hmac.compare_digest(signature, _signature(signing_key, payload)):
+        algorithm = payload.get("signature_alg", "HS256")
+        key_id = payload.get("key_id", "prototype")
+        if signer is not None:
+            if algorithm != signer.algorithm or key_id != signer.key_id:
+                raise CapabilityError("capability token signer mismatch")
+            valid = signer.verify(_canonical(payload), signature)
+        else:
+            if algorithm != "HS256":
+                raise CapabilityError("asymmetric token requires a host verifier")
+            assert signing_key is not None
+            valid = hmac.compare_digest(signature, _signature(signing_key, payload))
+        if not valid:
             raise CapabilityError("capability token signature mismatch")
         token = cls._from_payload(payload, signature)
         current = (now or datetime.now(UTC)).astimezone(UTC)
@@ -159,7 +199,14 @@ class CapabilityToken:
         return token
 
     @classmethod
-    def _from_payload(cls, payload: Mapping[str, Any], signature: str) -> CapabilityToken:
+    def _from_payload(
+        cls,
+        payload: Mapping[str, Any],
+        signature: str,
+        *,
+        signature_algorithm: str | None = None,
+        key_id: str | None = None,
+    ) -> CapabilityToken:
         names = ("token_id", "run_id", "lease_id", "host_id", "vm_id", "repository", "branch", "base_sha", "issued_at", "expires_at", "nonce")
         if any(not isinstance(payload.get(name), str) or not payload[name] for name in names):
             raise CapabilityError("token identity or time field is missing")
@@ -169,12 +216,17 @@ class CapabilityToken:
             if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
                 raise CapabilityError(f"{name} must be a string list")
             lists.append(tuple(value))
+        algorithm = signature_algorithm or payload.get("signature_alg", "HS256")
+        token_key_id = key_id or payload.get("key_id", "prototype")
+        if not isinstance(algorithm, str) or not algorithm or not isinstance(token_key_id, str) or not token_key_id:
+            raise CapabilityError("token signer metadata is invalid")
         token = cls(
             token_id=payload["token_id"], run_id=payload["run_id"], lease_id=payload["lease_id"],
             host_id=payload["host_id"], vm_id=payload["vm_id"], repository=payload["repository"],
             branch=payload["branch"], base_sha=payload["base_sha"], capabilities=lists[0],
             allowed_paths=lists[1], allowed_commands=lists[2], issued_at=payload["issued_at"],
             expires_at=payload["expires_at"], nonce=payload["nonce"], signature=signature,
+            signature_algorithm=algorithm, key_id=token_key_id,
         )
         _parse_time(token.issued_at)
         _parse_time(token.expires_at)
@@ -193,13 +245,17 @@ class WorkerSupervisor:
     """Host-side expiry and kill/wipe boundary for one worker VM."""
 
     def __init__(
-        self, token: CapabilityToken, *, signing_key: bytes,
+        self, token: CapabilityToken, *, signing_key: bytes | None = None,
+        signer: TokenSigner | None = None,
         kill_vm: Callable[[], None], wipe_vm: Callable[[], None],
         revoke_token: Callable[[str], None], event_sink: Callable[[SupervisorEvent], None] | None = None,
         now: Callable[[], datetime] | None = None,
     ) -> None:
+        if (signing_key is None) == (signer is None):
+            raise CapabilityError("exactly one host verifier is required")
         self.token = token
         self._key = signing_key
+        self._signer = signer
         self._kill = kill_vm
         self._wipe = wipe_vm
         self._revoke = revoke_token
@@ -213,7 +269,9 @@ class WorkerSupervisor:
 
     def check_expiry(self) -> None:
         try:
-            CapabilityToken.verify(self.token.to_dict(), signing_key=self._key, now=self._now())
+            CapabilityToken.verify(
+                self.token.to_dict(), signing_key=self._key, signer=self._signer, now=self._now()
+            )
         except CapabilityError as exc:
             self.trip(f"token_invalid_or_expired:{exc}")
             raise WorkerTerminated(str(exc)) from exc

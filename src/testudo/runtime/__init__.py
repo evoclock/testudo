@@ -49,6 +49,7 @@ from testudo.runtime.publisher import (
     PublicationReceipt,
 )
 from testudo.runtime.runner import Runner
+from testudo.runtime.signing import P256Signer, SigningError, TokenSigner
 
 __all__ = [
     "ApiRequest",
@@ -67,12 +68,15 @@ __all__ = [
     "IsolationPrimitive",
     "IsolationProfile",
     "NetworkMode",
+    "P256Signer",
     "PublicationError",
     "PublicationReceipt",
     "RunResult",
     "Runner",
     "RuntimeAttestation",
+    "SigningError",
     "SupervisorEvent",
+    "TokenSigner",
     "WorkerSupervisor",
     "WorkerTerminated",
     "build_api_requests",
