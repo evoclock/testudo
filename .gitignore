@@ -79,3 +79,8 @@ assets/A.png
 assets/B.png
 assets/C.png
 assets/D.png
+
+# Internal development documentation (not for public distribution)
+STATUS.md
+NEXT_ACTIONS.md
+docs/TASK37_FINAL_FIX_GROUPING.md

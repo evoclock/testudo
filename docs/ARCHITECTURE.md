@@ -300,7 +300,7 @@ testudo/
 ├── tests/              # 316 tests, 84% coverage
 ├── docs/               # ARCHITECTURE, ROADMAP, INDEX, POSITIONING,
 │                       # OLLAMA_SETUP, COMPOSE-SMOKE-TEST
-├── Dockerfile          # testudo:0.1 image
+├── docker/             # container recipes (compat image + native smoke)
 ├── .pre-commit-config.yaml  # ruff format + ruff + mypy + detect-private-key
 ├── STATUS.md           # repo state snapshot
 ├── CHANGELOG.md        # release history

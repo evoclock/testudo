@@ -16,7 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DOCKERFILE = ROOT / "Dockerfile.native-smoke"
+DOCKERFILE = ROOT / "docker" / "Dockerfile.native-smoke"
 SUPERVISOR = ROOT / "guest" / "testudo_contained_guest.sh"
 MONITOR = ROOT / "guest" / "testudo_containment_monitor.sh"
 TAXONOMY = ROOT / "src" / "testudo" / "runtime" / "guest_containment_taxonomy.v1.json"

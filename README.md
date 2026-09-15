@@ -286,7 +286,7 @@ should be the same.
 
 ## Roadmap
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) and [NEXT_ACTIONS.md](NEXT_ACTIONS.md).
+See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 **The governed runtime defaults to microVM.** `testudo run` and the bridge's
 `POST /runs` fail closed until a host supervisor supplies a configured
