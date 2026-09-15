@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Julen Gamboa <j.a.r.gamboa@gmail.com>
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: AGPL-3.0-or-later
 
 """Tests for the /env-check bridge endpoint."""
 
@@ -24,6 +24,7 @@ def client_and_token(tmp_path: Path) -> tuple[TestClient, str]:
         runs_root=tmp_path / "runs",
         workflows_root=workflows_dir,
         token=token,
+        backend="direct",
     )
     return TestClient(app), token
 

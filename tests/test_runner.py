@@ -1,11 +1,13 @@
 # SPDX-FileCopyrightText: 2026 Julen Gamboa <j.a.r.gamboa@gmail.com>
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: AGPL-3.0-or-later
 
 """Tests for ``testudo.runtime.runner``: audit emission around docker.invoke."""
 
 from __future__ import annotations
 
 import json
+import threading
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +17,7 @@ from testudo.artifacts import ArtifactStore
 from testudo.audit import AuditLog
 from testudo.runtime import docker
 from testudo.runtime.backend import ExecutionBackend
+from testudo.runtime.controller import HostEvent, StopHandle
 from testudo.runtime.isolation import IsolationProfile
 from testudo.runtime.runner import Runner
 
@@ -37,7 +40,7 @@ def _stub_invoke(
     stdout: str = "",
     stderr: str = "",
     runtime_ms: int = 1,
-):
+) -> Callable[..., docker.RunResult]:
     def stub(**_kwargs: Any) -> docker.RunResult:
         return docker.RunResult(
             exit_status=exit_status,
@@ -49,6 +52,45 @@ def _stub_invoke(
     return stub
 
 
+class FakeRunnerController:
+    def __init__(self, *, fail: bool = False, block: bool = False) -> None:
+        self.fail = fail
+        self.block = block
+        self.calls: list[dict[str, Any]] = []
+        self.started = threading.Event()
+        self.release = threading.Event()
+        self.stop_reason: str | None = None
+        self._handle: StopHandle | None = None
+
+    @property
+    def stop_handle(self) -> StopHandle | None:
+        return self._handle
+
+    def _stop(self, reason: str) -> None:
+        self.stop_reason = reason
+        self.release.set()
+
+    def run(self, **kwargs: Any) -> docker.RunResult:
+        self.calls.append(kwargs)
+        run_id = kwargs["run_id"]
+        kwargs["event_sink"](
+            HostEvent(
+                event="transport",
+                run_id=run_id,
+                token_id="token-1",
+                sequence=0,
+                details={"phase": "ready"},
+            )
+        )
+        self._handle = StopHandle(run_id, self._stop)
+        self.started.set()
+        if self.block:
+            self.release.wait(timeout=2)
+        if self.fail:
+            raise RuntimeError("controller failed")
+        return docker.RunResult(exit_status=0, stdout="controller", stderr="", runtime_ms=3)
+
+
 def test_runner_defaults_to_microvm_and_fails_closed_without_adapter(
     workflow_file: Path, runs_root: Path
 ) -> None:
@@ -58,6 +100,94 @@ def test_runner_defaults_to_microvm_and_fails_closed_without_adapter(
             workflow_path=workflow_file,
             workflow_name="demo",
             isolation=IsolationProfile(),
+        )
+
+
+def test_runner_native_container_fails_closed_without_adapter(
+    workflow_file: Path, runs_root: Path
+) -> None:
+    runner = Runner(runs_root, backend=ExecutionBackend.NATIVE_CONTAINER)
+    with pytest.raises(RuntimeError, match="native-container backend"):
+        runner.run(
+            workflow_path=workflow_file,
+            workflow_name="demo",
+            isolation=IsolationProfile(),
+            lease_id="lease-1",
+            image_digest=f"sha256:{'a' * 64}",
+        )
+
+
+def test_runner_routes_native_container_without_mounting_host_authority(
+    workflow_file: Path, runs_root: Path, tmp_path: Path
+) -> None:
+    lease = tmp_path / "lease.json"
+    token = tmp_path / "capability-token.json"
+    lease.write_text("{}")
+    token.write_text("{}")
+    controller = FakeRunnerController()
+    digest = f"sha256:{'a' * 64}"
+    runner = Runner(
+        runs_root,
+        backend=ExecutionBackend.NATIVE_CONTAINER,
+        native_container_controller=controller,
+    )
+
+    result = runner.run(
+        workflow_path=workflow_file,
+        workflow_name="demo",
+        isolation=IsolationProfile(image=f"testudo@{digest}"),
+        lease_path=lease,
+        capability_token_path=token,
+        authorization_env={"CANTUS_APPROVAL_HASH": "approval"},
+        lease_id="lease-1",
+        image_digest=digest,
+    )
+
+    assert result.stdout == "controller"
+    assert len(controller.calls) == 1
+    call = controller.calls[0]
+    assert call["lease_id"] == "lease-1"
+    assert call["image_digest"] == digest
+    assert call["lease_path"] is None
+    assert call["capability_token_path"] is None
+    assert call["attestation_path"] is None
+    assert call["authorization_env"] is None
+    run_dir = next(runs_root.iterdir())
+    assert (run_dir / "runtime-attestation.json").is_file()
+    events = AuditLog(run_dir / "audit.jsonl").read()
+    assert events[0].args is not None
+    assert events[0].args["backend"] == "native-container"
+    assert events[0].args["contained"] is True
+
+
+@pytest.mark.parametrize(
+    ("lease_id", "image_digest", "image", "message"),
+    [
+        (None, f"sha256:{'a' * 64}", f"testudo@sha256:{'a' * 64}", "lease_id"),
+        ("lease-1", None, "testudo:latest", "image_digest"),
+        ("lease-1", f"sha256:{'a' * 64}", "testudo:latest", "pinned"),
+    ],
+)
+def test_runner_native_container_requires_bound_identity_and_pinned_image(
+    workflow_file: Path,
+    runs_root: Path,
+    lease_id: str | None,
+    image_digest: str | None,
+    image: str,
+    message: str,
+) -> None:
+    runner = Runner(
+        runs_root,
+        backend="native-container",
+        native_container_controller=FakeRunnerController(),
+    )
+    with pytest.raises(ValueError, match=message):
+        runner.run(
+            workflow_path=workflow_file,
+            workflow_name="demo",
+            isolation=IsolationProfile(image=image),
+            lease_id=lease_id,
+            image_digest=image_digest,
         )
 
 
@@ -76,6 +206,194 @@ def test_runner_can_use_explicit_microvm_adapter(workflow_file: Path, runs_root:
     )
     assert result.stdout == "microvm"
     assert len(calls) == 1
+
+
+def test_runner_routes_microvm_controller_and_audits_host_events(
+    workflow_file: Path, runs_root: Path
+) -> None:
+    controller = FakeRunnerController()
+    runner = Runner(runs_root, microvm_controller=controller)
+
+    result = runner.run(
+        workflow_path=workflow_file,
+        workflow_name="demo",
+        isolation=IsolationProfile(),
+    )
+
+    assert result.stdout == "controller"
+    assert len(controller.calls) == 1
+    assert controller.calls[0]["workflow_path"] == workflow_file
+    run_dir = next(runs_root.iterdir())
+    events = AuditLog(run_dir / "audit.jsonl").read()
+    assert [event.type for event in events] == ["workflow_start", "host_event", "workflow_end"]
+    host_event = events[1]
+    assert host_event.step_id == "transport"
+    assert host_event.args is not None
+    payload = host_event.args["host_event"]
+    assert isinstance(payload, dict)
+    assert payload["run_id"] == controller.calls[0]["run_id"]
+
+
+def test_runner_controller_failure_audits_error_without_workflow_end(
+    workflow_file: Path, runs_root: Path
+) -> None:
+    controller = FakeRunnerController(fail=True)
+    runner = Runner(runs_root, microvm_controller=controller)
+
+    with pytest.raises(RuntimeError, match="controller failed"):
+        runner.run(
+            workflow_path=workflow_file,
+            workflow_name="demo",
+            isolation=IsolationProfile(),
+        )
+
+    run_dir = next(runs_root.iterdir())
+    events = AuditLog(run_dir / "audit.jsonl").read()
+    assert [event.type for event in events] == ["workflow_start", "host_event", "error"]
+
+
+def test_runner_exposes_controller_stop_handle_while_active(
+    workflow_file: Path, runs_root: Path
+) -> None:
+    controller = FakeRunnerController(block=True)
+    runner = Runner(runs_root, microvm_controller=controller)
+    failures: list[BaseException] = []
+
+    def execute() -> None:
+        try:
+            runner.run(
+                workflow_path=workflow_file,
+                workflow_name="demo",
+                isolation=IsolationProfile(),
+            )
+        except BaseException as exc:  # pragma: no cover - assertion below catches failures
+            failures.append(exc)
+
+    thread = threading.Thread(target=execute)
+    thread.start()
+    assert controller.started.wait(timeout=2)
+    handle = runner.stop_handle
+    assert handle is not None
+    assert handle.run_id == controller.calls[0]["run_id"]
+    handle.stop("human_stop")
+    thread.join(timeout=2)
+    assert not thread.is_alive()
+    assert failures == []
+    assert controller.stop_reason == "human_stop"
+    assert runner.stop_handle is None
+
+
+def test_runner_rejects_ambiguous_microvm_adapters(runs_root: Path) -> None:
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        Runner(runs_root, microvm_invoke=_stub_invoke(), microvm_controller=FakeRunnerController())
+
+
+def test_runner_receipt_reset_happens_under_lock_after_active_run_check(
+    workflow_file: Path, runs_root: Path
+) -> None:
+    """A refused concurrent run must not clear an in-flight run's host receipt."""
+    receipts: dict[str, dict[str, object]] = {}
+
+    class SequencedController:
+        stop_handle = None
+
+        def __init__(self) -> None:
+            self._entered = threading.Event()
+            self._release = threading.Event()
+
+        def run(
+            self,
+            *,
+            run_id: str,
+            event_sink: Callable[[HostEvent], None],
+            **_: object,
+        ) -> docker.RunResult:
+            receipts[run_id] = {"run_id": run_id}
+            event_sink(
+                HostEvent(
+                    run_id=run_id,
+                    token_id="token",
+                    sequence=1,
+                    event="receipt",
+                    details=dict(receipts[run_id]),
+                )
+            )
+            self._entered.set()
+            self._release.wait(timeout=5)
+            return docker.RunResult(exit_status=0, stdout="", stderr="", runtime_ms=1)
+
+    controller = SequencedController()
+    runner = Runner(runs_root, backend=ExecutionBackend.MICROVM, microvm_controller=controller)  # type: ignore[arg-type]
+    workflow_path = workflow_file
+
+    first = threading.Thread(
+        target=runner.run,
+        kwargs={
+            "workflow_path": workflow_path,
+            "workflow_name": "w",
+            "isolation": IsolationProfile(),
+            "run_id": "first",
+        },
+    )
+    first.start()
+    assert controller._entered.wait(timeout=5)
+
+    with pytest.raises(RuntimeError, match="already has an active run"):
+        runner.run(
+            workflow_path=workflow_path,
+            workflow_name="w",
+            isolation=IsolationProfile(),
+            run_id="second",
+        )
+    # The refused call did not clear the in-flight run's receipt.
+    assert runner.last_host_receipt is not None
+    assert runner.last_host_receipt["run_id"] == "first"
+    controller._release.set()
+    first.join(timeout=5)
+    assert runner.last_host_receipt is not None
+    assert runner.last_host_receipt["run_id"] == "first"
+
+
+def test_runner_enforces_single_active_run_instance(workflow_file: Path, runs_root: Path) -> None:
+    """A Runner instance executes one run at a time, fail-closed."""
+    controller = FakeRunnerController(block=True)
+    runner = Runner(runs_root, microvm_controller=controller)
+    failures: list[BaseException] = []
+    second_attempted = threading.Event()
+
+    def execute() -> None:
+        try:
+            runner.run(
+                workflow_path=workflow_file,
+                workflow_name="demo",
+                isolation=IsolationProfile(),
+            )
+        except BaseException as exc:  # pragma: no cover - assertion below catches failures
+            failures.append(exc)
+
+    thread = threading.Thread(target=execute)
+    thread.start()
+    assert controller.started.wait(timeout=2)
+
+    with pytest.raises(RuntimeError, match="already has an active run"):
+        runner.run(
+            workflow_path=workflow_file,
+            workflow_name="demo",
+            isolation=IsolationProfile(),
+        )
+    second_attempted.set()
+    controller.release.set()
+    thread.join(timeout=2)
+    assert not thread.is_alive()
+    assert failures == []
+
+    # After the first run finishes, the same instance may run again.
+    result = runner.run(
+        workflow_path=workflow_file,
+        workflow_name="demo",
+        isolation=IsolationProfile(),
+    )
+    assert result.stdout == "controller"
 
 
 def test_runner_creates_per_run_directory(
@@ -134,6 +452,7 @@ def test_runner_workflow_start_records_isolation_args(
     isolation_args = start.args["isolation"]
     assert isinstance(isolation_args, dict)
     assert isolation_args["memory"] == "4g"
+    assert start.args["policy_sha256"] == IsolationProfile(memory="4g").policy_digest
 
 
 def test_runner_emits_error_event_when_invoke_raises(

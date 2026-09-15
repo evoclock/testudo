@@ -9,6 +9,7 @@ class ExecutionBackend(StrEnum):
     """Supported host execution boundaries."""
 
     MICROVM = "microvm"
+    NATIVE_CONTAINER = "native-container"
     DOCKER = "docker"
 
 

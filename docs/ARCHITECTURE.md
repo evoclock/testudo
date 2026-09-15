@@ -289,6 +289,9 @@ testudo/
 │   ├── permissions/    # model, enforce, scan
 │   ├── prompts/        # XML template library
 │   ├── runtime/        # docker argv builder, Runner, IsolationProfile
+│   │                   # contained assignment service + protocol,
+│   │                   # governed microVM/native-container controllers,
+│   │                   # guest containment monitor + taxonomy
 │   ├── sanitisers/     # PII, injection, OWASP/MCP threat, hidden-unicode,
 │   │                   # output pipeline, agent scanner, secrets
 │   └── server/         # FastAPI app, auth, rate limit

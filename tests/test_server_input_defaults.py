@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Julen Gamboa <j.a.r.gamboa@gmail.com>
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: AGPL-3.0-or-later
 
 """Regression test: POST /runs applies workflow input defaults.
 
@@ -61,6 +61,7 @@ def client_and_token(tmp_path: Path, workflow_with_defaults: Path) -> tuple[Test
         runs_root=tmp_path / "runs",
         workflows_root=workflows_dir,
         token=token,
+        backend="direct",
     )
     return TestClient(app), token
 

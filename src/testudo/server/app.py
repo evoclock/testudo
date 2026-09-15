@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Julen Gamboa <j.a.r.gamboa@gmail.com>
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
 Module: testudo.server.app
@@ -40,8 +40,11 @@ from testudo.audit import AuditLog
 from testudo.orchestrator import (
     Executor,
     load_workflow,
+    resolve_isolation,
     resolve_permissions,
 )
+from testudo.runtime.backend import ExecutionBackend
+from testudo.runtime.runner import Runner, RunnerResult
 from testudo.server.auth import TokenAuth, generate_token
 from testudo.server.models import (
     EnvCheckResponse,
@@ -65,16 +68,25 @@ def create_app(
     workflows_root: Path | None = None,
     token: str | None = None,
     rate_limit: RateLimiter | None = None,
+    runner: Runner | None = None,
+    backend: str | ExecutionBackend | None = None,
 ) -> FastAPI:
     """Build a FastAPI app for the testudo bridge.
 
     ``runs_root`` is created if missing. ``token`` defaults to a fresh url-safe
     string; pass an explicit value for tests so client requests can be
     pre-authorised. ``workflows_root`` defaults to ``./workflows`` if unset.
+    The default ``microvm`` backend fails closed until a host-supervisor-owned
+    ``Runner`` is injected; ``direct`` is an explicit compatibility mode.
     """
     runs_root = Path(runs_root).resolve()
     runs_root.mkdir(parents=True, exist_ok=True)
     workflows_root = (workflows_root or Path("workflows")).resolve()
+    selected_backend = _normalise_backend(
+        backend if backend is not None else (runner.backend if runner is not None else "microvm")
+    )
+    if selected_backend == "direct" and runner is not None:
+        raise ValueError("direct backend cannot be combined with a configured Runner")
 
     app = FastAPI(title="Testudo", version=__version__)
     # Allow the Electron renderer (vite dev on :5173, or file:// in
@@ -180,13 +192,49 @@ def create_app(
         merged_inputs.update(request.inputs)
 
         run_id = request.run_id or secrets.token_hex(6)
+        if not _safe_run_id(run_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="run_id must be 1-64 safe identifier characters",
+            )
+
+        if runner is not None:
+            try:
+                runtime_result = runner.run(
+                    workflow_path=workflow_path,
+                    workflow_name=wf.name,
+                    isolation=resolve_isolation(wf),
+                    backend=selected_backend,
+                    run_id=run_id,
+                    inputs=merged_inputs,
+                )
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=f"Contained runtime failed to start or complete: {exc}",
+                ) from exc
+            response = _run_response_from_runtime(
+                run_id=run_id,
+                workflow_name=wf.name,
+                runs_root=runs_root,
+                result=runtime_result,
+            )
+            runs[run_id] = response
+            return response
+
+        if selected_backend != "direct":
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    f"{selected_backend} backend selected but no configured host Runner is available"
+                ),
+            )
+
         run_dir = runs_root / run_id
         run_dir.mkdir(parents=True, exist_ok=True)
-
         audit = AuditLog(run_dir / "audit.jsonl")
         executor = Executor(audit=audit)
         permissions = resolve_permissions(wf)
-
         results = executor.run(wf, merged_inputs, permissions, run_id=run_id)
 
         any_error = any(r.error is not None for r in results.values())
@@ -313,10 +361,71 @@ def create_app(
 
 
 _SAFE_NAME = re.compile(r"^[a-z0-9][a-z0-9-]{0,79}$")
+_SAFE_RUN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 
 
 def _safe_workflow_name(name: str) -> bool:
     return bool(_SAFE_NAME.match(name))
+
+
+def _safe_run_id(run_id: str) -> bool:
+    return bool(_SAFE_RUN_ID.fullmatch(run_id))
+
+
+def _normalise_backend(value: str | ExecutionBackend) -> str:
+    selected = value.value if isinstance(value, ExecutionBackend) else value
+    if selected not in {"direct", "docker", "microvm"}:
+        raise ValueError(f"unsupported execution backend: {selected!r}")
+    return selected
+
+
+def _run_response_from_runtime(
+    *,
+    run_id: str,
+    workflow_name: str,
+    runs_root: Path,
+    result: RunnerResult,
+) -> RunResponse:
+    """Decode the guest's structured workflow result into the bridge shape."""
+    payload: object = None
+    if result.stdout.strip():
+        try:
+            payload = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            payload = None
+
+    results: dict[str, StepResultPayload] = {}
+    guest_status = result.exit_status
+    if isinstance(payload, dict):
+        raw_status = payload.get("exit_status")
+        if isinstance(raw_status, int) and not isinstance(raw_status, bool):
+            guest_status = raw_status
+        raw_steps = payload.get("steps")
+        if isinstance(raw_steps, dict):
+            for step_id, raw_step in raw_steps.items():
+                if not isinstance(step_id, str) or not isinstance(raw_step, dict):
+                    continue
+                results[step_id] = StepResultPayload(
+                    output=raw_step.get("output"),
+                    skipped=bool(raw_step.get("skipped", False)),
+                    error=raw_step.get("error") if isinstance(raw_step.get("error"), str) else None,
+                )
+
+    if not results:
+        results["__runtime__"] = StepResultPayload(
+            output=result.stdout or None,
+            error=result.stderr
+            or (f"runtime exited with status {guest_status}" if guest_status else None),
+        )
+
+    any_error = guest_status != 0 or any(item.error is not None for item in results.values())
+    return RunResponse(
+        run_id=run_id,
+        workflow_name=workflow_name,
+        status="failed" if any_error else "completed",
+        results=results,
+        audit_log=str(runs_root / run_id / "audit.jsonl"),
+    )
 
 
 def _probe_ollama(url: str) -> tuple[bool, list[str], str | None]:
