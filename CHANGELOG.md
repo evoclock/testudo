@@ -24,7 +24,7 @@ All notable changes to this project will be documented in this file. Format foll
   AGPLv3 text, the Section 7(b) additional terms section, and a
   Commercial Licence Option notice pointing to a forthcoming
   `COMMERCIAL.md`.
-- `CITATION.cff`: licence updated to `AGPL-3.0-or-later`; version
+- `CITATION.cff`: licence updated to `AGPL-3.0-only`; version
   bumped to 0.1.6 (was out of sync at 0.0.1); date-released
   refreshed.
 - `CLAUDE.md`: hard-rule line that pinned the licence updated to the

@@ -6,7 +6,7 @@ authors:
   - given-names: Julen
     family-names: Gamboa
 repository-code: "https://github.com/evoclock/testudo"
-license: AGPL-3.0-or-later
+license: AGPL-3.0-only
 version: "0.1.6"
 date-released: "2026-05-29"
 keywords:
