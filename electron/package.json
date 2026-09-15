@@ -33,6 +33,10 @@
       {
         "from": "../dist/testudo-bridge",
         "to": "testudo-bridge"
+      },
+      {
+        "from": "../examples",
+        "to": "examples"
       }
     ],
     "mac": {
