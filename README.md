@@ -143,6 +143,10 @@ M365 auth, compliance attestations, per-resource gating).
 
 ## Quick start
 
+The governed default is `microvm` and fails closed unless a host supervisor
+injects a configured `Runner`. The commands below use `--backend direct` as an
+explicit local compatibility path; this is not containment evidence.
+
 ```bash
 # Install (default)
 sfw uv pip install -e .
@@ -163,19 +167,23 @@ sfw uv pip install -e ".[dev]"
 # DuckDB demo (no network, no LLM, exercises the sanitiser end-to-end)
 python examples/data/seed_demo.py   # idempotent; commits a fresh demo.duckdb
 testudo run examples/workflow-db-query.json \
+  --backend direct \
   --inputs-json <(echo '{"database_path": "examples/data/demo.duckdb", "query": "SELECT name, role FROM attendees WHERE meeting_id = '"'"'M-001'"'"'", "parameters": [], "output_path": "runs/db-query.md"}')
 
 # PDF summarise (needs an Ollama-served model; pick any backend from the picker)
 testudo run examples/workflow-pdf-summarise.json \
+  --backend direct \
   --inputs-json <(echo '{"pdf_path": "examples/data/sample.md", "model": "<your-ollama-model>", "output_path": "runs/pdf-summarise.md"}')
 
 # URL fetch (public HTTPS; Drive share URLs auto-rewrite to direct-download form)
 testudo run examples/workflow-url-fetch.json \
+  --backend direct \
   --inputs-json <(echo '{"url": "https://raw.githubusercontent.com/evoclock/hillstar-orchestrator/main/README.md", "output_path": "runs/url-fetch.md", "max_bytes": 10485760}')
 
 # Databricks query (needs DATABRICKS_SERVER_HOSTNAME / HTTP_PATH / TOKEN exported;
 # uv pip install -e ".[databricks]" first)
 testudo run examples/workflow-databricks-query.json \
+  --backend direct \
   --inputs-json <(echo '{"query": "SELECT * FROM samples.bakehouse.sales_transactions LIMIT 10", "parameters": [], "output_path": "runs/databricks-query.md"}')
 ```
 
@@ -292,12 +300,19 @@ should be the same.
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) and [NEXT_ACTIONS.md](NEXT_ACTIONS.md).
 
-**v0.1.6 ships the containerised execution path.** `testudo run` and the
-bridge's `POST /runs` will default to spawning a `docker run` invocation
-built from the workflow's `IsolationProfile`. The argv builder, the
-Dockerfile, and the Runner already exist; v0.1.6 wires them together,
-streams container stdout / stderr back into the audit log, and marshals
-inputs / outputs across the host-container boundary.
+**The governed runtime defaults to microVM.** `testudo run` and the bridge's
+`POST /runs` fail closed until a host supervisor supplies a configured
+`Runner`; the injected path resolves the workflow `IsolationProfile`, marshals
+run-local inputs, streams the guest result contract, and preserves host audit
+receipts. Docker is an explicit compatibility backend (`--backend docker`),
+and direct host execution is available only as `--backend direct` for local
+compatibility. Neither compatibility mode is the governed security boundary.
+
+A host supervisor constructs the governed path with
+`runtime.GovernedRunnerConfig` and `build_governed_runner()`, supplying a
+per-run lease/approval validator plus explicit token-revocation and VM-wipe
+callbacks. Testudo does not read a second authority store or infer those
+callbacks; construction itself starts no process or VM.
 
 The reachability tension (workflows that legitimately need network access
 to Ollama, Databricks, or public HTTPS cannot also be `--network=none`)
@@ -324,7 +339,7 @@ tasks under that direction.
 
 ## Licence
 
-**GNU Affero General Public License v3 (AGPLv3)** plus a Section 7(b)
+**GNU Affero General Public License v3 only (AGPL-3.0-only)** plus a Section 7(b)
 author-attribution clause. See [`LICENSE`](LICENSE) for the full text.
 
 The plain-English version:
@@ -337,14 +352,14 @@ The plain-English version:
   (source disclosure on conveyance and network use), and that is the
   part with real teeth. We support genuine open-source use without
   friction.
-- **If you are a for-profit entity or you are using Testudo in a paid
-  product or service**: you need a commercial licence. AGPLv3 is
-  genuinely viral for network use (Section 13), which materially
-  applies to Testudo because the FastAPI bridge and the renderer make
-  it natural to expose Testudo as a remote-access service. The
-  commercial licence waives those obligations. Contact the author for
-  details; pricing is flexible and case-by-case rather than triggered
-  by a revenue threshold.
+- **Commercial use, including forks and substantial modifications**, is
+  permitted under the AGPL when all AGPL obligations and the Section 7(b)
+  attribution requirements are followed. This includes offering covered
+  source to network users as required by Section 13. A separate commercial
+  licence is required only when an organisation wants proprietary
+  modifications, alternative attribution terms, or otherwise cannot or does
+  not wish to comply with those obligations. Contact the author for details;
+  pricing is flexible and case-by-case.
 - **The split exists** because we have a problem with the pattern of
   enterprises that exploit open-source projects without contributing
   back, not with open-source contributors themselves. AGPLv3 plus a
