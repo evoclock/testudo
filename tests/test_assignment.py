@@ -59,6 +59,11 @@ class FakeRunner:
         self.released = threading.Event()
         self.stop_reason: str | None = None
         self.calls: list[dict[str, Any]] = []
+        self.artifact_manifest: dict[str, object] | None = None
+
+    @property
+    def last_artifact_manifest(self) -> dict[str, object] | None:
+        return self.artifact_manifest
 
     @property
     def last_host_receipt(self) -> dict[str, object] | None:
@@ -1008,3 +1013,178 @@ def test_assignment_receipt_status_matches_host_receipt_exit_status(
     stored = json.loads((tmp_path / "assignment-1" / "receipt.json").read_text(encoding="utf-8"))
     assert stored["status"] == "succeeded"
     assert stored["host_receipt"]["status"] == "success"
+
+
+def test_assignment_promotes_artifacts_into_receipt(tmp_path: Path) -> None:
+    """A bound artifact store promotes produced files into digest-bound receipt evidence."""
+    runner = FakeRunner()
+    runner.artifact_manifest = {
+        "schema": "artifact_manifest.v1",
+        "store_id": "store-1",
+        "run_id": "assignment-1",
+        "scanner_id": "scanner-1",
+        "policy_hash": "p" * 64,
+        "files": [
+            {"path": "exchange/patch.diff", "size_bytes": 12, "sha256": "e" * 64},
+            {"path": "exchange/notes.md", "size_bytes": 5, "sha256": "f" * 64},
+        ],
+        "total_bytes": 17,
+    }
+
+    def make_store(_request: object) -> object:
+        return object()  # promotion is exercised through the runner manifest
+
+    def make_scanner(_request: object) -> tuple[object, str, str]:
+        return (lambda path, rel: None, "scanner-1", "p" * 64)
+
+    service = AssignmentService(
+        runner_factory=lambda _request: runner,  # type: ignore[arg-type,return-value]
+        isolation_factory=isolation,
+        verify_dispatcher=lambda _request: None,
+        state_root=tmp_path,
+        artifact_store_factory=make_store,  # type: ignore[arg-type,return-value]
+        egress_scanner_factory=make_scanner,  # type: ignore[arg-type,return-value]
+    )
+    value = request(artifact_store_id="store-1", egress_scanner_id="scanner-1")
+    service.start(value)
+    receipt = wait_receipt(service)
+    assert receipt.status == "succeeded"
+    assert receipt.artifacts == (
+        {"name": "exchange/patch.diff", "sha256": "e" * 64},
+        {"name": "exchange/notes.md", "sha256": "f" * 64},
+    )
+    # The artifacts are bound into the receipt digest.
+    stored = json.loads((tmp_path / "assignment-1" / "receipt.json").read_text())
+    assert stored["artifacts"] == [
+        {"name": "exchange/patch.diff", "sha256": "e" * 64},
+        {"name": "exchange/notes.md", "sha256": "f" * 64},
+    ]
+    assert stored["receipt_id"]
+
+
+def test_assignment_without_binding_records_no_artifacts(tmp_path: Path) -> None:
+    """No artifact binding means no artifacts on the receipt, cleanly."""
+    runner = FakeRunner()
+    runner.artifact_manifest = {
+        "schema": "artifact_manifest.v1",
+        "files": [{"path": "x", "sha256": "e" * 64}],
+    }
+    service = AssignmentService(
+        runner_factory=lambda _request: runner,  # type: ignore[arg-type,return-value]
+        isolation_factory=isolation,
+        verify_dispatcher=lambda _request: None,
+        state_root=tmp_path,
+    )
+    service.start(request())
+    receipt = wait_receipt(service)
+    assert receipt.status == "succeeded"
+    assert receipt.artifacts == ()
+
+
+def test_assignment_binding_without_manifest_is_refused(tmp_path: Path) -> None:
+    """A bound store with no egress manifest fails closed: no silent empty list."""
+    runner = FakeRunner()
+    service = AssignmentService(
+        runner_factory=lambda _request: runner,  # type: ignore[arg-type,return-value]
+        isolation_factory=isolation,
+        verify_dispatcher=lambda _request: None,
+        state_root=tmp_path,
+        artifact_store_factory=lambda _r: object(),  # type: ignore[arg-type,return-value]
+        egress_scanner_factory=lambda _r: (lambda p, r: None, "s", "p" * 64),  # type: ignore[arg-type,return-value]
+    )
+    service.start(request(artifact_store_id="store-1", egress_scanner_id="scanner-1"))
+    receipt = wait_receipt(service)
+    assert receipt.status == "refused"
+    assert "egress manifest" in (receipt.error or "")
+    assert receipt.artifacts == ()
+
+
+def test_assignment_rejects_half_bound_artifact_request(tmp_path: Path) -> None:
+    """artifact_store_id without egress_scanner_id fails closed at validation."""
+    service = AssignmentService(
+        runner_factory=lambda _request: pytest.fail("must not launch"),  # type: ignore[arg-type,return-value]
+        isolation_factory=isolation,
+        verify_dispatcher=lambda _request: None,
+        state_root=tmp_path,
+    )
+    with pytest.raises(ValueError, match="must be provided together"):
+        service.start(request(artifact_store_id="store-1"))
+
+
+def test_assignment_rejects_half_bound_service_factories(tmp_path: Path) -> None:
+    """A store factory without a scanner factory fails closed at construction."""
+    with pytest.raises(ValueError, match="must be provided together"):
+        AssignmentService(
+            runner_factory=lambda _request: pytest.fail("must not launch"),  # type: ignore[arg-type,return-value]
+            isolation_factory=isolation,
+            verify_dispatcher=lambda _request: None,
+            state_root=tmp_path,
+            artifact_store_factory=lambda _r: object(),  # type: ignore[arg-type,return-value]
+        )
+
+
+def test_assignment_rejects_malformed_artifact_manifest(tmp_path: Path) -> None:
+    """A manifest entry without a digest refuses promotion."""
+    runner = FakeRunner()
+    runner.artifact_manifest = {
+        "schema": "artifact_manifest.v1",
+        "files": [{"path": "x"}],
+    }
+    service = AssignmentService(
+        runner_factory=lambda _request: runner,  # type: ignore[arg-type,return-value]
+        isolation_factory=isolation,
+        verify_dispatcher=lambda _request: None,
+        state_root=tmp_path,
+        artifact_store_factory=lambda _r: object(),  # type: ignore[arg-type,return-value]
+        egress_scanner_factory=lambda _r: (lambda p, r: None, "s", "p" * 64),  # type: ignore[arg-type,return-value]
+    )
+    service.start(request(artifact_store_id="store-1", egress_scanner_id="scanner-1"))
+    receipt = wait_receipt(service)
+    assert receipt.status == "refused"
+    assert "artifact" in (receipt.error or "")
+
+
+def test_assignment_rejects_mismatched_store_binding(tmp_path: Path) -> None:
+    """A manifest from a different store is refused, not receipted."""
+    runner = FakeRunner()
+    runner.artifact_manifest = {
+        "schema": "artifact_manifest.v1",
+        "store_id": "other-store",
+        "scanner_id": "scanner-1",
+        "files": [{"path": "x", "sha256": "e" * 64}],
+    }
+    service = AssignmentService(
+        runner_factory=lambda _request: runner,  # type: ignore[arg-type,return-value]
+        isolation_factory=isolation,
+        verify_dispatcher=lambda _request: None,
+        state_root=tmp_path,
+        artifact_store_factory=lambda _r: object(),  # type: ignore[arg-type,return-value]
+        egress_scanner_factory=lambda _r: (lambda p, r: None, "scanner-1", "p" * 64),  # type: ignore[arg-type,return-value]
+    )
+    service.start(request(artifact_store_id="store-1", egress_scanner_id="scanner-1"))
+    receipt = wait_receipt(service)
+    assert receipt.status == "refused"
+    assert "store does not match" in (receipt.error or "")
+
+
+def test_assignment_rejects_mismatched_scanner_binding(tmp_path: Path) -> None:
+    """A manifest scanned by a different scanner is refused."""
+    runner = FakeRunner()
+    runner.artifact_manifest = {
+        "schema": "artifact_manifest.v1",
+        "store_id": "store-1",
+        "scanner_id": "other-scanner",
+        "files": [{"path": "x", "sha256": "e" * 64}],
+    }
+    service = AssignmentService(
+        runner_factory=lambda _request: runner,  # type: ignore[arg-type,return-value]
+        isolation_factory=isolation,
+        verify_dispatcher=lambda _request: None,
+        state_root=tmp_path,
+        artifact_store_factory=lambda _r: object(),  # type: ignore[arg-type,return-value]
+        egress_scanner_factory=lambda _r: (lambda p, r: None, "scanner-1", "p" * 64),  # type: ignore[arg-type,return-value]
+    )
+    service.start(request(artifact_store_id="store-1", egress_scanner_id="scanner-1"))
+    receipt = wait_receipt(service)
+    assert receipt.status == "refused"
+    assert "scanner does not match" in (receipt.error or "")

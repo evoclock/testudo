@@ -1,4 +1,6 @@
 # Testudo stdlib-only native-container transport smoke.
+# Build from the repository root so the COPY paths resolve:
+#   docker build -f docker/Dockerfile.native-smoke .
 # No package manager or install command is permitted in this image recipe:
 # every guest component is COPYed from the repository at its pinned path and
 # nothing is fetched at build time. This image exists for Apple's native

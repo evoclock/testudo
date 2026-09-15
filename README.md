@@ -6,30 +6,46 @@
 
 <p align="center">
   <a href="https://github.com/evoclock/testudo/actions/workflows/ci.yml"><img src="https://github.com/evoclock/testudo/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPLv3%20%2B%20Attribution-blue?style=flat" alt="License"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0--only%20%2B%20attribution-blue?style=flat" alt="License"/></a>
   <img src="https://img.shields.io/badge/python-3.11%2B-3776AB?style=flat&logo=python&logoColor=white" alt="Python 3.11+"/>
   <img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white" alt="TypeScript"/>
 </p>
 
-> Hardened agent runtime: a containerised executor that runs an entire agent workflow end-to-end with declarative permissioning, layered sanitisation, MCP server isolation, audit logging, and a typed TS/React renderer. Comes with a CLI and a FastAPI bridge.
+> Hardened agent runtime. A workflow declares its steps, permissions, and isolation profile; Testudo executes it inside a governed microVM or native container, sanitising every byte on the way in and out, and records an append-only audit log. Ships with a CLI, a FastAPI bridge, and a typed TS/React renderer.
 
-**Status:** v0.1.6 with the licence consolidation pass landed plus in-tree follow-ups (Electron UX hardening, Databricks adapter, env-check badges, resizable panes, per-workflow READMEs + starters, collapsible help sections, chat-channel surfacing in Activity, custom DAG node template, collapsed Activity entries, two-tier header with wordmark, Socket Firewall install discipline). 316 tests passing, 84% coverage, ruff clean. AGPLv3 + Section 7(b) attribution clause.
-
-## Development disclosure
-
-Testudo is designed and developed by Julen Gamboa. As part of the implementation process I use AI assistance (Claude Code and
-Ollama-served local models) as team members to whom I assign sprint tasks in the same way you would with any dev team. Every step of the process is human-gated: design and code review precede commits. My position is one of low/no-trust and everything is either delivered according to the definition-of-done or it is rejected.
-
-No agent performs wholesale codebase management. All package installs are routed through Socket Firewall, and the full
-audit trail (git history, code review, sanitiser test corpus) is the
-intended substrate for trust rather than the AI assistance itself. The
-runtime's hardening primitives (defence-in-depth sanitisers, isolation
-profile, MCP-server separation, audit log) are designed against the same
-threat model that AI-assisted development often produces in adjacent/comparable tooling out there.
+**Status:** pre-0.2.0. 623 tests passing, 83% coverage, ruff and mypy clean. The governed runtime now exposes an authenticated contained-assignment protocol (see below). AGPL-3.0-only with a Section 7(b) attribution clause.
 
 ## What it does
 
-Testudo is a deployment unit for an agent: a `workflow.json` declares the steps, their dependencies, the permissions each operation is allowed, and the isolation profile. Testudo loads it, sanitises every byte on input and output, gates every privileged operation through a permission check (optionally with a scan-before-permit gate), routes any LLM-side disk writes through a read-only -> sanitiser -> write-only MCP server triad with HMAC-signed receipts, and emits a per-run audit log.
+A `workflow.json` declares the steps, their dependencies, the permissions each operation is allowed, and the isolation profile. Testudo then:
+
+- **Executes it contained.** The governed default is a Firecracker microVM (Linux) or an Apple native container (macOS). Docker and direct execution exist as explicit compatibility paths, never as fallbacks.
+- **Sanitises every byte** on input and output: PII across ~50 countries, prompt injection, OWASP web and MCP threat patterns, hidden unicode, and secrets.
+- **Gates every privileged operation** through a permission check, optionally with a scan-before-permit gate.
+- **Routes LLM-side disk writes** through a read-only → sanitiser → write-only MCP server triad with HMAC-signed receipts.
+- **Records an append-only audit log** per run: workflow and step lifecycle, permission decisions, host events, and errors.
+
+### Contained assignments
+
+For supervised multi-agent use, Testudo exposes a closed assignment protocol. A dispatcher submits an authenticated request; Testudo runs exactly one finite agent journey inside the containment boundary and returns a digest-bound receipt.
+
+- **Every operation is authenticated.** Only a trusted dispatcher can start, observe, cancel, or close an assignment, and captured traffic cannot be replayed.
+- **Nothing runs twice.** An admitted assignment survives crashes and restarts without ever launching duplicate work; ambiguous or corrupt state halts the system rather than guessing.
+- **Containment is enforced, not assumed.** The guest runs under a self-monitoring containment layer that verifies its own configuration and halts the run on any violation. Results are accepted only when the host can verify what the guest reports.
+- **Work survives the run.** Files an assignment produces cross a scanned, one-way egress boundary and land in a content-addressed store as digest-verified artifacts, ready for the dispatching harness to commit wherever it governs.
+- **Operator recovery.** Interrupted runs are closed by an explicit, authenticated operator decision — never silently relaunched.
+
+#### From receipt to repository
+
+An assignment's outputs are not destroyed with the container. Every file the journey produces crosses a one-way, scanned egress boundary into a content-addressed store, where each artifact is pinned by its SHA-256 digest and named in the assignment's receipt.
+
+Any consumer — a supervising harness or a standalone script — then retrieves the verified bytes with a single call:
+
+```python
+written = store.materialize(receipt["artifacts"], staging_dir)
+```
+
+`materialize` re-verifies every digest before writing, refuses paths that would escape the destination, and never overwrites existing files. What lands in `staging_dir` is byte-identical to what passed the scanner. Testudo itself never touches Git: committing the staged tree to a branch (for example an agent's `agent/*` work branch) is the consumer's decision, made under its own authority. This keeps one clean division: Testudo proves what was produced; the harness decides where it lands.
 
 ## Architecture
 
@@ -57,95 +73,79 @@ Testudo is a deployment unit for an agent: a `workflow.json` declares the steps,
    ┌────────────────────┬─────────────┴────────────┬─────────────────┐
    ▼                    ▼                          ▼                 ▼
 Permissions       Sanitisers                Connectors / Data    Runtime
-• fs read/write   • PII (~50 countries)     • local file         • build_docker_argv
-• net egress      • prompt injection        • HTTPS              • Dockerfile
-• proc spawn      • OWASP web + MCP         • DuckDB             • Runner
+• fs read/write   • PII (~50 countries)     • local file         • Firecracker microVM
+• net egress      • prompt injection        • HTTPS              • native container (macOS)
+• proc spawn      • OWASP web + MCP         • DuckDB             • Docker (compat only)
 • scan-then-      • hidden unicode          • Databricks (extra) • IsolationProfile
-  permit gate     • output-side pipeline
-                  • secrets                                       Audit (JSONL)
-                                                                  • workflow_start
-                  In-house MCP servers                            • step_start/end
-                  • llm_response_capturer (read-only)             • permission_*
-                  • file_extractor (read-only)                    • error
-                  • file_writer (write-only, HMAC receipts)
+  permit gate     • output-side pipeline                         • scanned artifact egress
+                  • secrets
+                                                                  Audit (JSONL)
+                  In-house MCP servers                            • workflow_start
+                  • llm_response_capturer (read-only)             • step_start/end
+                  • file_extractor (read-only)                    • permission_*
+                  • file_writer (write-only, HMAC receipts)       • host events
+                                                                  • errors
 ```
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the layered view, the broader-pipeline positioning, and a worked example of the read-only -> sanitiser -> write-only chain.
 
 ## What Testudo is and is not
 
 **Testudo is:**
 
-- A hardened agent runtime: container-isolated execution of declarative workflows with defence-in-depth sanitisation on every byte of input and output.
-- A multi-provider, multi-MCP host (in-house). The model adapter layer is built around `models.<provider>` tools; today `models.ollama_chat` is the shipped adapter, with additional commercial-provider adapters planned for v0.2 under the same shape and the same sanitise-on-return invariant. The MCP server layer is in-house only (no third-party MCP server hosting); we ship `llm_response_capturer`, `file_writer`, and `file_extractor` and will add more in-house servers behind the same security boundary as needed.
-- A workflow composer with a graph editor (the **Compose** tab). Drag tools from a palette, wire `needs:` edges on a React Flow canvas, edit per-step `with:` params in the inspector, save as a workflow JSON via `POST /workflows`. The composer covers the same workflow shape Testudo executes; advanced authoring (sub-workflows, looping, branching beyond `when:` predicates) is intentionally deferred to Hillstar.
+- A hardened agent runtime: container-isolated execution of declarative workflows with sanitisation on every byte in and out.
+- An in-house multi-provider, multi-MCP host. Two model adapters ship today under one `models.*` shape and the same sanitise-on-return invariant: `models.ollama_chat` for Ollama-served local models, and `models.openai_compatible_chat` for any OpenAI-compatible endpoint — hosted APIs (OpenAI, OpenRouter, and other providers) and local servers (vLLM, SGLang, llama.cpp, LM Studio, Ollama's compat endpoint, and MLX via `mlx_lm.server`). The MCP layer ships `llm_response_capturer`, `file_writer`, and `file_extractor`, with more in-house servers behind the same boundary as needed.
+- A workflow composer. The **Compose** tab lets you drag tools onto a React Flow canvas, wire `needs:` edges, edit per-step params, and save the workflow JSON.
 
 **Testudo is not:**
 
-- A replacement for a full-fledged workflow orchestrator. Tools like Hillstar, Airflow, Prefect, Dagster, Temporal, Argo Workflows, and similar handle the orchestration surface above what Testudo covers: sub-workflows, retries, distributed execution across hosts, complex scheduling, long-running pipelines, host-side dispatch, graph visualisation at the pipeline scale. Testudo is deliberately scoped to single-graph workflows that fit inside one container with a clear isolation profile. Larger pipelines can stitch Testudo-like containers and tools together as steps of whichever orchestrator you already run; Hillstar is the canonical example because its `workflow.json` shape matches Testudo's, but the integration is not Hillstar-specific.
-- A multi-tenant orchestrator. One runtime per machine in v0.x; multi-tenancy is scoped post-v0.4.
-- An MCP server host in the Claude-Code / Cursor / Codex sense. Testudo ships its own in-house MCP servers as the security boundary; it does not surface arbitrary third-party MCP servers from the user's local config.
-- A no-code agent builder. Testudo offers **low-code** authoring through the Compose canvas: drag tools from a palette, wire them with `needs:` edges, edit per-step params, save as a workflow JSON. You do not need to know how to write Python code, but you do need to understand what each step does (which connectors touch the network, what each sanitiser pass means, how the isolation profile bounds the blast radius). Agentic failure modes are subtle: silent data leaks, prompt-injection chains, output that looks right but isn't. Low-code removes the typing burden, not the understanding burden. The author owns the system-design responsibility; the proposition that "anyone can build an agent" tends to push that cost onto whoever consumes the bad outputs or has to fix the tool.
+- A workflow orchestrator. Hillstar, Airflow, Prefect, Dagster, Temporal, and Argo handle sub-workflows, retries, distributed execution, and scheduling. Testudo deliberately runs one single-graph workflow per container. Larger pipelines stitch Testudo containers together as steps; Hillstar is the canonical example because its `workflow.json` shape matches.
+- A multi-tenant orchestrator. One runtime per machine in v0.x.
+- A third-party MCP host. Testudo ships its own in-house MCP servers as the security boundary; it does not surface MCP servers from your local config.
+- A no-code builder. Compose is **low-code**: you drag tools instead of typing JSON, but you still need to understand what each step does — which connectors touch the network, what each sanitiser pass means, how the isolation profile bounds the blast radius. Agentic failure modes are subtle: silent data leaks, prompt-injection chains, plausible-looking wrong output. The author owns the system-design responsibility.
 
 ## Aim: less friction than Copilot Studio, no less secure
 
-Testudo's target use case is **a single technical operator or small
-team that needs auditable, sandboxed, declarative agentic workflows on
-locked-down infrastructure**, where the friction of Microsoft Copilot
-Studio (Azure subscription, Power Platform licensing, tenant admin
-approval, vendor lock-in, opaque content moderation) is not warranted
-but the security posture must be at least as good or better.
+Testudo targets **a single technical operator or small team that needs auditable, sandboxed, declarative agentic workflows on locked-down infrastructure** — where Copilot Studio's friction (Azure subscription, tenant admin approval, vendor lock-in, opaque moderation) is not warranted, but the security posture must be at least as good.
 
-The default workflow shape is:
+The default workflow shape:
 
 ```text
 SharePoint or local file -> sanitise (input side)
-                         -> model call (Ollama local, or v0.2 multi-provider)
+                         -> model call (Ollama local, or multi-provider)
                          -> sanitise (output side: hidden-unicode strip,
-                            secret redact, PII redact across ~50 country
-                            patterns, prompt-injection detect, OWASP web
-                            and OWASP MCP threat detect)
+                            secret redact, PII redact, prompt-injection
+                            detect, OWASP web + MCP threat detect)
                          -> post to Teams / Slack / SharePoint / dashboard
 ```
 
-Today the runtime, sandbox, sanitiser, and audit layers are shipped.
-The M365 + Slack connectors are the missing piece; they are the v0.1.7
-release-milestone scope. Access control is **not** mediated by a
-centralised Testudo tenant admin: each external resource (SharePoint
-site, Teams channel, Slack workspace) is gated at its own admin layer
-(Entra ID app registration consent, Slack workspace app approval).
-This is a deliberate architectural choice; see
-[docs/POSITIONING.md](docs/POSITIONING.md) for the full
-positioning, gap analysis, and close-the-gap plan (drag-drop GUI,
-M365 auth, compliance attestations, per-resource gating).
+The runtime, sandbox, sanitiser, and audit layers are shipped. The M365 + Slack connectors are the v0.1.7 milestone. Access control is deliberately **not** centralised: each external resource (SharePoint site, Teams channel, Slack workspace) is gated at its own admin layer. See [docs/POSITIONING.md](docs/POSITIONING.md) for the full gap analysis.
 
-## v0.1.5 vertical slice (shipped)
+<details>
+<summary><strong>Shipped capability matrix</strong> (click to expand)</summary>
 
-| Layer | v0.1.5 |
+| Layer | Shipped |
 |---|---|
-| Input | Local file; HTTPS; document extractor (PDF / DOCX / PPTX / HTML / JSON / TXT); Google Drive scaffolded for v0.2 |
-| Sanitisation | UK PII + ~50 country-specific PII; prompt injection; OWASP web Top 10; OWASP MCP Top 10; hidden-unicode + comment payloads; secrets (Hillstar parity + extras); full output-side pipeline; in-house agent scanner |
+| Input | Local file; HTTPS; document extractor (PDF / DOCX / PPTX / HTML / JSON / TXT); Google Drive scaffolded |
+| Sanitisation | UK PII + ~50 country patterns; prompt injection; OWASP web Top 10; OWASP MCP Top 10; hidden unicode + comment payloads; secrets; full output-side pipeline; in-house agent scanner |
 | Permissions | Filesystem read/write prefixes; network egress allow-list; process-spawn deny-by-default; scan-before-permit gate for MCP-config / skill artifacts |
-| Data | DuckDB by default; Databricks adapter behind `[databricks]` extra |
-| Orchestration | Hillstar-compatible `workflow.json`; topological dependency ordering; `${...}` reference resolution; `when:` predicates; tool registry |
-| Model adapters | `models.ollama_chat` against an Ollama-served model (default backend is configurable in the UI; cloud-served models use the `:cloud` suffix). Response auto-routed through `sanitise_output` before return. Additional commercial-provider adapters planned for v0.2 under the same `models.*` shape. |
-| Prompt templates | `testudo.prompts.PromptTemplate` loads XML-shaped templates with `{{placeholder}}` substitution and `strict=True` unresolved-placeholder detection. Sample template at `examples/prompts/meeting_debrief.xml`. Orchestrator wiring (workflow steps referencing templates by name rather than embedding XML inline) is in flight for v0.1.6. |
-| MCP servers | In-house base (JSON-RPC 2.0 + STDIO); read-only `llm_response_capturer` with HMAC-signed receipts; write-only `file_writer` (receipt-gated); read-only `file_extractor` |
-| Runtime | MicroVM backend is the governed default; Docker argv builder, `Dockerfile`, Runner and IsolationProfile remain an explicit compatibility backend (deny-by-default network, read-only root, tmpfs `/tmp`, configurable CPU / memory) |
-| Audit | Append-only JSONL per run; workflow + step lifecycle + permission decisions + errors |
+| Data | DuckDB by default; Databricks adapter behind `[databricks]` |
+| Orchestration | Hillstar-compatible `workflow.json`; topological ordering; `${...}` resolution; `when:` predicates; tool registry |
+| Model adapters | `models.ollama_chat` (Ollama) and `models.openai_compatible_chat` (OpenAI-compatible endpoints: hosted APIs and local vLLM / SGLang / llama.cpp / LM Studio / MLX servers); responses auto-routed through `sanitise_output` |
+| Prompt templates | XML-shaped templates with `{{placeholder}}` substitution and strict unresolved-placeholder detection |
+| MCP servers | In-house base (JSON-RPC 2.0 + STDIO); read-only `llm_response_capturer` with HMAC receipts; write-only `file_writer` (receipt-gated); read-only `file_extractor` |
+| Runtime | Governed Firecracker microVM (Linux) and Apple native container (macOS) as the containment boundaries; Docker argv builder remains an explicit compatibility backend; contained-assignment protocol with authenticated lifecycle, durable state, verified receipts, and scanned artifact egress |
+| Audit | Append-only JSONL per run; workflow + step lifecycle + permission decisions + host events + errors |
 | CLI | `testudo run`, `testudo serve`, `testudo inspect`, `testudo ui` |
-| API | FastAPI bridge: `/health`, `/workflows`, `POST /runs`, `GET /runs/{id}`; bearer-token auth; in-house token-bucket rate limiter |
-| UI | Electron + TypeScript + React 18 + Tailwind + React Flow (renderer via `electron-vite`, sandboxed; bridge token flows via preload `contextBridge`) |
+| API | FastAPI bridge: `/health`, `/workflows`, `POST /runs`, `GET /runs/{id}`; bearer auth; in-house token-bucket rate limiter |
+| UI | Electron + TypeScript + React 18 + Tailwind + React Flow; sandboxed renderer; bridge token via preload `contextBridge` |
 | Output | File writer, chat-inline, dashboard component spec, ticket via webhook |
-| Demo workflows | `pdf-summarise-v015` (extract + LLM + sanitise + chat-respond), `url-fetch-v015` (HTTPS + sanitise + chat-respond), `db-query-v015` (DuckDB + sanitise + chat-respond), `databricks-query-v015` (Databricks SQL + sanitise + chat-respond), plus `meeting-debrief` / `pdf-debrief` as legacy reference. Each currently-loaded workflow ships a README under `examples/readmes/` surfaced in the Workflow tab. |
-| UI modes | Five-tab picker (File / URL / Database / Workflow / Compose). File runs `pdf-summarise-v015` against a chosen Ollama model (default backend is selectable from the picker, plus a free-text field for any other model). URL runs `url-fetch-v015` with auto-rewrite of Drive share URLs. Database routes to `db-query-v015` (DuckDB, bundled demo db at `examples/data/demo.duckdb`) or `databricks-query-v015` (when `DATABRICKS_*` env vars are exported). Workflow renders any workflow's input schema as a form, surfaces its README, and ships starter buttons that pre-fill known-working inputs. Compose authors workflows visually (tool palette, React Flow canvas, node inspector, save via `POST /workflows`). DAG panel shows the staged workflow's step graph with post-run OK/FAIL/SKIP colour; Activity panel renders the workflow's chat-channel output prominently alongside any per-run note. |
-| UI shell | Header surfaces bridge state (`stopped`/`starting`/`online`/`error`), bridge port, version, and live env-check badges (`ollama up/down`, `databricks ready/n/a`) sourced from `GET /env-check`. The renderer/DAG/Activity split is fully resizable via drag handles (`react-resizable-panels`). Starter-query and schema-hint sections are collapsible so first-time users get guidance and repeat users get pane space. |
+| Demo workflows | `pdf-summarise-v015`, `url-fetch-v015`, `db-query-v015`, `databricks-query-v015`; each ships a README under `examples/readmes/` |
+| UI modes | Five-tab picker (File / URL / Database / Workflow / Compose); DAG panel with OK/FAIL/SKIP colouring; Activity panel with chat output; resizable panes; collapsible help |
+
+</details>
 
 ## Quick start
 
-The governed default is `microvm` and fails closed unless a host supervisor
-injects a configured `Runner`. The commands below use `--backend direct` as an
-explicit local compatibility path; this is not containment evidence.
+The governed default is `microvm` and fails closed unless a host supervisor injects a configured `Runner`. The commands below use `--backend direct` as an explicit local compatibility path; this is not containment evidence.
 
 ```bash
 # Install (default)
@@ -170,7 +170,7 @@ testudo run examples/workflow-db-query.json \
   --backend direct \
   --inputs-json <(echo '{"database_path": "examples/data/demo.duckdb", "query": "SELECT name, role FROM attendees WHERE meeting_id = '"'"'M-001'"'"'", "parameters": [], "output_path": "runs/db-query.md"}')
 
-# PDF summarise (needs an Ollama-served model; pick any backend from the picker)
+# PDF summarise (needs an Ollama-served model)
 testudo run examples/workflow-pdf-summarise.json \
   --backend direct \
   --inputs-json <(echo '{"pdf_path": "examples/data/sample.md", "model": "<your-ollama-model>", "output_path": "runs/pdf-summarise.md"}')
@@ -180,22 +180,20 @@ testudo run examples/workflow-url-fetch.json \
   --backend direct \
   --inputs-json <(echo '{"url": "https://raw.githubusercontent.com/evoclock/hillstar-orchestrator/main/README.md", "output_path": "runs/url-fetch.md", "max_bytes": 10485760}')
 
-# Databricks query (needs DATABRICKS_SERVER_HOSTNAME / HTTP_PATH / TOKEN exported;
-# uv pip install -e ".[databricks]" first)
+# Databricks query (needs DATABRICKS_* exported; sfw uv pip install -e ".[databricks]" first)
 testudo run examples/workflow-databricks-query.json \
   --backend direct \
   --inputs-json <(echo '{"query": "SELECT * FROM samples.bakehouse.sales_transactions LIMIT 10", "parameters": [], "output_path": "runs/databricks-query.md"}')
 ```
 
-Each shipped workflow has a human-readable README at `examples/readmes/<name>.md`
-covering inputs, common failures, and what a healthy run looks like. The
-Workflow tab in the UI fetches and renders these inline (collapsible).
+Each shipped workflow has a README at `examples/readmes/<name>.md` covering inputs, common failures, and what a healthy run looks like.
 
-### Bring up the Electron UI
+<details>
+<summary><strong>Bring up the Electron UI</strong> (click to expand)</summary>
 
 **The renderer owns the bridge lifecycle.** Launch the app, click **Start bridge** in the header, work, click **Stop bridge** (or just close the window).
 
-#### One-time setup
+One-time setup:
 
 ```bash
 # Python side
@@ -205,23 +203,21 @@ sfw uv pip install -e ".[serve]"
 cd electron && sfw npm install && cd ..
 ```
 
-#### Launch the renderer
+Launch the renderer:
 
 ```bash
 cd electron && npm run dev
 ```
 
-The Electron window opens with the bridge **stopped**. In the header:
+In the header:
 
-- **Start bridge** -- main process spawns `testudo serve` as a subprocess, captures the bearer token from its stderr, and forwards it to the renderer via IPC. Status badge goes yellow (`starting`) then green (`online :8000`).
-- **Stop bridge** -- SIGTERM the subprocess; status badge returns to grey.
-- **Close the window** -- bridge subprocess is killed automatically; no orphans.
+- **Start bridge** — spawns `testudo serve`, captures the bearer token from stderr, forwards it via IPC. Badge goes yellow (`starting`) then green (`online :8000`).
+- **Stop bridge** — SIGTERM; badge returns to grey.
+- **Close the window** — bridge subprocess killed automatically; no orphans.
 
-The bridge token never appears in renderer-inspectable scope; it lives in the Electron main process and is only released to the renderer through the explicit `window.testudo.bridge.status()` IPC return value.
+The bridge token never appears in renderer-inspectable scope; it lives in the Electron main process and is released only through `window.testudo.bridge.status()`.
 
-#### Alternative: CLI-driven turnkey (`testudo ui`)
-
-If you prefer a single shell command instead of launching the renderer first:
+**Turnkey alternative:**
 
 ```bash
 source .venv/bin/activate
@@ -230,19 +226,20 @@ testudo ui --port 9000          # custom bridge port
 testudo ui --no-renderer        # bridge-only mode
 ```
 
-#### Manual two-terminal flow (renderer-in-isolation debugging)
+**Manual two-terminal flow** (renderer-in-isolation debugging):
 
 ```bash
 # terminal 1 -- bridge
 testudo serve --port 8000 --workflows-dir examples
 # stderr: "[testudo] bearer token: <random-url-safe>"
 
-# terminal 2 -- renderer (env vars pre-load the token so the in-app
-# Start button is unnecessary)
+# terminal 2 -- renderer
 export TESTUDO_BRIDGE_URL=http://127.0.0.1:8000
 export TESTUDO_BRIDGE_TOKEN=<paste-token>
 cd electron && npm run dev
 ```
+
+</details>
 
 ### Inspect a run
 
@@ -250,18 +247,12 @@ cd electron && npm run dev
 testudo inspect runs/<run-id>/audit.jsonl
 ```
 
-## Supply-chain hardening for users
+<details>
+<summary><strong>Supply-chain hardening for users</strong> (click to expand)</summary>
 
-On 2026-05-13, 84 malicious versions of `@tanstack/*` npm packages
-(across 42 packages) were published with valid SLSA provenance
-signatures, including a dead-man's-switch payload that wipes `~/` if the
-exfiltrated GitHub token is revoked. Testudo's host was unaffected
-(no `@tanstack/*` in its dependency tree), but the incident motivated a
-permanent install discipline that we recommend every user and contributor adopt.
+On 2026-05-13, 84 malicious versions of `@tanstack/*` npm packages were published with valid SLSA provenance signatures, including a dead-man's-switch payload that wipes `~/` if the exfiltrated GitHub token is revoked. Testudo's host was unaffected, but the incident motivated a permanent install discipline.
 
-**Install-time gate.** Every package install across every package
-manager must be wrapped with [Socket Firewall](https://docs.socket.dev/docs/socket-firewall-free)
-(`sfw`):
+**Install-time gate.** Wrap every package install with [Socket Firewall](https://docs.socket.dev/docs/socket-firewall-free) (`sfw`):
 
 ```bash
 npm i -g sfw     # one-time bootstrap
@@ -270,105 +261,30 @@ sfw uv add foo   # not bare uv add
 sfw pip install bar
 ```
 
-`sfw` proxies the package manager invocation, scans the package + its
-transitive dependencies against Socket's threat intel, and aborts on
-known-malicious tarballs. Free, no signup, no API key.
+`sfw` proxies the invocation, scans the package and its transitive dependencies against Socket's threat intel, and aborts on known-malicious tarballs. Free, no signup, no API key.
 
-**Don't put install commands inside scripts.** A PreToolUse Claude Code
-hook can intercept `npm install` typed at the prompt and force the `sfw`
-wrap, but it cannot see installs that happen inside a shell script,
-Python script, or Makefile target. If a project genuinely needs scripted
-dependency setup, surface the install commands in the README so the
-operator runs them through `sfw` directly, rather than burying them in a
-script that bypasses every install-time gate.
+**Don't put install commands inside scripts.** A PreToolUse hook can intercept installs typed at the prompt but not installs inside shell scripts or Makefiles. If a project needs scripted dependency setup, surface the commands in the README so the operator runs them through `sfw` directly.
 
-**Local language packs.** A long-standing convention against
-geo-targeted malware: install Russian
-language packs on the host. Several malware families self-abort if these
-locales are present (originally documented by Krebs on Security in 2021).
-On Ubuntu / Debian:
+**Local language packs.** A long-standing convention against geo-targeted malware: install Russian language packs on the host. Several malware families self-abort if these locales are present. On Ubuntu / Debian:
 
 ```bash
 sudo apt install language-pack-ru language-pack-ru-base
 ```
 
-**Lockfile + audit.** `package-lock.json` and `uv.lock` are committed.
-Run `npm audit` and `pip-audit` before bumping any dependency. CI
-should be the same.
+**Lockfile + audit.** `package-lock.json` and `uv.lock` are committed. Run `npm audit` and `pip-audit` before bumping any dependency. CI should be the same.
 
-## Roadmap
-
-See [docs/ROADMAP.md](docs/ROADMAP.md) and [NEXT_ACTIONS.md](NEXT_ACTIONS.md).
-
-**The governed runtime defaults to microVM.** `testudo run` and the bridge's
-`POST /runs` fail closed until a host supervisor supplies a configured
-`Runner`; the injected path resolves the workflow `IsolationProfile`, marshals
-run-local inputs, streams the guest result contract, and preserves host audit
-receipts. Docker is an explicit compatibility backend (`--backend docker`),
-and direct host execution is available only as `--backend direct` for local
-compatibility. Neither compatibility mode is the governed security boundary.
-
-A host supervisor constructs the governed path with
-`runtime.GovernedRunnerConfig` and `build_governed_runner()`, supplying a
-per-run lease/approval validator plus explicit token-revocation and VM-wipe
-callbacks. Testudo does not read a second authority store or infer those
-callbacks; construction itself starts no process or VM.
-
-The reachability tension (workflows that legitimately need network access
-to Ollama, Databricks, or public HTTPS cannot also be `--network=none`)
-is the headline problem v0.1.6 solves: per-workflow egress allow-lists
-declared in the `IsolationProfile`, enforced at the container's
-`iptables` layer. Each workflow's README documents its own allow-list
-(host + port). Where an operator's environment requires a custom
-allow-list (corporate proxy, VPN, on-prem service), Testudo will ship a
-small CLI helper to inspect and edit the merged ruleset before the
-container starts.
-
-**v0.2** adds the Presidio NLP hybrid (regex + spaCy NER + confidence
-merge), additional in-house `models.*` adapters covering the major
-commercial providers under the same shape and the same
-sanitise-on-return invariant, service-principal Databricks auth, async
-parallel step execution, and dashboard embed channels.
-
-## Acknowledgements
-
-Designed and built by Julen Gamboa, who drove system design,
-implementation, agent orchestration, and code review. Claude Code
-and Hermes operated as spec-driven agents, executing implementation
-tasks under that direction.
+</details>
 
 ## Licence
 
-**GNU Affero General Public License v3 (AGPLv3)** plus a Section 7(b)
-author-attribution clause. See [`LICENSE`](LICENSE) for the full text.
+**AGPL-3.0-only** plus a Section 7(b) author-attribution clause. See [`LICENSE`](LICENSE) for the full text.
 
 The plain-English version:
 
-- **If you are using Testudo in an open-source project**: you are
-  asked to credit Julen Gamboa as the original author in your README
-  or equivalent primary documentation, with a link back to this
-  repository. It is a courtesy ask; the project will not chase you to
-  the ends of the earth to enforce it. The AGPL terms still apply
-  (source disclosure on conveyance and network use), and that is the
-  part with real teeth. We support genuine open-source use without
-  friction.
-- **If you are a for-profit entity or you are using Testudo in a paid
-  product or service**: you need a commercial licence. AGPLv3 is
-  genuinely viral for network use (Section 13), which materially
-  applies to Testudo because the FastAPI bridge and the renderer make
-  it natural to expose Testudo as a remote-access service. The
-  commercial licence waives those obligations. Contact the author for
-  details; pricing is flexible and case-by-case rather than triggered
-  by a revenue threshold.
-- **The split exists** because we have a problem with the pattern of
-  enterprises that exploit open-source projects without contributing
-  back, not with open-source contributors themselves. AGPLv3 plus a
-  commercial offering is the standard, OSI-approved pattern
-  (Nextcloud, Plausible, Cal.com, iText) for distinguishing the two
-  populations cleanly.
+- **Commercial use, including forks and substantial modifications**, is permitted under the AGPL when all AGPL obligations and the Section 7(b) attribution requirements are followed. This includes offering covered source to network users as required by Section 13. A separate commercial licence is required only when an organisation wants proprietary modifications, alternative attribution terms, or otherwise cannot or does not wish to comply with those obligations. Contact the author for details; pricing is flexible and case-by-case.
+- **The split exists** because we have a problem with the pattern of enterprises that exploit open-source projects without contributing back, not with open-source contributors themselves. AGPL plus a commercial offering is the standard, OSI-recognised pattern (Nextcloud, Plausible, Cal.com, iText) for distinguishing the two populations cleanly.
 
-A commercial licence template will be published in this repository
-at `COMMERCIAL.md` once finalised. Until then, reach out directly.
+A commercial licence template will be published at `COMMERCIAL.md` once finalised. Until then, reach out directly.
 
 ## Citation
 

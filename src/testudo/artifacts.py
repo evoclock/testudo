@@ -14,7 +14,7 @@ import json
 import os
 import secrets
 import stat
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from contextlib import suppress
 from dataclasses import asdict, dataclass
 from pathlib import Path, PurePosixPath
@@ -150,6 +150,62 @@ class ArtifactStore:
         if len(sha256) != 64 or any(c not in "0123456789abcdef" for c in sha256):
             raise ValueError("sha256 must be a lowercase 64-character hex digest")
         return self.objects_root / sha256[:2] / sha256[2:4] / sha256
+
+    def materialize(
+        self,
+        artifacts: Iterable[Mapping[str, object]],
+        destination_root: Path | str,
+    ) -> list[Path]:
+        """Write receipt artifacts into ``destination_root`` after verification.
+
+        The deterministic retrieval seam for assignment consumers: given the
+        ``artifacts`` list from a verified assignment receipt, resolve each
+        entry against this store, recompute its SHA-256 from the stored object,
+        refuse any mismatch, and write the bytes to
+        ``destination_root/<name>``. Refuses traversal or absolute names so a
+        receipt can never direct writes outside the destination. Returns the
+        written paths in receipt order. Existing files at a destination path
+        are refused rather than overwritten.
+        """
+        destination = Path(destination_root).resolve()
+        if not destination.is_dir():
+            raise EgressRejected(f"artifact destination is not a directory: {destination}")
+        written: list[Path] = []
+        for index, artifact in enumerate(artifacts):
+            name = artifact.get("name")
+            sha256 = artifact.get("sha256")
+            if not isinstance(name, str) or not name:
+                raise EgressRejected(f"artifact {index} is missing its name")
+            pure = PurePosixPath(name)
+            if (
+                pure.is_absolute()
+                or name.startswith("/")
+                or ".." in pure.parts
+                or "\x00" in name
+                or any(part.strip() != part or part == "" for part in pure.parts)
+            ):
+                raise EgressRejected(f"artifact name escapes the destination: {name!r}")
+            if (
+                not isinstance(sha256, str)
+                or len(sha256) != 64
+                or any(c not in "0123456789abcdef" for c in sha256)
+            ):
+                raise EgressRejected(f"artifact {name!r} has no valid SHA-256 digest")
+            object_path = self.object_path(sha256)
+            if not object_path.is_file():
+                raise EgressRejected(f"artifact {name!r} is not in the store: {sha256}")
+            actual = _hash_regular(object_path)[0]
+            if actual != sha256:
+                raise EgressRejected(
+                    f"artifact {name!r} failed digest verification: expected {sha256}, found {actual}"
+                )
+            target = destination.joinpath(*pure.parts)
+            if target.exists():
+                raise EgressRejected(f"artifact destination already exists: {name!r}")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            _copy_exact(object_path, target)
+            written.append(target)
+        return written
 
     def _export_one(
         self,
@@ -306,3 +362,32 @@ def _fsync_directory(path: Path) -> None:
 
 
 __all__ = ["ArtifactStore", "ChunkScanner", "EgressRejected", "ExportManifest", "ExportedFile"]
+
+
+def _copy_exact(source: Path, destination: Path) -> None:
+    """Copy bytes after a final digest check on the destination write."""
+    digest, size = _hash_regular(source)
+    temporary = destination.with_name(destination.name + ".tmp")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_CLOEXEC", 0)
+    fd = os.open(temporary, flags, 0o600)
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            with source.open("rb") as reader:
+                while True:
+                    chunk = reader.read(1 << 20)
+                    if not chunk:
+                        break
+                    stream.write(chunk)
+            stream.flush()
+            os.fsync(stream.fileno())
+    except BaseException:
+        with suppress(OSError):
+            temporary.unlink()
+        raise
+    final_digest, final_size = _hash_regular(temporary)
+    if final_digest != digest or final_size != size:
+        with suppress(OSError):
+            temporary.unlink()
+        raise EgressRejected(f"destination write changed bytes: {destination}")
+    os.replace(temporary, destination)
+    _fsync_directory(destination.parent)

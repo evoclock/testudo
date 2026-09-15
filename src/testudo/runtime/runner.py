@@ -127,6 +127,7 @@ class Runner:
         self.authorization_provider = authorization_provider
         self._active_controller: RunnerController | None = None
         self._last_host_receipt: Mapping[str, object] | None = None
+        self._last_artifact_manifest: Mapping[str, object] | None = None
         self._run_lock = threading.Lock()
         self._run_active = False
         runs_root.mkdir(parents=True, exist_ok=True)
@@ -135,6 +136,11 @@ class Runner:
     def last_host_receipt(self) -> Mapping[str, object] | None:
         """Return the verified host receipt from the most recent run."""
         return self._last_host_receipt
+
+    @property
+    def last_artifact_manifest(self) -> Mapping[str, object] | None:
+        """Return the verified egress manifest from the most recent run."""
+        return self._last_artifact_manifest
 
     @property
     def stop_handle(self) -> StopHandle | None:
@@ -181,6 +187,7 @@ class Runner:
             if self._active_controller is not None or self._run_active:
                 raise RuntimeError("this Runner instance already has an active run")
             self._last_host_receipt = None
+            self._last_artifact_manifest = None
             self._run_active = True
         try:
             return self._execute_run(
@@ -434,6 +441,7 @@ class Runner:
                     scanner_id=egress_scanner_id,
                     policy_hash=egress_policy_hash,
                 )
+                self._last_artifact_manifest = manifest.to_dict()
         except Exception as exc:
             audit.emit(
                 AuditEvent(

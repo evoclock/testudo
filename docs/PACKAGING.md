@@ -45,7 +45,7 @@ cd testudo
 
 ```bash
 uv pip install -e ".[serve,dist]"
-pyinstaller testudo.spec
+pyinstaller packaging/testudo.spec
 ```
 
 This produces `dist/testudo-bridge` — a self-contained Mach-O binary (arm64). Verify
@@ -78,7 +78,7 @@ Same steps; swap the pack command:
 git clone git@github.com:evoclock/testudo-dev.git testudo
 cd testudo
 uv pip install -e ".[serve,dist]"
-pyinstaller testudo.spec
+pyinstaller packaging/testudo.spec
 ./dist/testudo-bridge serve --help   # verify binary
 
 cd electron

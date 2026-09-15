@@ -21,8 +21,6 @@ title: "Testudo docs index"
 
 These live at the repo root, not under `docs/`, because they're frequently rewritten:
 
-- [../STATUS.md](../STATUS.md) -- frozen snapshot of the codebase at the v0.1.5 release.
-- [../NEXT_ACTIONS.md](../NEXT_ACTIONS.md) -- next-session priorities.
 - [../CHANGELOG.md](../CHANGELOG.md) -- Keep-a-Changelog format; v0.0.1 through v0.1.5.
 
 ## Environment templates
