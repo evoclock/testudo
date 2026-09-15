@@ -11,6 +11,7 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "pack:mac": "electron-vite build && electron-builder --mac",
+    "install:mac": "npm run pack:mac && ditto ../dist-electron/mac-arm64/Testudo.app /Applications/Testudo.app && codesign --force --deep -s - /Applications/Testudo.app",
     "pack:linux": "electron-vite build && electron-builder --linux",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
@@ -25,7 +26,9 @@
     "directories": {
       "output": "../dist-electron"
     },
-    "files": ["out/**/*"],
+    "files": [
+      "out/**/*"
+    ],
     "extraResources": [
       {
         "from": "../dist/testudo-bridge",
@@ -33,11 +36,17 @@
       }
     ],
     "mac": {
-      "target": ["dmg", "dir"],
+      "target": [
+        "dmg",
+        "dir"
+      ],
       "category": "public.app-category.developer-tools"
     },
     "linux": {
-      "target": ["AppImage", "dir"]
+      "target": [
+        "AppImage",
+        "dir"
+      ]
     }
   },
   "dependencies": {
