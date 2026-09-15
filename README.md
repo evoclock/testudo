@@ -15,18 +15,6 @@
 
 **Status:** v0.1.6 with the licence consolidation pass landed plus in-tree follow-ups (Electron UX hardening, Databricks adapter, env-check badges, resizable panes, per-workflow READMEs + starters, collapsible help sections, chat-channel surfacing in Activity, custom DAG node template, collapsed Activity entries, two-tier header with wordmark, Socket Firewall install discipline). 316 tests passing, 84% coverage, ruff clean. AGPLv3 + Section 7(b) attribution clause.
 
-## Development disclosure
-
-Testudo is designed and developed by Julen Gamboa. As part of the implementation process I use AI assistance (Claude Code and
-Ollama-served local models) as team members to whom I assign sprint tasks in the same way you would with any dev team. Every step of the process is human-gated: design and code review precede commits. My position is one of low/no-trust and everything is either delivered according to the definition-of-done or it is rejected.
-
-No agent performs wholesale codebase management. All package installs are routed through Socket Firewall, and the full
-audit trail (git history, code review, sanitiser test corpus) is the
-intended substrate for trust rather than the AI assistance itself. The
-runtime's hardening primitives (defence-in-depth sanitisers, isolation
-profile, MCP-server separation, audit log) are designed against the same
-threat model that AI-assisted development often produces in adjacent/comparable tooling out there.
-
 ## What it does
 
 Testudo is a deployment unit for an agent: a `workflow.json` declares the steps, their dependencies, the permissions each operation is allowed, and the isolation profile. Testudo loads it, sanitises every byte on input and output, gates every privileged operation through a permission check (optionally with a scan-before-permit gate), routes any LLM-side disk writes through a read-only -> sanitiser -> write-only MCP server triad with HMAC-signed receipts, and emits a per-run audit log.
@@ -329,13 +317,6 @@ merge), additional in-house `models.*` adapters covering the major
 commercial providers under the same shape and the same
 sanitise-on-return invariant, service-principal Databricks auth, async
 parallel step execution, and dashboard embed channels.
-
-## Acknowledgements
-
-Designed and built by Julen Gamboa, who drove system design,
-implementation, agent orchestration, and code review. Claude Code
-and Hermes operated as spec-driven agents, executing implementation
-tasks under that direction.
 
 ## Licence
 
