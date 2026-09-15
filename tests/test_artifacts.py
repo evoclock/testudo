@@ -114,3 +114,66 @@ def test_quota_rejects_before_cas_promotion(tmp_path: Path) -> None:
             policy_hash="policy-test",
         )
     assert not any(path.is_file() for path in (tmp_path / "store/objects").rglob("*"))
+
+
+def _store_with_object(tmp_path: Path, payload: bytes) -> tuple[ArtifactStore, str]:
+    store = ArtifactStore(tmp_path / "store", store_id="store-1")
+    source = tmp_path / "src"
+    source.mkdir()
+    (source / "out.txt").write_bytes(payload)
+    manifest = store.export_tree(
+        source,
+        run_id="run-1",
+        scanner=lambda path, rel: None,
+        scanner_id="scanner-1",
+        policy_hash="p" * 64,
+    )
+    return store, manifest.files[0].sha256
+
+
+def test_materialize_writes_verified_bytes_into_destination(tmp_path: Path) -> None:
+    payload = b"clean scanned output\n"
+    store, sha256 = _store_with_object(tmp_path, payload)
+    destination = tmp_path / "land"
+    destination.mkdir()
+    written = store.materialize([{"name": "patch/out.txt", "sha256": sha256}], destination)
+    assert written == [destination / "patch" / "out.txt"]
+    assert (destination / "patch" / "out.txt").read_bytes() == payload
+
+
+def test_materialize_refuses_digest_mismatch(tmp_path: Path) -> None:
+    store, sha256 = _store_with_object(tmp_path, b"payload")
+    destination = tmp_path / "land"
+    destination.mkdir()
+    bad = "0" * 64 if sha256[0] != "0" else "1" * 64
+    with pytest.raises(EgressRejected, match="not in the store"):
+        store.materialize([{"name": "x.txt", "sha256": bad}], destination)
+
+
+def test_materialize_refuses_traversal_and_absolute_names(tmp_path: Path) -> None:
+    store, sha256 = _store_with_object(tmp_path, b"payload")
+    destination = tmp_path / "land"
+    destination.mkdir()
+    for name in ("../escape.txt", "/etc/passwd", "a/../../b"):
+        with pytest.raises(EgressRejected, match="escapes the destination"):
+            store.materialize([{"name": name, "sha256": sha256}], destination)
+    # A doubled slash normalizes away; the write still lands inside and is allowed.
+    written = store.materialize([{"name": "a//b", "sha256": sha256}], destination)
+    assert written == [destination / "a" / "b"]
+
+
+def test_materialize_refuses_existing_destination(tmp_path: Path) -> None:
+    store, sha256 = _store_with_object(tmp_path, b"payload")
+    destination = tmp_path / "land"
+    destination.mkdir()
+    (destination / "out.txt").write_bytes(b"occupied")
+    with pytest.raises(EgressRejected, match="already exists"):
+        store.materialize([{"name": "out.txt", "sha256": sha256}], destination)
+
+
+def test_materialize_refuses_invalid_digest_shape(tmp_path: Path) -> None:
+    store, _sha256 = _store_with_object(tmp_path, b"payload")
+    destination = tmp_path / "land"
+    destination.mkdir()
+    with pytest.raises(EgressRejected, match="valid SHA-256"):
+        store.materialize([{"name": "x", "sha256": "ZZ" * 32}], destination)

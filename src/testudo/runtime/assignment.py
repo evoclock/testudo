@@ -24,6 +24,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from testudo.artifacts import ArtifactStore, ChunkScanner
 from testudo.runtime.backend import ExecutionBackend
 from testudo.runtime.isolation import IsolationProfile
 from testudo.runtime.runner import Runner, RunnerResult
@@ -95,6 +96,8 @@ class AssignmentRequest(BaseModel):
     backend: Literal["microvm", "native-container"]
     image: str = Field(min_length=1, max_length=1024)
     journey: PiJourney
+    artifact_store_id: str | None = Field(default=None, min_length=1, max_length=128)
+    egress_scanner_id: str | None = Field(default=None, min_length=1, max_length=128)
     envelope_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
     @field_validator("branch")
@@ -128,6 +131,12 @@ class AssignmentRequest(BaseModel):
         if forbidden.intersection(values):
             raise ValueError("host and Docker-compatible capabilities are forbidden")
         return values
+
+    @model_validator(mode="after")
+    def artifact_binding_is_all_or_nothing(self) -> AssignmentRequest:
+        if (self.artifact_store_id is None) != (self.egress_scanner_id is None):
+            raise ValueError("artifact_store_id and egress_scanner_id must be provided together")
+        return self
 
     @model_validator(mode="after")
     def immutable_and_live(self) -> AssignmentRequest:
@@ -201,6 +210,7 @@ class AssignmentReceipt(BaseModel):
     events_sha256: str
     result_sha256: str | None
     host_receipt: dict[str, object] | None
+    artifacts: tuple[dict[str, object], ...] = ()
     error: str | None
     no_host_fallback: Literal[True] = True
     receipt_id: str = ""
@@ -243,6 +253,8 @@ class IdentityTombstone(BaseModel):
 
 RunnerFactory = Callable[[AssignmentRequest], Runner]
 IsolationFactory = Callable[[AssignmentRequest], IsolationProfile]
+ArtifactStoreFactory = Callable[[AssignmentRequest], ArtifactStore]
+EgressScannerFactory = Callable[[AssignmentRequest], tuple[ChunkScanner, str, str]]
 DispatcherVerifier = Callable[[AssignmentRequest], None]
 OperatorVerifier = Callable[[str, Mapping[str, str]], None]
 
@@ -271,6 +283,8 @@ class AssignmentService:
         verify_dispatcher: DispatcherVerifier,
         state_root: Path,
         verify_operator: OperatorVerifier | None = None,
+        artifact_store_factory: ArtifactStoreFactory | None = None,
+        egress_scanner_factory: EgressScannerFactory | None = None,
         now: Callable[[], datetime] = _utc_now,
     ) -> None:
         if not callable(verify_dispatcher):
@@ -279,6 +293,12 @@ class AssignmentService:
         self._isolation_factory = isolation_factory
         self._verify_dispatcher = verify_dispatcher
         self._verify_operator = verify_operator
+        if (artifact_store_factory is None) != (egress_scanner_factory is None):
+            raise ValueError(
+                "artifact_store_factory and egress_scanner_factory must be provided together"
+            )
+        self._artifact_store_factory = artifact_store_factory
+        self._egress_scanner_factory = egress_scanner_factory
         self._root = Path(state_root)
         self._root.mkdir(parents=True, exist_ok=True)
         self._now = now
@@ -481,6 +501,7 @@ class AssignmentService:
                     events_sha256=hashlib.sha256(_canonical({"events": event_maps})).hexdigest(),
                     result_sha256=None,
                     host_receipt=None,
+                    artifacts=(),
                     error=f"operator terminalization: {reason}",
                 )
                 state.receipt = receipt
@@ -526,6 +547,7 @@ class AssignmentService:
         request = state.request
         result: RunnerResult | None = None
         host_receipt: dict[str, object] | None = None
+        artifacts: tuple[dict[str, object], ...] = ()
         error: str | None = None
         status: Literal["succeeded", "failed", "cancelled", "refused"] = "failed"
         try:
@@ -563,6 +585,7 @@ class AssignmentService:
             if runner.last_host_receipt is None:
                 raise AssignmentError("contained run ended without a verified host receipt")
             host_receipt = dict(runner.last_host_receipt)
+            artifacts = self._promote_artifacts(state, runner)
             status = (
                 "cancelled"
                 if state.cancel_requested
@@ -602,10 +625,55 @@ class AssignmentService:
                 events_sha256=hashlib.sha256(_canonical({"events": event_maps})).hexdigest(),
                 result_sha256=None if result_map is None else _digest(result_map),
                 host_receipt=host_receipt,
+                artifacts=artifacts,
                 error=error,
             )
             state.receipt = receipt
             self._persist(state, terminal, receipt)
+
+    def _promote_artifacts(self, state: _RunState, runner: Runner) -> tuple[dict[str, object], ...]:
+        """Promote produced files through the scanned egress boundary.
+
+        When the request binds an artifact store, the runner's verified egress
+        manifest becomes digest-bound receipt evidence. The store performs the
+        quarantine -> scan -> re-hash -> CAS promotion; Testudo never trusts
+        container bytes that did not pass the scanner. A binding without a
+        manifest means the run produced nothing and is recorded as such.
+        """
+        if self._artifact_store_factory is None or self._egress_scanner_factory is None:
+            return ()
+        if state.request.artifact_store_id is None:
+            return ()
+        manifest = runner.last_artifact_manifest
+        if manifest is None:
+            raise AssignmentError(
+                "assignment binds an artifact store but the contained run produced no egress manifest"
+            )
+        store_id = manifest.get("store_id")
+        scanner_id = manifest.get("scanner_id")
+        if store_id != state.request.artifact_store_id:
+            raise AssignmentError("artifact manifest store does not match the assignment binding")
+        if scanner_id != state.request.egress_scanner_id:
+            raise AssignmentError("artifact manifest scanner does not match the assignment binding")
+        files = manifest.get("files")
+        if not isinstance(files, list):
+            raise AssignmentError("artifact manifest is missing its files list")
+        entries: list[dict[str, object]] = []
+        for item in files:
+            if not isinstance(item, Mapping):
+                raise AssignmentError("artifact manifest entry is not an object")
+            name = item.get("path")
+            sha256 = item.get("sha256")
+            if not isinstance(name, str) or not name:
+                raise AssignmentError("artifact manifest entry is missing its path")
+            if (
+                not isinstance(sha256, str)
+                or len(sha256) != 64
+                or any(c not in "0123456789abcdef" for c in sha256)
+            ):
+                raise AssignmentError(f"artifact {name!r} has no valid SHA-256 digest")
+            entries.append({"name": name, "sha256": sha256})
+        return tuple(entries)
 
     def _load_durable_state(self) -> None:
         """Recover terminal and interrupted identities without relaunching work.
