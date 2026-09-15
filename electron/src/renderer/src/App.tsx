@@ -350,6 +350,7 @@ export default function App() {
             busy={busy}
             ollamaAvailable={envCheck?.ollama_running ?? false}
             installedModels={envCheck?.ollama_models ?? []}
+            registryProviders={envCheck?.registry_providers ?? []}
             onRun={({ filePath, outputPath, model, note }) =>
               runMode(
                 { filePath, outputPath, model },

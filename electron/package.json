@@ -37,6 +37,10 @@
       {
         "from": "../examples",
         "to": "examples"
+      },
+      {
+        "from": "../config",
+        "to": "config"
       }
     ],
     "mac": {

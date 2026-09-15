@@ -85,3 +85,6 @@ assets/D.png
 STATUS.md
 NEXT_ACTIONS.md
 docs/TASK37_FINAL_FIX_GROUPING.md
+
+# Electron build output
+dist-electron/

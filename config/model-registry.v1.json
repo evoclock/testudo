@@ -1,0 +1,42 @@
+{
+  "schema": "testudo.model-registry.v1",
+  "providers": [
+    {
+      "id": "dgx-spark",
+      "label": "DGX Spark",
+      "adapter": "models.openai_compatible_chat",
+      "base_url": "http://100.77.248.117:8893/v1",
+      "api_key_env": "TESTUDO_SPARK_API_KEY",
+      "notes": "One llama-server/vLLM endpoint serves one model at a time; other seats start on demand. Reachability reflects the endpoint, not every model entry.",
+      "models": [
+        {"id": "glm-5.3-flash-ud-iq3xxs", "label": "GLM-5.3-Flash", "hint": "serving now on :8893; reasoning, deepseek format", "reasoning": true},
+        {"id": "deepseek-v4-flash", "label": "DeepSeek V4 Flash (96G GGUF)", "hint": "seat on demand; also antirez q2/q4 quant on disk", "reasoning": true},
+        {"id": "ornith-1.5-35b-a3b", "label": "Ornith 1.5 35B A3B NVFP4", "hint": "vLLM seat on demand", "reasoning": true},
+        {"id": "ornith-1.0-35b", "label": "Ornith 1.0 35B", "hint": "FP8 + NVFP4 on disk", "reasoning": true},
+        {"id": "qwen3.8-27b", "label": "Qwen 3.8 27B NVFP4", "hint": "vLLM seat on demand; MTP and RadixArk builds on disk", "reasoning": true},
+        {"id": "qwen3.8-flash-next", "label": "Qwen 3.8 Flash-Next", "hint": "RadixArk + W4-PLE builds on disk", "reasoning": true},
+        {"id": "qwen3.6-35b-a3b", "label": "Qwen 3.6 35B A3B NVFP4", "hint": "Fast-Unsloth build preferred (chat-template fixes)", "reasoning": true},
+        {"id": "nemotron-3-super-120b-a12b", "label": "Nemotron 3 Super 120B A12B NVFP4", "hint": "largest Nemotron on disk", "reasoning": true},
+        {"id": "nemotron-3-nano-30b-a3b", "label": "Nemotron 3 Nano 30B A3B", "hint": "NVFP4 + BF16 on disk", "reasoning": true},
+        {"id": "nemotron-labs-3-puzzle-75b-a9b", "label": "Puzzle 75B A9B", "hint": "FP8 + BF16 on disk", "reasoning": true},
+        {"id": "holo-3.1-35b-a3b", "label": "Holo 3.1 35B A3B NVFP4", "hint": "on disk", "reasoning": true},
+        {"id": "gemma-4-26b-a4b-it", "label": "Gemma 4 26B A4B IT", "hint": "on disk", "reasoning": false},
+        {"id": "jan-code-4b-q8", "label": "Jan-code 4B Q8", "hint": "code-leaning small", "reasoning": false},
+        {"id": "fastcontext-1.0-4b-sft", "label": "FastContext 1.0 4B SFT", "hint": "small, fast", "reasoning": false}
+      ]
+    },
+    {
+      "id": "merge-gateway",
+      "label": "Hosted (merge gateway)",
+      "adapter": "models.openai_compatible_chat",
+      "base_url": "https://api-gateway.merge.dev/v1/openai",
+      "api_key_env": "TESTUDO_MERGE_GATEWAY_API_KEY",
+      "models": [
+        {"id": "zai/glm-5.3-flash", "label": "GLM-5.3-Flash (hosted)", "hint": "fast general-purpose", "reasoning": false},
+        {"id": "deepseek-v4.1-flash", "label": "DeepSeek V4.1 Flash (hosted)", "hint": "long-context general-purpose", "reasoning": true},
+        {"id": "kimi-k3", "label": "Kimi K3 (hosted)", "hint": "long-context frontier", "reasoning": true},
+        {"id": "gpt-5.6-luna", "label": "GPT-5.6 Luna (hosted)", "hint": "frontier, multimodal", "reasoning": true}
+      ]
+    }
+  ]
+}

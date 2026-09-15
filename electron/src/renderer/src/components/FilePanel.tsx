@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import type { RegistryProvider } from "../lib/api";
+
 export interface RecommendedModel {
   id: string;
   label: string;
@@ -7,85 +9,33 @@ export interface RecommendedModel {
   pullCommand: string;
 }
 
-export const MODEL_GROUPS: Array<{ title: string; models: RecommendedModel[] }> = [
-  {
-    title: "Cloud (Ollama Cloud, signin required)",
-    models: [
-      {
-        id: "minimax-m2.7:cloud",
-        label: "minimax-m2.7",
-        hint: "default. long context, careful summaries",
-        pullCommand: "ollama signin",
-      },
-      {
-        id: "mistral-large-3:675b-cloud",
-        label: "mistral-large-3 (675b)",
-        hint: "general-purpose, large",
-        pullCommand: "ollama signin",
-      },
-      {
-        id: "qwen3-coder-next:cloud",
-        label: "qwen3-coder-next",
-        hint: "code-leaning, large context",
-        pullCommand: "ollama signin",
-      },
-      {
-        id: "gemini-3-flash-preview:cloud",
-        label: "gemini-3-flash-preview",
-        hint: "fast general-purpose",
-        pullCommand: "ollama signin",
-      },
-      {
-        id: "gpt-oss:120b-cloud",
-        label: "gpt-oss (120b)",
-        hint: "open-source large",
-        pullCommand: "ollama signin",
-      },
-      {
-        id: "devstral-2:123b-cloud",
-        label: "devstral-2 (123b)",
-        hint: "code-leaning large",
-        pullCommand: "ollama signin",
-      },
-    ],
-  },
-  {
-    title: "Local",
-    models: [
-      {
-        id: "mistral:latest",
-        label: "mistral",
-        hint: "7B general-purpose, runs locally",
-        pullCommand: "ollama pull mistral",
-      },
-      {
-        id: "magistral:latest",
-        label: "magistral",
-        hint: "23B reasoning model, runs locally",
-        pullCommand: "ollama pull magistral",
-      },
-      {
-        id: "jan-code:latest",
-        label: "jan-code",
-        hint: "4.4B code-leaning, runs locally",
-        pullCommand: "ollama pull jan-code",
-      },
-      {
-        id: "devstral-small-2:24b-instruct-2512-q4_K_M",
-        label: "devstral-small-2 (24b)",
-        hint: "24B code-leaning, runs locally",
-        pullCommand: "ollama pull devstral-small-2:24b-instruct-2512-q4_K_M",
-      },
-    ],
-  },
-];
+export function registryToGroups(
+  providers: RegistryProvider[] | undefined,
+): Array<{ title: string; models: RecommendedModel[] }> {
+  if (!providers || providers.length === 0) return [];
+  return providers.map((provider) => ({
+    title:
+      provider.label +
+      (provider.reachable === false
+        ? " (offline - start the server on the host)"
+        : provider.reachable === true
+          ? " (online)"
+          : ""),
+    models: provider.models.map((m) => ({
+      id: m.id,
+      label: m.label,
+      hint: m.hint,
+      pullCommand: "",
+    })),
+  }));
+}
 
-export const DEFAULT_MODEL = "minimax-m2.7:cloud";
 
 interface Props {
   busy: boolean;
   ollamaAvailable: boolean;
   installedModels: string[];
+  registryProviders?: RegistryProvider[];
   onRun: (form: {
     filePath: string;
     outputPath: string;
@@ -94,10 +44,12 @@ interface Props {
   }) => void;
 }
 
-export function FilePanel({ busy, ollamaAvailable, installedModels, onRun }: Props) {
+export function FilePanel({ busy, ollamaAvailable, installedModels, registryProviders, onRun }: Props) {
   const [filePath, setFilePath] = useState<string | null>(null);
   const [outputPath, setOutputPath] = useState("");
-  const [model, setModel] = useState(DEFAULT_MODEL);
+  const [model, setModel] = useState(
+    registryProviders?.[0]?.models[0]?.id ?? "",
+  );
   const [note, setNote] = useState("");
 
   const pick = async () => {
@@ -149,7 +101,7 @@ export function FilePanel({ busy, ollamaAvailable, installedModels, onRun }: Pro
           )}
         </label>
         <div className="space-y-3">
-          {MODEL_GROUPS.map((group) => (
+          {registryToGroups(registryProviders).map((group) => (
             <div key={group.title}>
               <div className="text-[10px] uppercase tracking-wider text-muted/80 mb-1">
                 {group.title}
