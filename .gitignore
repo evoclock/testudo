@@ -56,7 +56,6 @@ scratch/
 
 # pipeline_output is for inventory and run records that we DO want tracked
 # (do not gitignore the directory itself)
-pipeline_output/codebase_inventory.jsonl
 
 # Secrets
 *.pem

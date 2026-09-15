@@ -506,9 +506,7 @@ def test_secret_registry_holds_no_secret_material() -> None:
 
     registry = protocol_module._ACTIVE_GENERATIONS
     assert all(
-        isinstance(session_id, str)
-        and isinstance(digest, str)
-        and len(digest) == 64
+        isinstance(session_id, str) and isinstance(digest, str) and len(digest) == 64
         for session_id, digest in registry.items()
     )
     # No global secret-bytes registry exists.
@@ -623,7 +621,9 @@ def test_nonce_rejects_non_ascii_decimal_digits() -> None:
         "operation": "reconcile",
         "envelope_id": "e1",
         "nonce": "٩",
-        "credential": command_credential(secret.secret, "٩", "unicode", session_id=secret.session_id),
+        "credential": command_credential(
+            secret.secret, "٩", "unicode", session_id=secret.session_id
+        ),
     }
     with pytest.raises(AssignmentError, match="canonical base-ten"):
         handle_command(Service(), value, verifier=verifier)  # type: ignore[arg-type]

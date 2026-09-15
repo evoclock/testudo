@@ -659,11 +659,17 @@ class AssignmentService:
                         or receipt.run_id != state.run_id
                         or receipt.backend != request.backend
                     ):
-                        raise AssignmentError("receipt identity does not match the admitted request")
-                    event_maps = [event.model_dump(mode="json", by_alias=True) for event in state.events]
+                        raise AssignmentError(
+                            "receipt identity does not match the admitted request"
+                        )
+                    event_maps = [
+                        event.model_dump(mode="json", by_alias=True) for event in state.events
+                    ]
                     expected_events = hashlib.sha256(_canonical({"events": event_maps})).hexdigest()
                     if receipt.events_sha256 != expected_events:
-                        raise AssignmentError("receipt event digest does not match the durable event log")
+                        raise AssignmentError(
+                            "receipt event digest does not match the durable event log"
+                        )
                     state.receipt = receipt
                 if request.assignment_id in self._runs:
                     raise AssignmentError("duplicate durable assignment identity")

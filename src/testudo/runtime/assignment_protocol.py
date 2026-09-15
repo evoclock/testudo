@@ -227,6 +227,7 @@ class CommandSessionVerifier:
             self._seen.add(sequence)
             self._high_water = sequence
 
+
 class AssignmentCommand(BaseModel):
     """One closed process-boundary command."""
 
@@ -266,7 +267,12 @@ def handle_command(
     if operation == "start":
         if command.assignment is None or any(
             value is not None
-            for value in (command.assignment_id, command.envelope_id, command.reason, command.status)
+            for value in (
+                command.assignment_id,
+                command.envelope_id,
+                command.reason,
+                command.status,
+            )
         ):
             raise AssignmentError("start requires only assignment")
         result = service.start(command.assignment).model_dump(mode="json", by_alias=True)

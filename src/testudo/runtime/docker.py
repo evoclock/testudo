@@ -80,6 +80,8 @@ def build_docker_argv(
     if authorization_env is not None and set(authorization_env) - _AUTH_ENV_NAMES:
         unknown = sorted(set(authorization_env) - _AUTH_ENV_NAMES)
         raise ValueError(f"unsupported authorization environment: {', '.join(unknown)}")
+    if isolation.network_policy.purpose != "none":
+        raise ValueError("Docker compatibility backend cannot enforce network_policy")
 
     argv: list[str] = ["docker", "run", "--rm"]
     argv.extend(["--cpus", isolation.cpu])

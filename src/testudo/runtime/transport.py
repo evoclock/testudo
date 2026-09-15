@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Julen Gamboa <[REDACTED:email_address]>
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: AGPL-3.0-or-later
 
 """Length-framed canonical-CBOR transport for the host/guest broker.
 

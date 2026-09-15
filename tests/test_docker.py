@@ -19,6 +19,7 @@ import pytest
 
 from testudo.runtime import docker
 from testudo.runtime.isolation import IsolationProfile
+from testudo.runtime.policy import NetworkPolicy
 
 # ----------------------------------------------------------------------------
 # argv construction (pure)
@@ -154,16 +155,23 @@ def test_argv_ends_with_image_then_workflow_path(workflow_file: Path, runs_dir: 
 
 def test_argv_respects_custom_isolation_overrides(workflow_file: Path, runs_dir: Path) -> None:
     profile = IsolationProfile(
-        image="testudo:dev", cpu="0.25", memory="256m", network="bridge", workdir="/w"
+        image="testudo:dev",
+        cpu="0.25",
+        memory="256m",
+        network="bridge",
+        network_policy=NetworkPolicy(
+            phase="evaluation",
+            purpose="declared_api",
+            egress_hosts=("api.example.com",),
+            egress_ports=(443,),
+            methods=("GET",),
+            max_bytes=1_000_000,
+            max_duration_seconds=30,
+        ),
+        workdir="/w",
     )
-    argv = docker.build_docker_argv(
-        workflow_path=workflow_file, runs_dir=runs_dir, isolation=profile
-    )
-    assert argv[argv.index("--cpus") + 1] == "0.25"
-    assert argv[argv.index("--memory") + 1] == "256m"
-    assert argv[argv.index("--network") + 1] == "bridge"
-    assert argv[argv.index("-w") + 1] == "/w"
-    assert argv[-2] == "testudo:dev"
+    with pytest.raises(ValueError, match="cannot enforce network_policy"):
+        docker.build_docker_argv(workflow_path=workflow_file, runs_dir=runs_dir, isolation=profile)
 
 
 # ----------------------------------------------------------------------------

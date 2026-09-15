@@ -67,7 +67,9 @@ class ArtifactManifestEntry(BaseModel):
     def no_floating_reference(cls, value: str) -> str:
         parsed = urlsplit(value)
         lowered_path = parsed.path.lower().rstrip("/")
-        query_values = {item.lower() for _key, item in parse_qsl(parsed.query, keep_blank_values=True)}
+        query_values = {
+            item.lower() for _key, item in parse_qsl(parsed.query, keep_blank_values=True)
+        }
         if (
             lowered_path.endswith("/latest")
             or "/latest/" in parsed.path.lower()

@@ -339,7 +339,7 @@ tasks under that direction.
 
 ## Licence
 
-**GNU Affero General Public License v3 only (AGPL-3.0-only)** plus a Section 7(b)
+**GNU Affero General Public License v3 (AGPLv3)** plus a Section 7(b)
 author-attribution clause. See [`LICENSE`](LICENSE) for the full text.
 
 The plain-English version:
@@ -352,14 +352,14 @@ The plain-English version:
   (source disclosure on conveyance and network use), and that is the
   part with real teeth. We support genuine open-source use without
   friction.
-- **Commercial use, including forks and substantial modifications**, is
-  permitted under the AGPL when all AGPL obligations and the Section 7(b)
-  attribution requirements are followed. This includes offering covered
-  source to network users as required by Section 13. A separate commercial
-  licence is required only when an organisation wants proprietary
-  modifications, alternative attribution terms, or otherwise cannot or does
-  not wish to comply with those obligations. Contact the author for details;
-  pricing is flexible and case-by-case.
+- **If you are a for-profit entity or you are using Testudo in a paid
+  product or service**: you need a commercial licence. AGPLv3 is
+  genuinely viral for network use (Section 13), which materially
+  applies to Testudo because the FastAPI bridge and the renderer make
+  it natural to expose Testudo as a remote-access service. The
+  commercial licence waives those obligations. Contact the author for
+  details; pricing is flexible and case-by-case rather than triggered
+  by a revenue threshold.
 - **The split exists** because we have a problem with the pattern of
   enterprises that exploit open-source projects without contributing
   back, not with open-source contributors themselves. AGPLv3 plus a

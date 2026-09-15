@@ -400,6 +400,7 @@ def test_operator_terminalization_refuses_active_terminal_and_unknown_runs(
         "details": {},
     }
     (run_dir / "events.jsonl").write_text(json.dumps(event) + "\n", encoding="utf-8")
+
     def rejecting_verifier(_operation: str, _details: object) -> None:
         raise AssignmentError("operator rejected the terminalization")
 

@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Julen Gamboa <[REDACTED:email_address]>
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: AGPL-3.0-or-later
 
 """Asymmetric capability-token signing interfaces.
 
@@ -29,8 +29,13 @@ class SigningError(ValueError):
 class TokenSigner(Protocol):
     """Minimal host-side signer/verifier contract."""
 
-    algorithm: str
-    key_id: str
+    @property
+    def algorithm(self) -> str:
+        """Signature algorithm identifier."""
+
+    @property
+    def key_id(self) -> str:
+        """Host-keystore key identifier."""
 
     def sign(self, payload: bytes) -> str:
         """Sign canonical payload bytes and return a transport-safe string."""
