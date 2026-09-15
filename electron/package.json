@@ -40,13 +40,15 @@
         "dmg",
         "dir"
       ],
-      "category": "public.app-category.developer-tools"
+      "category": "public.app-category.developer-tools",
+      "icon": "build/icon.png"
     },
     "linux": {
       "target": [
         "AppImage",
         "dir"
-      ]
+      ],
+      "icon": "build/icon.png"
     }
   },
   "dependencies": {
