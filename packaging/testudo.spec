@@ -13,13 +13,19 @@
 #   ./dist/testudo-bridge serve --help
 #   ./dist/testudo-bridge serve --port 8001   # check token appears on stderr
 
+import os
 from pathlib import Path
+
+# The spec lives in packaging/; every path is resolved against the repo root
+# so the spec works regardless of the invocation directory. PyInstaller
+# injects SPECPATH as a global: the directory containing this spec file.
+ROOT = Path(SPECPATH).resolve().parent
 
 block_cipher = None
 
 a = Analysis(
-    [str(Path("src") / "testudo" / "cli.py")],
-    pathex=[str(Path("src"))],
+    [str(ROOT / "src" / "testudo" / "cli.py")],
+    pathex=[str(ROOT / "src")],
     binaries=[],
     datas=[],
     hiddenimports=[
