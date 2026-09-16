@@ -102,20 +102,29 @@ Permissions       Sanitisers                Connectors / Data    Runtime
 
 ## Aim: less friction than enterprise low-code platforms, no less secure
 
-Testudo targets **a single technical operator or small team that needs auditable, sandboxed, declarative agentic workflows on locked-down infrastructure**, where the friction of enterprise low-code and no-code agent platforms is not warranted but the security posture must be at least as good. The pattern is familiar: subscription gates and per-seat licensing, tenant admin approval queues, vendor lock-in, opaque content moderation, and change requests that take weeks to get a single agentic workflow approved. If you have ever waited on a service request to grant a connector permission, you already know the tax. Testudo replaces that with a workflow file you own and a runtime that proves what it did.
+Testudo targets **a single technical operator or small team that needs auditable, sandboxed, declarative agentic workflows on locked-down infrastructure**, where the friction of enterprise low-code and no-code agent platforms (Copilot Studio, Power Automate, Salesforce Agentforce, ServiceNow agentic workflows, Automation Anywhere, UiPath and their kin) is not warranted but the security posture must be at least as good. The pattern is familiar:
 
-The default workflow shape:
+- subscription gates and per-seat licensing before a single workflow runs;
+- tenant admin approval queues, where a connector permission is a service request measured in weeks;
+- data-platform connections (Snowflake, Databricks, BigQuery) that require bespoke gateway gymnastics or are simply unavailable;
+- version-control integration that is an afterthought at best, so nothing lands in Git the way code does;
+- vendor lock-in and opaque content moderation;
+- and worst of all: the workflow exists largely inside a GUI, with no exportable artefacts, so porting it is all but impossible and the "code" you wrote is not code at all.
+
+Testudo replaces that with a workflow file you own, version in Git like any other artefact, and a runtime that proves what it did.
+
+A typical workflow shape:
 
 ```text
-SharePoint or local file -> sanitise (input side)
-                         -> model call (Ollama local, or multi-provider)
-                         -> sanitise (output side: hidden-unicode strip,
-                            secret redact, PII redact, prompt-injection
-                            detect, OWASP web + MCP threat detect)
-                         -> post to Teams / Slack / SharePoint / dashboard
+source (file, URL, database, API)
+  -> sanitise (input side)
+  -> model call (local or hosted, your choice)
+  -> sanitise (output side)
+  -> destination (file, chat, dashboard, ticket, or your own connector)
 ```
 
-The runtime, sandbox, sanitiser, and audit layers are shipped. The M365 + Slack connectors are the v0.1.7 milestone. Access control is deliberately **not** centralised: each external resource (SharePoint site, Teams channel, Slack workspace) is gated at its own admin layer. See [docs/POSITIONING.md](docs/POSITIONING.md) for the full gap analysis.
+Every arrow is a declared step with its own permissions; every boundary crossing is sanitised and audited.
+
 
 <details>
 <summary><strong>Shipped capability matrix</strong> (click to expand)</summary>
