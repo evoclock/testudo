@@ -131,7 +131,7 @@ Every arrow is a declared step with its own permissions; every boundary crossing
 
 | Layer | Shipped |
 |---|---|
-| Input | Local file; HTTPS; document extractor (PDF / DOCX / PPTX / HTML / JSON / TXT); Google Drive scaffolded |
+| Input | Local file; HTTPS; document extractor (PDF / DOCX / PPTX / HTML / JSON / TXT); public Google Drive links via HTTPS direct-download |
 | Sanitisation | UK PII + ~50 country patterns; prompt injection; OWASP web Top 10; OWASP MCP Top 10; hidden unicode + comment payloads; secrets; full output-side pipeline; in-house agent scanner |
 | Permissions | Filesystem read/write prefixes; network egress allow-list; process-spawn deny-by-default; scan-before-permit gate for MCP-config / skill artifacts |
 | Data | DuckDB by default; Databricks adapter behind `[databricks]` |
@@ -144,9 +144,9 @@ Every arrow is a declared step with its own permissions; every boundary crossing
 | CLI | `testudo run`, `testudo serve`, `testudo inspect`, `testudo ui` |
 | API | FastAPI bridge: `/health`, `/workflows`, `POST /runs`, `GET /runs/{id}`; bearer auth; in-house token-bucket rate limiter |
 | UI | Electron + TypeScript + React 18 + Tailwind + React Flow; sandboxed renderer; bridge token via preload `contextBridge` |
-| Output | File writer, chat-inline, dashboard component spec, ticket via webhook |
+| Output | File writer, chat-inline, dashboard spec (JSON for the renderer), ticket via webhook |
 | Demo workflows | `pdf-summarise-v015`, `url-fetch-v015`, `db-query-v015`, `databricks-query-v015`; each ships a README under `examples/readmes/` |
-| UI modes | Five-tab picker (File / URL / Database / Workflow / Compose); DAG panel with OK/FAIL/SKIP colouring; Activity panel with chat output; resizable panes; collapsible help |
+| UI modes | Five-tab picker (File / URL / Database / Workflow / Compose); DAG panel with OK/FAIL/SKIP status; Activity output; resizable panes |
 
 </details>
 
