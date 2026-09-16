@@ -100,9 +100,9 @@ Permissions       Sanitisers                Connectors / Data    Runtime
 - A third-party MCP host. Testudo ships its own in-house MCP servers as the security boundary; it does not surface MCP servers from your local config.
 - A no-code builder. Compose is **low-code**: you drag tools instead of typing JSON, but you still need to understand what each step does (which connectors touch the network, what each sanitiser pass means, how the isolation profile bounds the blast radius). Agentic failure modes are subtle: silent data leaks, prompt-injection chains, plausible-looking wrong output. The author owns the system-design responsibility.
 
-## Aim: less friction than Copilot Studio, no less secure
+## Aim: less friction than enterprise low-code platforms, no less secure
 
-Testudo targets **a single technical operator or small team that needs auditable, sandboxed, declarative agentic workflows on locked-down infrastructure**, where Copilot Studio's friction (Azure subscription, tenant admin approval, vendor lock-in, opaque moderation) is not warranted but the security posture must be at least as good.
+Testudo targets **a single technical operator or small team that needs auditable, sandboxed, declarative agentic workflows on locked-down infrastructure**, where the friction of enterprise low-code and no-code agent platforms is not warranted but the security posture must be at least as good. The pattern is familiar: subscription gates and per-seat licensing, tenant admin approval queues, vendor lock-in, opaque content moderation, and change requests that take weeks to get a single agentic workflow approved. If you have ever waited on a service request to grant a connector permission, you already know the tax. Testudo replaces that with a workflow file you own and a runtime that proves what it did.
 
 The default workflow shape:
 
