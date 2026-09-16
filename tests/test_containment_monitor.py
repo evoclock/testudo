@@ -197,8 +197,7 @@ def test_monitor_shim_scratch_carveout_uses_canonical_root(tmp_path: Path) -> No
 # the identity extraction ($2:$3:$10) are validated against reality.
 # sl local_address rem_address st tx_queue:rx_queue tr tm->when retrnsmt uid timeout inode ...
 NET_HEADER = (
-    "  sl local_address rem_address st tx_queue:rx_queue tr:tm->when retrnsmt"
-    "   uid timeout inode\n"
+    "  sl local_address rem_address st tx_queue:rx_queue tr:tm->when retrnsmt   uid timeout inode\n"
 )
 SSHD_ROW = (
     "   0: 00000000:0016 00000000:0000 0A 00000000:00000000 00:00000000"
@@ -237,9 +236,7 @@ def test_monitor_net_sweep_skips_baseline_and_flags_novel_sockets(tmp_path: Path
     state = tmp_path / "session"
     table = write_table(tmp_path / "tcp", SSHD_ROW, WORKLOAD_ROW)
 
-    result = run_monitor(
-        "net-sweep", str(state), baseline_of(SSHD_ROW), str(table)
-    )
+    result = run_monitor("net-sweep", str(state), baseline_of(SSHD_ROW), str(table))
     assert result.returncode == 0
     log = (state / "containment.log.jsonl").read_text(encoding="utf-8")
     # The baseline sshd identity (0.0.0.0:22:923) is skipped entirely.
@@ -315,9 +312,7 @@ def test_contained_guest_net_baseline_end_to_end(tmp_path: Path) -> None:
     for name in ("tcp6", "udp", "udp6"):
         (proc / name).write_text(NET_HEADER, encoding="utf-8")
 
-    supervisor = (ROOT / "guest" / "testudo_contained_guest.sh").read_text(
-        encoding="utf-8"
-    )
+    supervisor = (ROOT / "guest" / "testudo_contained_guest.sh").read_text(encoding="utf-8")
     # Extract the exact snapshot pipeline the supervisor runs before arming.
     start = supervisor.index("NET_BASELINE=$(for table in")
     end = supervisor.index("done | sort | uniq)", start) + len("done | sort | uniq)")
@@ -388,10 +383,10 @@ def test_contained_guest_snapshots_net_baseline_before_arming() -> None:
     assert baseline_line < arming_line
     assert baseline_line < watch_line
     # Identity extraction, not raw rows: fields $2:$3:$10 on both sides.
-    assert "awk 'NR > 1 && $2 !~ /:0000$/ {print $2\":\"$3\":\"$10}'" in script
-    assert '| sort | uniq)' in script
+    assert 'awk \'NR > 1 && $2 !~ /:0000$/ {print $2":"$3":"$10}\'' in script
+    assert "| sort | uniq)" in script
     # In-memory baseline: no net-baseline file is written or read anywhere.
-    assert 'net-baseline' not in script
+    assert "net-baseline" not in script
     # The sweep runs through the monitor with the variable baseline; net_watch
     # no longer calls gc_net_detect directly per raw entry.
     assert 'gc_net_sweep "$state" "$NET_BASELINE"' in script
