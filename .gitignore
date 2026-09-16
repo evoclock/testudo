@@ -93,3 +93,6 @@ dist-electron/
 docs/SEAT_CONTROL_SPEC.md
 docs/TASK106_DEFERRED_LIVE_VALIDATION.md
 docs/TASK37_FINAL_FIX_GROUPING.md
+
+# Live-gate evidence and design docs (internal, not for public distribution)
+gate-evidence/
