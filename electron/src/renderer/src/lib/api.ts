@@ -80,6 +80,7 @@ export interface EnvCheck {
   ollama_url: string;
   ollama_running: boolean;
   ollama_models: string[];
+  registry_providers?: RegistryProvider[];
   ollama_error: string | null;
   databricks_env_set: boolean;
   file_ops_extra_installed: boolean;
@@ -163,4 +164,21 @@ export async function makeBridgeClient(): Promise<BridgeClient | null> {
   const status = await window.testudo.bridge.status();
   if (!status.running || !status.url || !status.token) return null;
   return new BridgeClient(status.url, status.token);
+}
+
+
+export interface RegistryModel {
+  id: string;
+  label: string;
+  hint: string;
+  reasoning: boolean;
+}
+
+export interface RegistryProvider {
+  id: string;
+  label: string;
+  adapter: string;
+  base_url: string;
+  reachable: boolean | null;
+  models: RegistryModel[];
 }

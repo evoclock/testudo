@@ -30,6 +30,7 @@ import json
 import os
 import re
 import secrets
+import sys
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, status
@@ -49,6 +50,8 @@ from testudo.server.auth import TokenAuth, generate_token
 from testudo.server.models import (
     EnvCheckResponse,
     HealthResponse,
+    ModelEntry,
+    ModelProviderStatus,
     RunRequest,
     RunResponse,
     StepResultPayload,
@@ -452,6 +455,93 @@ def _probe_ollama(url: str) -> tuple[bool, list[str], str | None]:
     return True, models, None
 
 
+REGISTRY_SCHEMA = "testudo.model-registry.v1"
+_REGISTRY_PATH_ENV = "TESTUDO_MODEL_REGISTRY"
+
+
+def _registry_path() -> Path:
+    """Resolve the model registry path.
+
+    Order: TESTUDO_MODEL_REGISTRY override, then the user-editable copy in
+    the platform userData directory (packaged installs), then the bundled
+    repo default. Users edit the userData copy; the packaged one is a
+    starting point.
+    """
+    override = os.environ.get(_REGISTRY_PATH_ENV)
+    if override:
+        return Path(override)
+    user_copy = _user_registry_path()
+    if user_copy.is_file():
+        return user_copy
+    packaged = Path(__file__).resolve().parent.parent.parent / "config" / "model-registry.v1.json"
+    if packaged.is_file():
+        return packaged
+    return Path("config/model-registry.v1.json")
+
+
+def _user_registry_path() -> Path:
+    return _user_data_dir() / "model-registry.v1.json"
+
+
+def _user_data_dir() -> Path:
+    """Platform user-data directory; the packaged app keeps editable config here."""
+    if sys.platform == "darwin":
+        base = os.environ.get("HOME", "")
+        return Path(base) / "Library" / "Application Support" / "testudo"
+    return Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state")) / "testudo"
+
+
+def _probe_registry_provider(base_url: str) -> bool | None:
+    """Probe one registry endpoint cheaply; None when unreachable/failed."""
+    import httpx
+
+    probe_url = base_url.rstrip("/")
+    for suffix in ("/models", ""):
+        try:
+            response = httpx.get(probe_url + suffix, timeout=2.0)
+            if response.status_code < 500:
+                return True
+        except httpx.HTTPError:
+            continue
+    return False
+
+
+def _load_registry() -> list[ModelProviderStatus]:
+    """Load the model registry or return an empty list without failing."""
+    try:
+        data = json.loads(_registry_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    if not isinstance(data, dict) or data.get("schema") != REGISTRY_SCHEMA:
+        return []
+    providers: list[ModelProviderStatus] = []
+    for raw in data.get("providers", []):
+        if not isinstance(raw, dict):
+            continue
+        models = [
+            ModelEntry(
+                id=str(entry.get("id", "")),
+                label=str(entry.get("label", entry.get("id", ""))),
+                hint=str(entry.get("hint", "")),
+                reasoning=bool(entry.get("reasoning", False)),
+            )
+            for entry in (raw.get("models", []) if isinstance(raw.get("models"), list) else [])
+            if isinstance(entry, dict) and entry.get("id")
+        ]
+        base_url = str(raw.get("base_url", ""))
+        providers.append(
+            ModelProviderStatus(
+                id=str(raw.get("id", "")),
+                label=str(raw.get("label", raw.get("id", ""))),
+                adapter=str(raw.get("adapter", "")),
+                base_url=base_url,
+                reachable=_probe_registry_provider(base_url) if base_url else None,
+                models=models,
+            )
+        )
+    return providers
+
+
 def _env_check() -> EnvCheckResponse:
     """Inspect the runtime environment for adapter readiness.
 
@@ -496,6 +586,7 @@ def _env_check() -> EnvCheckResponse:
         ollama_running=ollama_running,
         ollama_models=sorted(ollama_models),
         ollama_error=ollama_error,
+        registry_providers=_load_registry(),
         databricks_env_set=databricks_env_set,
         file_ops_extra_installed=file_ops_installed,
         databricks_extra_installed=databricks_installed,

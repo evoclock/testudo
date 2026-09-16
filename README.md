@@ -226,6 +226,20 @@ testudo ui --port 9000          # custom bridge port
 testudo ui --no-renderer        # bridge-only mode
 ```
 
+**Install the desktop app (macOS).** Build and install locally with one command:
+
+```bash
+cd electron && npm run install:mac
+```
+
+This builds the app, copies it to `/Applications`, and ad-hoc signs it. Because it was built on your machine, macOS never quarantines it — double-click to launch, exactly like any installed app.
+
+If you received the DMG from someone else instead of building it, unsigned apps downloaded from the internet are quarantined by Gatekeeper and will report as damaged. Remove the quarantine flag once after copying to `/Applications`:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Testudo.app
+```
+
 **Manual two-terminal flow** (renderer-in-isolation debugging):
 
 ```bash

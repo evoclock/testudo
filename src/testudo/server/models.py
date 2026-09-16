@@ -125,6 +125,27 @@ class EnvCheckResponse(BaseModel):
     ollama_running: bool
     ollama_models: list[str] = Field(default_factory=list)
     ollama_error: str | None = None
+    registry_providers: list[ModelProviderStatus] = Field(default_factory=list)
     databricks_env_set: bool = False
     file_ops_extra_installed: bool = False
     databricks_extra_installed: bool = False
+
+
+class ModelProviderStatus(BaseModel):
+    """One registry provider as surfaced to the renderer."""
+
+    id: str
+    label: str
+    adapter: str
+    base_url: str
+    reachable: bool | None = None
+    models: list[ModelEntry] = Field(default_factory=list)
+
+
+class ModelEntry(BaseModel):
+    """One registry model as surfaced to the renderer."""
+
+    id: str
+    label: str
+    hint: str = ""
+    reasoning: bool = False

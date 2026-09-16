@@ -5,6 +5,7 @@ __pycache__/
 *.so
 .Python
 build/
+!electron/build/
 dist/
 *.egg-info/
 *.egg
@@ -83,4 +84,12 @@ assets/D.png
 # Internal development documentation (not for public distribution)
 STATUS.md
 NEXT_ACTIONS.md
+docs/TASK37_FINAL_FIX_GROUPING.md
+
+# Electron build output
+dist-electron/
+
+# Internal security design specs (not for public distribution)
+docs/SEAT_CONTROL_SPEC.md
+docs/TASK106_DEFERRED_LIVE_VALIDATION.md
 docs/TASK37_FINAL_FIX_GROUPING.md
