@@ -9,17 +9,11 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0--only%20%2B%20attribution-blue?style=flat" alt="License"/></a>
   <img src="https://img.shields.io/badge/python-3.11%2B-3776AB?style=flat&logo=python&logoColor=white" alt="Python 3.11+"/>
   <img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white" alt="TypeScript"/>
-</p>
-
-> **The hardened runtime for agentic work.** Declare what your agent may do; Testudo runs it inside a governed microVM, sanitises every byte crossing the boundary, and hands you cryptographically verifiable proof of exactly what happened: receipts, artifacts, and an audit trail. Ships with a CLI, a FastAPI bridge, and a typed TS/React renderer.
-
-**Status:** pre-0.2.0. The governed containment runtime is live: authenticated contained assignments, verified receipts, and scanned artifact egress, validated end-to-end in real Firecracker microVMs.
-
-<p align="center">
-  <a href="https://github.com/evoclock/testudo/actions/workflows/ci.yml"><img src="https://github.com/evoclock/testudo/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
   <img src="https://img.shields.io/badge/tests-634%20passing-brightgreen" alt="Tests"/>
   <img src="https://img.shields.io/badge/coverage-83%25-green" alt="Coverage"/>
 </p>
+
+> **The hardened runtime for agentic work.** Declare what your agent may do; Testudo runs it inside a governed microVM, sanitises every byte crossing the boundary, and hands you cryptographically verifiable proof of exactly what happened: receipts, artifacts, and an audit trail. Ships with a CLI, a FastAPI bridge, and a typed TS/React renderer.
 
 ## What it does
 
