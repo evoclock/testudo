@@ -113,18 +113,18 @@ Testudo targets **a single technical operator or small team that needs auditable
 
 Testudo replaces that with a workflow file you own, version in Git like any other artefact, and a runtime that proves what it did.
 
-The default workflow shape:
+A typical workflow shape:
 
 ```text
-SharePoint or local file -> sanitise (input side)
-                         -> model call (Ollama local, or multi-provider)
-                         -> sanitise (output side: hidden-unicode strip,
-                            secret redact, PII redact, prompt-injection
-                            detect, OWASP web + MCP threat detect)
-                         -> post to Teams / Slack / SharePoint / dashboard
+source (file, URL, database, API)
+  -> sanitise (input side)
+  -> model call (local or hosted, your choice)
+  -> sanitise (output side)
+  -> destination (file, chat, dashboard, ticket, or your own connector)
 ```
 
-The runtime, sandbox, sanitiser, and audit layers are shipped. The M365 + Slack connectors are the v0.1.7 milestone. Access control is deliberately **not** centralised: each external resource (SharePoint site, Teams channel, Slack workspace) is gated at its own admin layer. See [docs/POSITIONING.md](docs/POSITIONING.md) for the full gap analysis.
+Every arrow is a declared step with its own permissions; every boundary crossing is sanitised and audited.
+
 
 <details>
 <summary><strong>Shipped capability matrix</strong> (click to expand)</summary>
