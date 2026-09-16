@@ -11,9 +11,15 @@
   <img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white" alt="TypeScript"/>
 </p>
 
-> Hardened agent runtime. A workflow declares its steps, permissions, and isolation profile; Testudo executes it inside a governed microVM or native container, sanitising every byte on the way in and out, and records an append-only audit log. Ships with a CLI, a FastAPI bridge, and a typed TS/React renderer.
+> **The hardened runtime for agentic work.** Declare what your agent may do; Testudo runs it inside a governed microVM, sanitises every byte crossing the boundary, and hands you cryptographically verifiable proof of exactly what happened: receipts, artifacts, and an audit trail. Ships with a CLI, a FastAPI bridge, and a typed TS/React renderer.
 
-**Status:** pre-0.2.0. 623 tests passing, 83% coverage, ruff and mypy clean. The governed runtime now exposes an authenticated contained-assignment protocol (see below). AGPL-3.0-only with a Section 7(b) attribution clause.
+**Status:** pre-0.2.0. The governed containment runtime is live: authenticated contained assignments, verified receipts, and scanned artifact egress, validated end-to-end in real Firecracker microVMs.
+
+<p align="center">
+  <a href="https://github.com/evoclock/testudo/actions/workflows/ci.yml"><img src="https://github.com/evoclock/testudo/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
+  <img src="https://img.shields.io/badge/tests-634%20passing-brightgreen" alt="Tests"/>
+  <img src="https://img.shields.io/badge/coverage-83%25-green" alt="Coverage"/>
+</p>
 
 ## What it does
 
@@ -27,19 +33,17 @@ A `workflow.json` declares the steps, their dependencies, the permissions each o
 
 ### Contained assignments
 
-For supervised multi-agent use, Testudo exposes a closed assignment protocol. A dispatcher submits an authenticated request; Testudo runs exactly one finite agent journey inside the containment boundary and returns a digest-bound receipt.
+For supervised multi-agent use, Testudo exposes a closed assignment protocol: a dispatcher submits an authenticated request, Testudo runs exactly one finite agent journey inside the containment boundary, and you get back a receipt you can verify, not a log line you have to trust.
 
-- **Every operation is authenticated.** Only a trusted dispatcher can start, observe, cancel, or close an assignment, and captured traffic cannot be replayed.
-- **Nothing runs twice.** An admitted assignment survives crashes and restarts without ever launching duplicate work; ambiguous or corrupt state halts the system rather than guessing.
-- **Containment is enforced, not assumed.** The guest runs under a self-monitoring containment layer that verifies its own configuration and halts the run on any violation. Results are accepted only when the host can verify what the guest reports.
-- **Work survives the run.** Files an assignment produces cross a scanned, one-way egress boundary and land in a content-addressed store as digest-verified artifacts, ready for the dispatching harness to commit wherever it governs.
-- **Operator recovery.** Interrupted runs are closed by an explicit, authenticated operator decision — never silently relaunched.
+**Trust nothing, verify everything.** Only a trusted dispatcher can start, observe, cancel, or close an assignment. A crash or restart never launches duplicate work. The guest polices itself and halts on any violation. Every file the journey produces crosses a scanned, one-way egress boundary and arrives as a digest-verified artifact. Interrupted runs are closed by an explicit operator decision, never silently relaunched.
+
+This is not a paper design. The full chain (boot, containment arming, transport, verified receipt) is validated end-to-end in real Firecracker microVMs, and the self-monitoring guest has demonstrated live that it kills workloads the instant they violate the boundary.
 
 #### From receipt to repository
 
 An assignment's outputs are not destroyed with the container. Every file the journey produces crosses a one-way, scanned egress boundary into a content-addressed store, where each artifact is pinned by its SHA-256 digest and named in the assignment's receipt.
 
-Any consumer — a supervising harness or a standalone script — then retrieves the verified bytes with a single call:
+Any consumer (a supervising harness or a standalone script) then retrieves the verified bytes with a single call:
 
 ```python
 written = store.materialize(receipt["artifacts"], staging_dir)
@@ -92,7 +96,7 @@ Permissions       Sanitisers                Connectors / Data    Runtime
 **Testudo is:**
 
 - A hardened agent runtime: container-isolated execution of declarative workflows with sanitisation on every byte in and out.
-- An in-house multi-provider, multi-MCP host. Two model adapters ship today under one `models.*` shape and the same sanitise-on-return invariant: `models.ollama_chat` for Ollama-served local models, and `models.openai_compatible_chat` for any OpenAI-compatible endpoint — hosted APIs (OpenAI, OpenRouter, and other providers) and local servers (vLLM, SGLang, llama.cpp, LM Studio, Ollama's compat endpoint, and MLX via `mlx_lm.server`). The MCP layer ships `llm_response_capturer`, `file_writer`, and `file_extractor`, with more in-house servers behind the same boundary as needed.
+- An in-house multi-provider, multi-MCP host. Two model adapters ship today under one `models.*` shape and the same sanitise-on-return invariant: `models.ollama_chat` for Ollama-served local models, and `models.openai_compatible_chat` for any OpenAI-compatible endpoint: hosted APIs (OpenAI, OpenRouter, and other providers) and local servers (vLLM, SGLang, llama.cpp, LM Studio, Ollama's compat endpoint, and MLX via `mlx_lm.server`). The MCP layer ships `llm_response_capturer`, `file_writer`, and `file_extractor`, with more in-house servers behind the same boundary as needed.
 - A workflow composer. The **Compose** tab lets you drag tools onto a React Flow canvas, wire `needs:` edges, edit per-step params, and save the workflow JSON.
 
 **Testudo is not:**
@@ -100,11 +104,11 @@ Permissions       Sanitisers                Connectors / Data    Runtime
 - A workflow orchestrator. Hillstar, Airflow, Prefect, Dagster, Temporal, and Argo handle sub-workflows, retries, distributed execution, and scheduling. Testudo deliberately runs one single-graph workflow per container. Larger pipelines stitch Testudo containers together as steps; Hillstar is the canonical example because its `workflow.json` shape matches.
 - A multi-tenant orchestrator. One runtime per machine in v0.x.
 - A third-party MCP host. Testudo ships its own in-house MCP servers as the security boundary; it does not surface MCP servers from your local config.
-- A no-code builder. Compose is **low-code**: you drag tools instead of typing JSON, but you still need to understand what each step does — which connectors touch the network, what each sanitiser pass means, how the isolation profile bounds the blast radius. Agentic failure modes are subtle: silent data leaks, prompt-injection chains, plausible-looking wrong output. The author owns the system-design responsibility.
+- A no-code builder. Compose is **low-code**: you drag tools instead of typing JSON, but you still need to understand what each step does (which connectors touch the network, what each sanitiser pass means, how the isolation profile bounds the blast radius). Agentic failure modes are subtle: silent data leaks, prompt-injection chains, plausible-looking wrong output. The author owns the system-design responsibility.
 
 ## Aim: less friction than Copilot Studio, no less secure
 
-Testudo targets **a single technical operator or small team that needs auditable, sandboxed, declarative agentic workflows on locked-down infrastructure** — where Copilot Studio's friction (Azure subscription, tenant admin approval, vendor lock-in, opaque moderation) is not warranted, but the security posture must be at least as good.
+Testudo targets **a single technical operator or small team that needs auditable, sandboxed, declarative agentic workflows on locked-down infrastructure**, where Copilot Studio's friction (Azure subscription, tenant admin approval, vendor lock-in, opaque moderation) is not warranted but the security posture must be at least as good.
 
 The default workflow shape:
 
@@ -211,9 +215,9 @@ cd electron && npm run dev
 
 In the header:
 
-- **Start bridge** — spawns `testudo serve`, captures the bearer token from stderr, forwards it via IPC. Badge goes yellow (`starting`) then green (`online :8000`).
-- **Stop bridge** — SIGTERM; badge returns to grey.
-- **Close the window** — bridge subprocess killed automatically; no orphans.
+- **Start bridge**: spawns `testudo serve`, captures the bearer token from stderr, forwards it via IPC. Badge goes yellow (`starting`) then green (`online :8000`).
+- **Stop bridge**: SIGTERM; badge returns to grey.
+- **Close the window**: bridge subprocess killed automatically; no orphans.
 
 The bridge token never appears in renderer-inspectable scope; it lives in the Electron main process and is released only through `window.testudo.bridge.status()`.
 
@@ -232,7 +236,7 @@ testudo ui --no-renderer        # bridge-only mode
 cd electron && npm run install:mac
 ```
 
-This builds the app, copies it to `/Applications`, and ad-hoc signs it. Because it was built on your machine, macOS never quarantines it — double-click to launch, exactly like any installed app.
+This builds the app, copies it to `/Applications`, and ad-hoc signs it. Because it was built on your machine, macOS never quarantines it, so double-click to launch exactly like any installed app.
 
 If you received the DMG from someone else instead of building it, unsigned apps downloaded from the internet are quarantined by Gatekeeper and will report as damaged. Remove the quarantine flag once after copying to `/Applications`:
 
