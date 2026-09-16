@@ -37,16 +37,37 @@ export TESTUDO_GUEST_WRITABLE_PATHS="$WORKSPACE /tmp/session"
 mkdir -p "$state" "$WORKSPACE" /tmp/session
 cp "$TAXONOMY" "$state/taxonomy.json"
 
-# The fixed no-network profile is host-enforced. This watcher turns any TCP or
-# UDP socket visible to the workload into immediate denial evidence.
+# The fixed no-network profile is host-enforced. This watcher turns any
+# workload-created TCP or UDP socket into immediate denial evidence, using a
+# baseline-then-flag sweep: BEFORE arming, the socket identities already
+# present in the guest image (its own sshd listener, etc.) are snapshotted
+# into the supervisor variable NET_BASELINE and skipped at sweep time; every
+# socket identity NOT in the baseline is GC-NET-001 evidence. Semantics (see
+# gc_net_sweep in the monitor): the snapshot is point-in-time before the
+# workload starts, so an agent cannot pre-create a socket into the baseline;
+# identity is local:remote:inode (fields $2:$3:$10) — the sl slot column and
+# queue/timer fields churn, so full rows are never compared; a socket that
+# closes and reopens after arming has a new kernel inode and therefore a
+# different identity, so the same local:remote tuple re-listed with a
+# different inode IS flagged (correct: it is a new socket). The baseline is
+# a SUPERVISOR SHELL VARIABLE, deliberately not a file: the containment state
+# dir is PRUNED by the fs sweep (not inspected by it), so a baseline file
+# there would be agent-writable and tamperable — a workload could append its
+# own /proc row and whitelist itself; no agent-writable baseline artifact
+# exists. An empty baseline fails closed: every socket is flagged.
+NET_BASELINE=$(for table in /proc/net/tcp /proc/net/tcp6 /proc/net/udp /proc/net/udp6; do
+  [ -r "$table" ] || continue
+  awk 'NR > 1 && $2 !~ /:0000$/ {print $2":"$3":"$10}' "$table"
+done | sort | uniq)
+if [ -z "$NET_BASELINE" ]; then
+  echo "testudo: net baseline is empty; the net sweep will fail closed (every socket flagged)" >&2
+fi
+
 net_watch() {
   while [ ! -f "$state/stop" ] && [ ! -f "$state/kill" ]; do
-    for table in /proc/net/tcp /proc/net/tcp6 /proc/net/udp /proc/net/udp6; do
-      [ -r "$table" ] || continue
-      awk 'NR > 1 && $2 !~ /:0000$/ {print $0}' "$table" | while IFS= read -r entry; do
-        [ -n "$entry" ] && gc_net_detect "$state" "$entry" >/dev/null 2>&1 || true
-      done
-    done
+    # Baseline filtering happens here, before gc_net_detect: the monitor's
+    # gc_net_detect signature and behavior are unchanged.
+    gc_net_sweep "$state" "$NET_BASELINE" /proc/net/tcp /proc/net/tcp6 /proc/net/udp /proc/net/udp6
     sleep 1
   done
 }

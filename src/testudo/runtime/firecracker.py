@@ -287,6 +287,116 @@ class FirecrackerVsockConnector:
             )
 
 
+class VsockListenerNotReadyError(FirecrackerError):
+    """The guest vsock listener never answered the host CONNECT in time.
+
+    Raised only by :func:`connect_vsock_with_retry` after its bounded,
+    clock-injected deadline passes.  ``attempts`` records how many CONNECT
+    attempts were made so the failure is observable without real sleeps.
+    """
+
+    def __init__(self, deadline_seconds: float, attempts: int) -> None:
+        super().__init__(
+            f"guest vsock listener did not become ready within {deadline_seconds:g}s "
+            f"after {attempts} attempt(s)"
+        )
+        self.deadline_seconds = deadline_seconds
+        self.attempts = attempts
+
+
+def _is_retryable_connect_failure(exc: BaseException) -> bool:
+    """Classify one CONNECT failure as a boot race (True) or fatal (False).
+
+    Retryable failures are the guest-boot race window: the UDS is missing or
+    reset (``ConnectionResetError``, ``FileNotFoundError``), or Firecracker
+    answered before the guest bound its listener (closed stream or a ``NOK``
+    acknowledgement).  Fatal handshake failures such as a wrong port never
+    become retryable.
+    """
+    if isinstance(exc, (ConnectionResetError, FileNotFoundError)):
+        return True
+    if not isinstance(exc, FirecrackerError):
+        return False
+    message = str(exc)
+    return (
+        message.startswith("unable to connect to Firecracker vsock")
+        or "closed before acknowledgement" in message
+        or "acknowledgement must be 'OK" in message
+    )
+
+
+def connect_vsock_with_retry(
+    connector: FirecrackerVsockConnector,
+    *,
+    deadline_seconds: float = 120.0,
+    interval_seconds: float = 2.0,
+    max_interval_seconds: float = 8.0,
+    sleep: Callable[[float], None] = time.sleep,
+    monotonic: Callable[[], float] = time.monotonic,
+) -> ConnectedSocket:
+    """CONNECT to the guest vsock port until it is listening or the deadline.
+
+    ``InstanceStart`` only proves Firecracker was told to boot; the guest still
+    needs time to call ``bind``/``listen`` on the admitted port.  This loop
+    retries the boot-race failures classified by
+    ``_is_retryable_connect_failure`` with a linearly growing interval capped
+    at ``max_interval_seconds``, until ``deadline_seconds`` of monotonic time
+    have passed since the first attempt.  Fatal failures fail immediately.
+
+    The clock is fully injected (``sleep`` and ``monotonic`` callables) so
+    tests simulate retries without real sleeping; production callers use the
+    module defaults (``time.sleep`` / ``time.monotonic``).
+    """
+    if deadline_seconds <= 0:
+        raise FirecrackerError("vsock guest-ready deadline must be positive")
+    if interval_seconds <= 0 or max_interval_seconds < interval_seconds:
+        raise FirecrackerError("vsock retry interval must be positive and capped")
+    started = monotonic()
+    attempts = 0
+    interval = interval_seconds
+    while True:
+        attempts += 1
+        try:
+            return connector.connect()
+        except BaseException as exc:
+            if not _is_retryable_connect_failure(exc):
+                raise
+            if monotonic() - started + interval >= deadline_seconds:
+                raise VsockListenerNotReadyError(deadline_seconds, attempts) from exc
+        sleep(interval)
+        interval = min(interval * 2, max_interval_seconds)
+
+
+@dataclass(frozen=True, slots=True)
+class RetryingVsockConnector:
+    """Duck-typed connector wrapper that retries CONNECT until guest listen.
+
+    The wrapper keeps :func:`open_broker_session`'s signature stable: it only
+    exposes ``connect`` (plus the wrapped connector for observability) and
+    delegates the bounded, clock-injected retry to
+    :func:`connect_vsock_with_retry`.  ``sleep`` and ``monotonic`` are
+    injectable so tests never perform a real sleep.
+    """
+
+    connector: FirecrackerVsockConnector
+    deadline_seconds: float = 120.0
+    interval_seconds: float = 2.0
+    max_interval_seconds: float = 8.0
+    sleep: Callable[[float], None] = time.sleep
+    monotonic: Callable[[], float] = time.monotonic
+
+    def connect(self) -> ConnectedSocket:
+        """Retry the wrapped CONNECT until the guest listener answers."""
+        return connect_vsock_with_retry(
+            self.connector,
+            deadline_seconds=self.deadline_seconds,
+            interval_seconds=self.interval_seconds,
+            max_interval_seconds=self.max_interval_seconds,
+            sleep=self.sleep,
+            monotonic=self.monotonic,
+        )
+
+
 def open_broker_session(
     config: FirecrackerConfig,
     *,

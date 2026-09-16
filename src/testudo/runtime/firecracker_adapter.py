@@ -48,6 +48,7 @@ from testudo.runtime.firecracker import (
     FirecrackerError,
     FirecrackerOutput,
     FirecrackerVsockConnector,
+    RetryingVsockConnector,
     launch_worker,
     open_broker_session,
 )
@@ -342,6 +343,8 @@ class FirecrackerAdapter(RunnerMicroVMController):
         | None = None,
         socket_factory: Callable[..., object] | None = None,
         popen: Callable[..., object] | None = None,
+        sleep: Callable[[float], None] = time.sleep,
+        guest_ready_timeout: float = 120.0,
         startup_timeout: float = 5.0,
         boot_args: str = "console=ttyS0 reboot=k panic=1 pci=off",
         vcpu_count: int | None = None,
@@ -362,6 +365,8 @@ class FirecrackerAdapter(RunnerMicroVMController):
             raise ValueError("binary and firecracker_binary must match")
         if startup_timeout <= 0:
             raise ValueError("startup_timeout must be positive")
+        if guest_ready_timeout <= 0:
+            raise ValueError("guest_ready_timeout must be positive")
         if vcpu_count is not None and vcpu_count < 1:
             raise ValueError("vcpu_count must be positive")
         if mem_size_mib is not None and mem_size_mib < 128:
@@ -387,6 +392,8 @@ class FirecrackerAdapter(RunnerMicroVMController):
         self._connector_factory = connector_factory
         self._socket_factory = socket_factory
         self._popen = popen
+        self._sleep = sleep
+        self.guest_ready_timeout = guest_ready_timeout
         self.startup_timeout = startup_timeout
         self.boot_args = boot_args
         self.vcpu_count = vcpu_count
@@ -860,6 +867,18 @@ class FirecrackerAdapter(RunnerMicroVMController):
                 ),
             )
             connector = self._connector(prepared.config, prepared.guest_port)
+            if connector is not None:
+                # ``launch_worker`` returns as soon as InstanceStart is applied,
+                # which proves nothing about the guest's bind/listen progress.
+                # Wrap the connector so the CONNECT/OK handshake retries the
+                # boot race until the guest listener answers, bounded by the
+                # injected sleep/monotonic clock (tests never really sleep).
+                connector = RetryingVsockConnector(
+                    cast(FirecrackerVsockConnector, connector),
+                    deadline_seconds=self.guest_ready_timeout,
+                    sleep=self._sleep,
+                    monotonic=self._clock,
+                )
             broker = cast(
                 _BrokerLike,
                 _call_compatible(
