@@ -398,3 +398,118 @@ def test_launch_worker_constructor_failure_attempts_every_cleanup_once(
     assert calls == [f"revoke:{token.token_id}", "wipe"]
     assert handle.terminated == 1
     assert handle.cleaned == 1
+
+
+class _FlakyConnector:
+    """Connector fake whose connect raises a scripted sequence then succeeds."""
+
+    def __init__(self, failures: list[BaseException], success: object) -> None:
+        self._failures = list(failures)
+        self._success = success
+        self.attempts = 0
+
+    def connect(self) -> object:
+        self.attempts += 1
+        if self._failures:
+            raise self._failures.pop(0)
+        return self._success
+
+
+class _FakeClock:
+    """Monotonic clock that only advances when the injected sleep runs."""
+
+    def __init__(self, now: float = 1000.0) -> None:
+        self.now = now
+        self.sleeps: list[float] = []
+
+    def monotonic(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.sleeps.append(seconds)
+        self.now += seconds
+
+
+def test_connect_vsock_with_retry_recovers_from_guest_boot_race() -> None:
+    """First CONNECT races the guest bind; a later attempt must succeed."""
+    success = object()
+    connector = _FlakyConnector([ConnectionResetError("connection reset by peer")], success)
+    clock = _FakeClock()
+
+    result = firecracker.connect_vsock_with_retry(
+        connector,  # type: ignore[arg-type]
+        deadline_seconds=120.0,
+        interval_seconds=2.0,
+        max_interval_seconds=8.0,
+        sleep=clock.sleep,
+        monotonic=clock.monotonic,
+    )
+
+    assert result is success
+    assert connector.attempts == 2
+    # No real sleep happened: the injected sleep recorded the single backoff.
+    assert clock.sleeps == [2.0]
+
+
+def test_connect_vsock_with_retry_fails_closed_after_deadline() -> None:
+    """Deadline exhaustion raises the fail-closed error with the attempt count."""
+    connector = _FlakyConnector(
+        [
+            firecracker.FirecrackerError(
+                "unable to connect to Firecracker vsock: [Errno 104] reset"
+            )
+            for _ in range(200)
+        ],
+        success=object(),
+    )
+    clock = _FakeClock()
+
+    with pytest.raises(
+        firecracker.VsockListenerNotReadyError,
+        match=r"guest vsock listener did not become ready within 120s after \d+ attempt",
+    ) as excinfo:
+        firecracker.connect_vsock_with_retry(
+            connector,  # type: ignore[arg-type]
+            deadline_seconds=120.0,
+            interval_seconds=2.0,
+            max_interval_seconds=8.0,
+            sleep=clock.sleep,
+            monotonic=clock.monotonic,
+        )
+
+    assert excinfo.value.attempts == connector.attempts
+    assert excinfo.value.attempts > 1
+    assert excinfo.value.deadline_seconds == 120.0
+    # The injected clock only advanced through the recorded fake sleeps.
+    assert sum(clock.sleeps) < 120.0
+    assert clock.sleeps[:3] == [2.0, 4.0, 8.0]
+    assert all(s == 8.0 for s in clock.sleeps[2:])
+
+
+def test_connect_vsock_with_retry_uses_injected_sleep_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The retry loop must never call the real time.sleep (clock injected)."""
+    real_sleeps: list[float] = []
+    monkeypatch.setattr(firecracker.time, "sleep", lambda s: real_sleeps.append(s))
+    clock = _FakeClock()
+    success = object()
+    connector = _FlakyConnector(
+        [
+            firecracker.FirecrackerError("Firecracker vsock closed before acknowledgement"),
+            FileNotFoundError(),
+        ],
+        success=success,
+    )
+
+    result = firecracker.connect_vsock_with_retry(
+        connector,  # type: ignore[arg-type]
+        deadline_seconds=60.0,
+        sleep=clock.sleep,
+        monotonic=clock.monotonic,
+    )
+
+    assert result is success
+    assert connector.attempts == 3
+    assert clock.sleeps == [2.0, 4.0]
+    assert real_sleeps == []

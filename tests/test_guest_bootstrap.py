@@ -257,6 +257,91 @@ def test_protocol_without_explicit_stdio_mode_is_rejected(
         bootstrap.main()
 
 
+def test_vsock_main_listens_and_serves_one_accepted_connection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The host transport dials the guest, so vsock mode must LISTEN on 10000.
+
+    The listener socket is a mock created for AF_INET; this proves the bind /
+    listen / accept / close sequencing of ``main``, not real AF_VSOCK kernel
+    behaviour.  ``VMADDR_CID_ANY`` is patched explicitly so the bind address
+    is asserted even on hosts that already expose a real vsock constant.
+    """
+    served: list[object] = []
+    calls: list[tuple[str, tuple[object, ...]]] = []
+
+    class FakeConnection:
+        def close(self) -> None:
+            calls.append(("connection-close", ()))
+
+    connection = FakeConnection()
+
+    class FakeSocket:
+        def bind(self, address: tuple[object, ...]) -> None:
+            calls.append(("bind", address))
+
+        def listen(self, backlog: int) -> None:
+            calls.append(("listen", (backlog,)))
+
+        def accept(self) -> tuple[object, tuple[object, ...]]:
+            calls.append(("accept", ()))
+            return connection, (1234, 10000)
+
+        def close(self) -> None:
+            calls.append(("listener-close", ()))
+
+    monkeypatch.delenv("TESTUDO_GUEST_MODE", raising=False)
+    monkeypatch.delenv("TESTUDO_GUEST_PROTOCOL", raising=False)
+    monkeypatch.setattr(bootstrap.socket, "AF_VSOCK", socket.AF_INET, raising=False)
+    monkeypatch.setattr(bootstrap.socket, "VMADDR_CID_ANY", 0xFFFFFFFF, raising=False)
+    monkeypatch.setattr(bootstrap.socket, "socket", lambda *a, **k: FakeSocket())
+    monkeypatch.setattr(bootstrap, "serve", served.append)
+
+    assert bootstrap.main() == 0
+    # Full call order: bind to the any-CID/port pair, listen, accept exactly
+    # one host connection, then close the accepted connection first and the
+    # listener second.
+    assert calls == [
+        ("bind", (0xFFFFFFFF, bootstrap.GUEST_PORT)),
+        ("listen", (1,)),
+        ("accept", ()),
+        ("connection-close", ()),
+        ("listener-close", ()),
+    ]
+    assert served == [connection]
+
+
+def test_vsock_main_fails_closed_on_accept_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An accept failure must close the listener, not leave it bound."""
+    calls: list[str] = []
+
+    class FakeSocket:
+        def bind(self, address: tuple[object, ...]) -> None:
+            pass
+
+        def listen(self, backlog: int) -> None:
+            pass
+
+        def accept(self) -> tuple[socket.socket, tuple[object, ...]]:
+            raise OSError("vsock listener reset")
+
+        def close(self) -> None:
+            calls.append("close")
+
+    monkeypatch.delenv("TESTUDO_GUEST_MODE", raising=False)
+    monkeypatch.delenv("TESTUDO_GUEST_PROTOCOL", raising=False)
+    monkeypatch.setattr(bootstrap.socket, "AF_VSOCK", socket.AF_INET, raising=False)
+    monkeypatch.setattr(bootstrap.socket, "VMADDR_CID_ANY", 0xFFFFFFFF, raising=False)
+    monkeypatch.setattr(bootstrap.socket, "socket", lambda *a, **k: FakeSocket())
+    monkeypatch.setattr(bootstrap, "serve", lambda sock: pytest.fail("must not serve"))
+
+    with pytest.raises(bootstrap.GuestBootstrapError, match="vsock listener failed"):
+        bootstrap.main()
+    assert calls == ["close"]
+
+
 def test_guest_binds_writable_allowlist_to_the_declared_contract_paths(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

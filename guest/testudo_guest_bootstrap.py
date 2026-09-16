@@ -9,9 +9,12 @@ runs the workflow sent over the already-connected broker socket inside the
 Testudo ``Workflow``/``Executor`` path, then emits bounded output, a canonical
 result hash, and a receipt bound to the admitted guest artifact digest.
 
-The bootstrap does not create a listener, mount host paths, grant capabilities,
-or enable network access. The host supplies the connected vsock stream and the
-run-scoped contract; the rootfs and any writable run path are admitted
+In stdio mode the bootstrap creates no socket listener at all, and it never
+mounts host paths, grants capabilities, or enables network access. In vsock
+mode the guest does listen: it binds the admitted Firecracker guest port, and
+the host transport (which performs the CONNECT/OK handshake over the
+Firecracker UDS) supplies the accepted vsock stream; the run-scoped contract
+comes from the host. The rootfs and any writable run path are admitted
 separately by the host adapter.
 """
 
@@ -225,9 +228,18 @@ def main() -> int:
         raise GuestBootstrapError("guest Python does not expose AF_VSOCK")
     sock = socket.socket(family, socket.SOCK_STREAM)
     try:
-        sock.connect((getattr(socket, "VMADDR_CID_HOST", 2), GUEST_PORT))
-        serve(sock)
+        # The Firecracker host transport performs the CONNECT <guest_port>/OK
+        # handshake over the UDS, so the guest must listen here.
+        sock.bind((getattr(socket, "VMADDR_CID_ANY", 0xFFFFFFFF), GUEST_PORT))
+        sock.listen(1)
+        connection, _address = sock.accept()
+    except OSError as exc:
+        sock.close()
+        raise GuestBootstrapError(f"guest vsock listener failed: {exc}") from exc
+    try:
+        serve(connection)
     finally:
+        connection.close()
         sock.close()
     return 0
 
