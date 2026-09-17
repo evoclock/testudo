@@ -19,6 +19,21 @@ from .native_sshd import NativeSshd, NativeSshdError
 from .normative import assert_pins_match, extract_normative_scripts
 from .shims import LOGINCTL_SHIM, SHIM_DIR, SYSTEMCTL_SHIM
 
+_SPEC = Path(__file__).resolve().parents[2] / "docs" / "SEAT_CONTROL_SPEC.md"
+if not _SPEC.exists():
+    pytest.skip(
+        "seat harness requires docs/SEAT_CONTROL_SPEC.md (internal, gitignored); "
+        "not present in this checkout",
+        allow_module_level=True,
+    )
+
+if not _SPEC.exists():
+    pytest.skip(
+        "seat harness requires docs/SEAT_CONTROL_SPEC.md (internal, gitignored); "
+        "not present in this checkout",
+        allow_module_level=True,
+    )
+
 HARNESS_DIR = Path(__file__).resolve().parent
 DOCKER_DIR = HARNESS_DIR / "docker"
 

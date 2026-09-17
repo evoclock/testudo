@@ -69,6 +69,7 @@ class DockerFixture:
             ["docker", *args],
             capture_output=True,
             text=True,
+            stdin=subprocess.DEVNULL,
             timeout=timeout,
             check=False,
         )
