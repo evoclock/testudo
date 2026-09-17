@@ -1,0 +1,8 @@
+#!/bin/sh
+# Fixture login shell for the seat-control harness (spec section 8).
+# Prepends the fixture shim directory to PATH and execs the real shell.
+# SPDX-FileCopyrightText: 2026 Julen Gamboa <j.a.r.gamboa@gmail.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+PATH="/opt/testudo-fixture/bin:$PATH"
+export PATH
+exec /bin/sh "$@"
