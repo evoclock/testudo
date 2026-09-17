@@ -6,14 +6,14 @@
 
 import type { RunRequestBody, WorkflowSummary } from "./api";
 
-export type Mode = "file" | "url" | "database" | "workflow" | "compose";
+export type Mode = "file" | "url" | "database" | "workflow" | "compose" | "seats";
 
 export interface ModeBinding {
   workflowName: string;
   buildInputs: (form: Record<string, unknown>) => Record<string, unknown>;
 }
 
-export const MODE_BINDINGS: Record<Exclude<Mode, "workflow" | "compose">, ModeBinding> = {
+export const MODE_BINDINGS: Record<Exclude<Mode, "workflow" | "compose" | "seats">, ModeBinding> = {
   file: {
     workflowName: "pdf-summarise-v015",
     buildInputs: (form) => ({
@@ -70,6 +70,9 @@ export function buildRunRequest(
   }
   if (mode === "compose") {
     return { ok: false, error: "compose mode authors workflows; use Run after saving" };
+  }
+  if (mode === "seats") {
+    return { ok: false, error: "seats mode manages model endpoints, not workflow runs" };
   }
 
   let binding = MODE_BINDINGS[mode];

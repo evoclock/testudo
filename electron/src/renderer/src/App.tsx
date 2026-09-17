@@ -5,6 +5,7 @@ import { DatabasePanel } from "./components/DatabasePanel";
 import { FilePanel } from "./components/FilePanel";
 import { ModeTabs } from "./components/ModeTabs";
 import { ResultLog, type LogEntry } from "./components/ResultLog";
+import { SeatsPanel } from "./components/SeatsPanel";
 import { UrlPanel } from "./components/UrlPanel";
 import { WorkflowGraph } from "./components/WorkflowGraph";
 import { WorkflowPanel } from "./components/WorkflowPanel";
@@ -153,7 +154,7 @@ export default function App() {
     if (mode === "workflow") {
       return workflows.find((w) => w.name === selectedWorkflowName) ?? null;
     }
-    if (mode === "compose") {
+    if (mode === "compose" || mode === "seats") {
       return null;
     }
     const binding = MODE_BINDINGS[mode];
@@ -402,6 +403,8 @@ export default function App() {
             onError={onComposeError}
           />
         );
+      case "seats":
+        return <SeatsPanel client={client} />;
     }
   };
 
