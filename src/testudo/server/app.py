@@ -32,6 +32,7 @@ import re
 import secrets
 import sys
 from pathlib import Path
+from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -360,7 +361,149 @@ def create_app(
 
         return WorkflowSaveResponse(name=draft.name, path=str(target))
 
+    _register_seat_endpoints(app, auth)
+
     return app
+
+
+def _register_seat_endpoints(app: FastAPI, auth: TokenAuth) -> None:
+    """Section 6 seat-control endpoints (spec: closed capability API).
+
+    The renderer never supplies digests, commands, previews, or consent
+    state; it may only echo an id, revision, or opaque challenge returned by
+    the bridge in the exact endpoint field that requires it (R1).
+    """
+    from testudo.seats.config import SeatStore, StateStore
+    from testudo.seats.runtime_dirs import data_dir
+    from testudo.seats.service import ApiError, SeatService
+    from testudo.seats.ssh import HostKeyTrustStore
+
+    data_root = Path(data_dir())
+    service = SeatService(
+        store=SeatStore(data_root / "seats.v1.json"),
+        state_store=StateStore(data_root / "state.v1.json"),
+        trust_store=HostKeyTrustStore(data_root / "known_hosts"),
+    )
+
+    def _api_error(exc: ApiError, code: int) -> HTTPException:
+        return HTTPException(status_code=code, detail=f"{exc.code}: {exc.message}")
+
+    @app.post("/seats/draft", dependencies=[Depends(auth)])
+    def seats_draft_create(body: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return service.draft_create(
+                body.get("kind", ""),
+                body.get("fields", {}),
+                parent_host_id=body.get("parent_host_id"),
+                base_id=body.get("base_id"),
+            )
+        except ApiError as exc:
+            raise _api_error(exc, status.HTTP_400_BAD_REQUEST) from exc
+
+    @app.post("/seats/draft/update", dependencies=[Depends(auth)])
+    def seats_draft_update(body: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return service.draft_update(
+                body.get("draft_id", ""),
+                int(body.get("draft_revision", -1)),
+                body.get("patch", {}),
+            )
+        except ApiError as exc:
+            raise _api_error(exc, status.HTTP_400_BAD_REQUEST) from exc
+
+    @app.post("/seats/config/apply", dependencies=[Depends(auth)])
+    def seats_config_apply(body: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return service.config_apply(
+                body.get("draft_id", ""),
+                int(body.get("draft_revision", -1)),
+                int(body.get("expected_config_revision", -1)),
+            )
+        except ApiError as exc:
+            raise _api_error(exc, status.HTTP_409_CONFLICT) from exc
+
+    @app.post("/seats/config/delete", dependencies=[Depends(auth)])
+    def seats_config_delete(body: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return service.config_delete(
+                body.get("kind", ""),
+                body.get("id", ""),
+                int(body.get("expected_config_revision", -1)),
+            )
+        except ApiError as exc:
+            raise _api_error(exc, status.HTTP_409_CONFLICT) from exc
+
+    @app.get("/seats/config", dependencies=[Depends(auth)])
+    def seats_config_get() -> dict[str, Any]:
+        return service.config_get()
+
+    @app.post("/seats/ssh/probe", dependencies=[Depends(auth)])
+    def seats_ssh_probe(body: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return service.ssh_probe(
+                body.get("host_id", ""), int(body.get("expected_config_revision", -1))
+            )
+        except ApiError as exc:
+            raise _api_error(exc, status.HTTP_400_BAD_REQUEST) from exc
+
+    @app.post("/seats/ssh/trust", dependencies=[Depends(auth)])
+    def seats_ssh_trust(body: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return service.ssh_trust(body.get("trust_challenge_id", ""))
+        except ApiError as exc:
+            raise _api_error(exc, status.HTTP_400_BAD_REQUEST) from exc
+
+    @app.post("/seats/preview", dependencies=[Depends(auth)])
+    def seats_preview_create(body: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return service.preview_create(
+                body.get("host_id", ""), int(body.get("expected_config_revision", -1))
+            )
+        except ApiError as exc:
+            raise _api_error(exc, status.HTTP_400_BAD_REQUEST) from exc
+
+    @app.post("/seats/consent", dependencies=[Depends(auth)])
+    def seats_consent_confirm(body: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return service.consent_confirm(body.get("preview_id", ""))
+        except ApiError as exc:
+            raise _api_error(exc, status.HTTP_400_BAD_REQUEST) from exc
+
+    @app.post("/seats/operate", dependencies=[Depends(auth)])
+    def seats_operate(body: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return service.seat_operate(
+                body.get("seat_id", ""),
+                body.get("operation", ""),
+                body.get("confirmation_id"),
+            )
+        except ApiError as exc:
+            raise _api_error(exc, status.HTTP_400_BAD_REQUEST) from exc
+
+    @app.post("/seats/inspect", dependencies=[Depends(auth)])
+    def seats_inspect(body: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return service.seat_inspect(body.get("seat_id", ""))
+        except ApiError as exc:
+            raise _api_error(exc, status.HTTP_400_BAD_REQUEST) from exc
+
+    @app.post("/seats/force-stop-challenge", dependencies=[Depends(auth)])
+    def seats_force_stop_challenge(body: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return service.seat_force_stop_challenge(body.get("seat_id", ""))
+        except ApiError as exc:
+            raise _api_error(exc, status.HTTP_400_BAD_REQUEST) from exc
+
+    @app.post("/seats/provider-key", dependencies=[Depends(auth)])
+    def seats_provider_key_write(body: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return service.provider_key_write(body.get("provider_id", ""), body.get("key", ""))
+        except ApiError as exc:
+            raise _api_error(exc, status.HTTP_400_BAD_REQUEST) from exc
+
+    @app.post("/seats/provider-key/state", dependencies=[Depends(auth)])
+    def seats_provider_key_state(body: dict[str, Any]) -> dict[str, Any]:
+        return service.provider_key_state(body.get("provider_id", ""))
 
 
 _SAFE_NAME = re.compile(r"^[a-z0-9][a-z0-9-]{0,79}$")

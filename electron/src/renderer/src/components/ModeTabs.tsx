@@ -23,6 +23,7 @@ const TABS: TabSpec[] = [
     hint: "Author a workflow visually (WIP)",
     wip: true,
   },
+  { id: "seats", label: "Models & Seats", hint: "Discovery, API keys, SSH seat control" },
 ];
 
 export function ModeTabs({ active, onSelect }: Props) {

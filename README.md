@@ -140,6 +140,7 @@ Every arrow is a declared step with its own permissions; every boundary crossing
 | Prompt templates | XML-shaped templates with `{{placeholder}}` substitution and strict unresolved-placeholder detection |
 | MCP servers | In-house base (JSON-RPC 2.0 + STDIO); read-only `llm_response_capturer` with HMAC receipts; write-only `file_writer` (receipt-gated); read-only `file_extractor` |
 | Runtime | Governed Firecracker microVM (Linux) and Apple native container (macOS) as the containment boundaries; Docker argv builder remains an explicit compatibility backend; contained-assignment protocol with authenticated lifecycle, durable state, verified receipts, and scanned artifact egress |
+| Seats | Discovery of local and network model endpoints; per-host consent bound to SSH config and host key; start/stop/force-stop for model seats with live state; hosted API keys in the platform credential store |
 | Audit | Append-only JSONL per run; workflow + step lifecycle + permission decisions + host events + errors |
 | CLI | `testudo run`, `testudo serve`, `testudo inspect`, `testudo ui` |
 | API | FastAPI bridge: `/health`, `/workflows`, `POST /runs`, `GET /runs/{id}`; bearer auth; in-house token-bucket rate limiter |
