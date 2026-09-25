@@ -7,15 +7,16 @@ from __future__ import annotations
 
 import io
 import json
-import os
 
 import pytest
 
 from testudo.mcp_servers.base import BaseMCPServer, ToolSpec
 from testudo.mcp_servers.file_extractor import build_server as build_extractor
 from testudo.mcp_servers.file_writer import build_server as build_writer
+import testudo.mcp_servers.llm_response_capturer as receipt_module
 from testudo.mcp_servers.llm_response_capturer import (
-    SIGNING_KEY_ENV,
+    SIGNING_KEY_FD_ENV,
+    _read_signing_key,
     issue_receipt,
     verify_receipt,
 )
@@ -26,8 +27,19 @@ from testudo.mcp_servers.llm_response_capturer import (
 
 @pytest.fixture(autouse=True)
 def _signing_key(monkeypatch):
-    monkeypatch.setenv(SIGNING_KEY_ENV, "test-signing-key-32bytes-of-entropy")
+    monkeypatch.setattr(receipt_module, "_SIGNING_KEY", b"test-signing-key-32bytes-of-entropy")
     yield
+
+
+def test_signing_key_reader_is_bounded_and_injectable() -> None:
+    calls: list[tuple[int, int]] = []
+
+    def fake_reader(fd: int, size: int) -> bytes:
+        calls.append((fd, size))
+        return b"per-run-key"
+
+    assert _read_signing_key(9, fake_reader) == b"per-run-key"
+    assert calls == [(9, 4097)]
 
 
 def test_base_server_initialize_handshake() -> None:
@@ -284,7 +296,8 @@ def test_extractor_rejects_unknown_format(tmp_path) -> None:
 
 
 def test_signing_key_required(monkeypatch) -> None:
-    monkeypatch.delenv(SIGNING_KEY_ENV, raising=False)
+    monkeypatch.setattr(receipt_module, "_SIGNING_KEY", None)
+    monkeypatch.delenv(SIGNING_KEY_FD_ENV, raising=False)
     capturer = build_capturer()
     response = capturer.handle(
         {
@@ -299,8 +312,5 @@ def test_signing_key_required(monkeypatch) -> None:
     )
     # exception is wrapped as isError
     assert response is not None
-    if response["result"].get("isError"):
-        assert "TESTUDO_RECEIPT_KEY" in response["result"]["content"][0]["text"]
-    else:
-        # re-export for cleanup
-        os.environ.pop(SIGNING_KEY_ENV, None)
+    assert response["result"].get("isError") is True
+    assert "receipt-key-unavailable" in response["result"]["content"][0]["text"]

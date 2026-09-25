@@ -236,8 +236,9 @@ def execute_workflow(
     "--token",
     type=str,
     default=None,
-    help="Bearer token (default: random; printed to stderr).",
+    help="Bearer token (default: random). Prefer --token-fd for subprocesses.",
 )
+@click.option("--token-fd", type=int, default=None, hidden=True)
 @click.option(
     "--backend",
     type=click.Choice(["microvm", "docker", "direct"]),
@@ -251,6 +252,7 @@ def serve(
     runs_dir: Path,
     workflows_dir: Path,
     token: str | None,
+    token_fd: int | None,
     backend: str,
 ) -> None:
     """Launch the FastAPI bridge for the Electron UI."""
@@ -265,8 +267,17 @@ def serve(
         )
         sys.exit(2)
 
-    chosen_token = token or generate_token()
-    click.echo(f"[testudo] bearer token: {chosen_token}", err=True)
+    if token_fd is not None:
+        try:
+            with os.fdopen(token_fd, "rb", closefd=True) as token_pipe:
+                raw_token = token_pipe.read(4097)
+        except OSError as exc:
+            raise click.ClickException("bearer-token-unavailable") from exc
+        if not raw_token or len(raw_token) > 4096:
+            raise click.ClickException("bearer-token-unavailable")
+        chosen_token = raw_token.decode("utf-8")
+    else:
+        chosen_token = token or generate_token()
 
     app = create_app(
         runs_root=runs_dir,
@@ -388,8 +399,8 @@ def ui(
         str(port),
         "--host",
         host,
-        "--token",
-        token,
+        "--token-fd",
+        "TOKEN_FD",
         "--workflows-dir",
         str(workflows_dir),
         "--runs-dir",
@@ -399,7 +410,14 @@ def ui(
     ]
 
     click.echo(f"[testudo ui] starting bridge on {bridge_url} ...", err=True)
-    bridge = subprocess.Popen(bridge_cmd, start_new_session=True)
+    token_read_fd, token_write_fd = os.pipe()
+    bridge_cmd[bridge_cmd.index("TOKEN_FD")] = str(token_read_fd)
+    bridge = subprocess.Popen(bridge_cmd, start_new_session=True, pass_fds=(token_read_fd,))
+    os.close(token_read_fd)
+    try:
+        os.write(token_write_fd, token.encode("utf-8"))
+    finally:
+        os.close(token_write_fd)
 
     renderer: subprocess.Popen[bytes] | None = None
     try:
@@ -408,15 +426,13 @@ def ui(
 
         if no_renderer:
             click.echo(
-                f"[testudo ui] --no-renderer set; bridge running. "
-                f"TESTUDO_BRIDGE_TOKEN={token}\nCtrl-C to stop.",
+                "[testudo ui] --no-renderer set; bridge running. Ctrl-C to stop.",
                 err=True,
             )
             bridge.wait()
             return
 
         env = os.environ.copy()
-        env["TESTUDO_BRIDGE_TOKEN"] = token
         env["TESTUDO_BRIDGE_URL"] = bridge_url
 
         click.echo(f"[testudo ui] launching renderer from {electron_dir} ...", err=True)

@@ -3,12 +3,14 @@
  *
  * The renderer asks the main process to start / stop / inspect the bridge
  * via IPC. This module is the single source of truth for the child
- * process. Token + URL live here and only leak to the renderer through
- * the explicit getStatus() return value.
+ * process. The bearer token remains main-process-only; renderer requests
+ * cross a narrow IPC proxy that attaches authentication here.
  */
 import { app } from "electron";
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { existsSync } from "node:fs";
+import type { Writable } from "node:stream";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -18,7 +20,6 @@ const __dirname = dirname(__filename);
 export interface BridgeStatus {
   running: boolean;
   url: string | null;
-  token: string | null;
   port: number | null;
   pid: number | null;
   error: string | null;
@@ -31,8 +32,6 @@ export interface StartOptions {
   runsDir?: string;
 }
 
-const TOKEN_LINE = /\[testudo\] bearer token:\s+(\S+)/;
-
 export class BridgeManager {
   private child: ChildProcess | null = null;
   private currentToken: string | null = null;
@@ -44,7 +43,6 @@ export class BridgeManager {
     return {
       running: this.child !== null && this.child.exitCode === null,
       url: this.currentUrl,
-      token: this.currentToken,
       port: this.currentPort,
       pid: this.child?.pid ?? null,
       error: this.lastError,
@@ -74,68 +72,35 @@ export class BridgeManager {
       runsDir,
     ];
 
-    // Auto-load .env.testudo / .env.databricks / .env.ollama from the
-    // repo root and merge into the child env. Turnkey: the user edits
-    // the file once, no shell sourcing required.
-    const envFromFiles = this.loadEnvFiles();
-    const envKeys = Object.keys(envFromFiles);
-    if (envKeys.length > 0) {
-      process.stderr.write(
-        `[bridge] loaded ${envKeys.length} env var(s) from repo .env.* files: ${envKeys.join(", ")}\n`,
-      );
-    } else {
-      process.stderr.write(
-        `[bridge] no .env.* values loaded (files empty or placeholders only)\n`,
-      );
-    }
+    const token = randomBytes(32).toString("base64url");
+    args.push("--token-fd", "3");
 
     process.stderr.write(
       `[bridge] spawning: ${command} ${args.join(" ")} (cwd=${process.cwd()})\n`,
     );
 
-    this.child = spawn(command, args, {
-      stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, ...envFromFiles },
-    });
-
-    const tokenPromise = new Promise<string>((accept, reject) => {
-      const timer = setTimeout(() => {
-        reject(new Error("timeout waiting for bridge token (10s)"));
-      }, 10_000);
-
-      this.child!.stderr?.setEncoding("utf-8");
-      this.child!.stderr?.on("data", (chunk: string) => {
-        process.stderr.write(`[testudo serve] ${chunk}`);
-        const match = chunk.match(TOKEN_LINE);
-        if (match) {
-          clearTimeout(timer);
-          accept(match[1]);
-        }
-      });
-
-      this.child!.on("exit", (code) => {
-        clearTimeout(timer);
-        if (this.currentToken === null) {
-          reject(new Error(`bridge exited (code ${code}) before emitting token`));
-        }
-      });
-
-      this.child!.on("error", (err) => {
-        clearTimeout(timer);
-        reject(err);
-      });
-    });
-
-    try {
-      const token = await tokenPromise;
-      this.currentToken = token;
-      this.currentUrl = `http://${host}:${port}`;
-      this.currentPort = port;
-    } catch (err) {
-      this.lastError = (err as Error).message;
-      this.killChild();
-      throw err;
+    const childEnv = { ...process.env };
+    for (const name of [
+      "OPENAI_API_KEY",
+      "TESTUDO_OPENAI_API_KEY",
+      "OPENROUTER_API_KEY",
+      "DATABRICKS_TOKEN",
+    ]) {
+      delete childEnv[name];
     }
+    this.child = spawn(command, args, {
+      stdio: ["ignore", "pipe", "pipe", "pipe"],
+      env: childEnv,
+    });
+    const tokenPipe = this.child.stdio[3] as Writable;
+    tokenPipe.end(token);
+    this.child.stderr?.setEncoding("utf-8");
+    this.child.stderr?.on("data", (chunk: string) => {
+      process.stderr.write(`[testudo serve] ${chunk}`);
+    });
+    this.currentToken = token;
+    this.currentUrl = `http://${host}:${port}`;
+    this.currentPort = port;
 
     // Wait for /health to respond
     await this.waitForHealth(this.currentUrl!, 20_000);
@@ -149,6 +114,27 @@ export class BridgeManager {
     });
 
     return this.status();
+  }
+
+  async request(path: string, method = "GET", body?: string): Promise<{ status: number; body: string }> {
+    if (
+      !this.currentUrl ||
+      !this.currentToken ||
+      !path.startsWith("/") ||
+      path.startsWith("//") ||
+      !["GET", "POST"].includes(method)
+    ) {
+      throw new Error("bridge-request-unavailable");
+    }
+    const response = await fetch(`${this.currentUrl}${path}`, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${this.currentToken}`,
+      },
+      body,
+    });
+    return { status: response.status, body: await response.text() };
   }
 
   async stop(): Promise<BridgeStatus> {
@@ -212,47 +198,6 @@ export class BridgeManager {
     throw new Error(
       `bridge did not respond on ${url}/health within ${timeoutMs}ms (last: ${String(lastErr)})`,
     );
-  }
-
-  private loadEnvFiles(): Record<string, string> {
-    const envDir = app.isPackaged
-      ? app.getPath("userData")
-      : resolve(__dirname, "../../..");
-    const files = [".env.testudo", ".env.databricks", ".env.ollama"];
-    const out: Record<string, string> = {};
-    for (const name of files) {
-      const path = join(envDir, name);
-      if (!existsSync(path)) continue;
-      try {
-        const raw = readFileSync(path, "utf-8");
-        for (const lineRaw of raw.split(/\r?\n/)) {
-          const line = lineRaw.trim();
-          if (!line || line.startsWith("#")) continue;
-          const m = line.match(/^(?:export\s+)?([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$/i);
-          if (!m) continue;
-          let value = m[2].trim();
-          if (
-            (value.startsWith('"') && value.endsWith('"')) ||
-            (value.startsWith("'") && value.endsWith("'"))
-          ) {
-            value = value.slice(1, -1);
-          }
-          // skip placeholder defaults from the .example templates so an
-          // unfilled .env.* file does not shadow a real process.env value
-          if (
-            value.startsWith("REPLACE-") ||
-            value === "dapi-REPLACE-WITH-YOUR-TOKEN" ||
-            value === "dapi-..."
-          ) {
-            continue;
-          }
-          out[m[1]] = value;
-        }
-      } catch (err) {
-        process.stderr.write(`[bridge] failed to read ${path}: ${(err as Error).message}\n`);
-      }
-    }
-    return out;
   }
 
   private resolveCommand(): string {

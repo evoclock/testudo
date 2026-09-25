@@ -71,9 +71,9 @@ def openai_compatible_chat_tool(
     """Call an OpenAI-compatible chat endpoint. Response is sanitised before return.
 
     Covers OpenAI, LM Studio, vLLM, llama.cpp server, OpenRouter, and any
-    provider exposing ``POST {base_url}/chat/completions``. The API key is
-    resolved from ``TESTUDO_OPENAI_API_KEY`` when omitted; pass an empty
-    string for keyless local servers.
+    provider exposing ``POST {base_url}/chat/completions``. Hosted callers
+    must supply a key obtained through the credential-store boundary;
+    omission is reserved for keyless local servers.
 
     Example workflow step::
 

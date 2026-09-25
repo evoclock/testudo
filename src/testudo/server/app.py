@@ -696,13 +696,12 @@ def _env_check() -> EnvCheckResponse:
     ollama_url = os.environ.get("TESTUDO_OLLAMA_URL", "http://localhost:11434")
     ollama_running, ollama_models, ollama_error = _probe_ollama(ollama_url)
 
-    databricks_env_set = all(
-        os.environ.get(key)
-        for key in (
-            "DATABRICKS_SERVER_HOSTNAME",
-            "DATABRICKS_HTTP_PATH",
-            "DATABRICKS_TOKEN",
-        )
+    from testudo.seats.credentials import key_state
+
+    databricks_env_set = bool(
+        os.environ.get("DATABRICKS_SERVER_HOSTNAME")
+        and os.environ.get("DATABRICKS_HTTP_PATH")
+        and key_state("databricks").state == "set"
     )
 
     try:

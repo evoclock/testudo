@@ -1,9 +1,19 @@
 /**
  * Typed client for the Testudo FastAPI bridge.
  *
- * The bridge URL and bearer token come from the preload contextBridge,
- * never from renderer-side env vars. Construct one client per session.
+ * The bridge URL is renderer-visible, but the bearer token is not. Requests
+ * cross the preload IPC boundary and are authenticated by the main process.
  */
+
+async function fetch(input: string, init: RequestInit = {}): Promise<Response> {
+  const url = new URL(input);
+  const result = await window.testudo.bridge.request({
+    path: `${url.pathname}${url.search}`,
+    method: init.method,
+    body: typeof init.body === "string" ? init.body : undefined,
+  });
+  return new Response(result.body, { status: result.status });
+}
 
 export interface WorkflowStepSummary {
   id: string;
@@ -88,7 +98,7 @@ export interface EnvCheck {
 }
 
 export class BridgeClient {
-  constructor(public readonly url: string, private readonly token: string) {}
+  constructor(public readonly url: string) {}
 
   headersForSeats(): Record<string, string> {
     return this.headers();
@@ -97,7 +107,6 @@ export class BridgeClient {
   private headers(): Record<string, string> {
     return {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${this.token}`,
     };
   }
 
@@ -166,8 +175,8 @@ export class BridgeClient {
 
 export async function makeBridgeClient(): Promise<BridgeClient | null> {
   const status = await window.testudo.bridge.status();
-  if (!status.running || !status.url || !status.token) return null;
-  return new BridgeClient(status.url, status.token);
+  if (!status.running || !status.url) return null;
+  return new BridgeClient(status.url);
 }
 
 
