@@ -16,7 +16,9 @@ Outputs: a structured result containing the cleaned content, a list of
 findings, the sanitiser decision, and an HMAC-signed receipt. The receipt
 is a base64 token over ``run_id || content_sha256 || decision``; the
 write-side server checks the signature against the per-run key before
-accepting a write.
+accepting a write. The key is host-provided: the launching process passes
+it through an inherited descriptor (``TESTUDO_RECEIPT_KEY_FD``), never
+through the environment or argv.
 
 Assumptions: this server has NO filesystem-write capability. It does not
 import :mod:`testudo.outputs.file` or the orchestrator's write-side
@@ -37,12 +39,14 @@ import hashlib
 import hmac
 import json
 import os
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from testudo.mcp_servers.base import BaseMCPServer, ToolSpec
 from testudo.sanitisers.output import sanitise_output
 
-SIGNING_KEY_ENV = "TESTUDO_RECEIPT_KEY"
+SIGNING_KEY_FD_ENV = "TESTUDO_RECEIPT_KEY_FD"
+_SIGNING_KEY: bytes | None = None
 
 
 @dataclass(slots=True)
@@ -96,20 +100,40 @@ def verify_receipt(
     return hmac.compare_digest(expected, receipt.get("signature", ""))
 
 
-def _load_signing_key() -> bytes:
-    """Load the per-run signing key from ``TESTUDO_RECEIPT_KEY``.
+def _read_signing_key(fd: int, reader: Callable[[int, int], bytes] = os.read) -> bytes:
+    """Read one bounded key from an inherited descriptor (injectable in tests)."""
+    raw = reader(fd, 4097)
+    if not raw or len(raw) > 4096:
+        raise RuntimeError("receipt-key-unavailable")
+    return bytes(raw)
 
-    The orchestrator generates a fresh key per workflow run and exports it
-    to both the capturer and the writer subprocesses. Missing key in
-    production is an exception; tests inject a known key directly.
+
+def _load_signing_key() -> bytes:
+    """Load the per-run signing key once from a narrow inherited descriptor.
+
+    The key material never appears in the environment or on disk: the
+    host launcher generates the per-run key, writes it into a pipe, and
+    passes the read end to this process as an inherited descriptor whose
+    number is announced through ``TESTUDO_RECEIPT_KEY_FD`` (a bare fd
+    number, not the key). Nothing in :mod:`testudo` itself spawns these
+    MCP servers; the descriptor is host-provided by design.
     """
-    raw = os.environ.get(SIGNING_KEY_ENV)
-    if not raw:
-        raise RuntimeError(
-            f"{SIGNING_KEY_ENV} is not set; the orchestrator must export a "
-            "per-run signing key before launching this server."
-        )
-    return raw.encode("utf-8")
+    global _SIGNING_KEY
+    if _SIGNING_KEY is not None:
+        return _SIGNING_KEY
+    raw_fd = os.environ.get(SIGNING_KEY_FD_ENV)
+    try:
+        fd = int(raw_fd) if raw_fd is not None else -1
+    except ValueError as exc:
+        raise RuntimeError("receipt-key-unavailable") from exc
+    if fd < 0:
+        raise RuntimeError("receipt-key-unavailable")
+    try:
+        _SIGNING_KEY = _read_signing_key(fd)
+        os.close(fd)
+    except OSError as exc:
+        raise RuntimeError("receipt-key-unavailable") from exc
+    return _SIGNING_KEY
 
 
 def _capture_response(arguments: dict[str, object]) -> dict[str, object]:

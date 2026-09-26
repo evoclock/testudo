@@ -9,7 +9,8 @@ Purpose: write-side file operations MCP server. Modelled on hillstar's
 with disk-write capability. Every write request must carry a valid
 sanitisation receipt issued by
 :mod:`testudo.mcp_servers.llm_response_capturer`; an unsigned or stale
-receipt is a hard rejection.
+receipt is a hard rejection. The per-run signing key arrives through a
+protected inherited descriptor, not the environment or disk.
 
 Inputs: ``write_file``, ``update_file``, and ``create_directory`` tool
 calls. Each carries a ``receipt`` field plus a ``run_id`` matching the
@@ -21,8 +22,12 @@ receipt, signature mismatch, file-not-found for update).
 
 Assumptions: paths are constrained to ``REPO_ROOT`` (configurable via
 env). Path traversal is rejected before the receipt check. The signing
-key is loaded from ``TESTUDO_RECEIPT_KEY`` (the same env the capturer
-reads).
+key is loaded through the same inherited descriptor mechanism as the
+capturer: the launching host generates the per-run key, writes it to a
+pipe, and passes the read end as a descriptor announced via
+``TESTUDO_RECEIPT_KEY_FD`` (a bare fd number, not the key). Nothing in
+:mod:`testudo` spawns these servers, so the descriptor is host-provided
+by design.
 
 References:
 

@@ -10,7 +10,6 @@ import { contextBridge, ipcRenderer } from "electron";
 export interface BridgeStatus {
   running: boolean;
   url: string | null;
-  token: string | null;
   port: number | null;
   pid: number | null;
   error: string | null;
@@ -28,6 +27,7 @@ export interface TestudoAPI {
     status: () => Promise<BridgeStatus>;
     start: (opts?: BridgeStartOptions) => Promise<BridgeStatus>;
     stop: () => Promise<BridgeStatus>;
+    request: (request: { path: string; method?: string; body?: string }) => Promise<{ status: number; body: string }>;
   };
   app: {
     quit: () => Promise<void>;
@@ -40,6 +40,7 @@ const api: TestudoAPI = {
     status: () => ipcRenderer.invoke("bridge:status") as Promise<BridgeStatus>,
     start: (opts) => ipcRenderer.invoke("bridge:start", opts ?? {}) as Promise<BridgeStatus>,
     stop: () => ipcRenderer.invoke("bridge:stop") as Promise<BridgeStatus>,
+    request: (request) => ipcRenderer.invoke("bridge:request", request) as Promise<{ status: number; body: string }>,
   },
   app: {
     quit: () => ipcRenderer.invoke("app:quit") as Promise<void>,

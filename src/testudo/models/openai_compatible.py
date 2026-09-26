@@ -16,7 +16,7 @@ PII, hidden-unicode, prompt injection, and OWASP / MCP threat markers are
 caught at the model boundary.
 
 Inputs: model name, prompt, optional system prompt, optional base URL,
-optional API key (resolved from the environment when omitted), optional
+optional API key (caller-supplied only), optional
 temperature, optional max tokens, optional timeout, optional client (for
 test injection).
 
@@ -46,19 +46,17 @@ import httpx
 from testudo.sanitisers.output import sanitise_output
 
 DEFAULT_BASE_URL = os.environ.get("TESTUDO_OPENAI_BASE_URL", "https://api.openai.com/v1")
-DEFAULT_API_KEY_ENV = "TESTUDO_OPENAI_API_KEY"
 DEFAULT_TIMEOUT = 120.0
 
 
 def _resolve_api_key(api_key: str | None) -> str:
-    """Return the caller-supplied key or the one from the environment.
+    """Return only a caller-supplied key; omission means keyless access.
 
-    An explicit empty string disables authentication entirely (local
-    servers such as llama.cpp often run without keys).
+    Hosted credentials must come from the credential-store boundary. They
+    are never inherited from a broad process environment. Local servers can
+    continue to omit authentication.
     """
-    if api_key is not None:
-        return api_key
-    return os.environ.get(DEFAULT_API_KEY_ENV, "")
+    return api_key or ""
 
 
 def openai_compatible_chat(

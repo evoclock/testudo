@@ -12,7 +12,6 @@
 interface BridgeStatus {
   running: boolean;
   url: string | null;
-  token: string | null;
   port: number | null;
   pid: number | null;
   error: string | null;
@@ -30,6 +29,7 @@ interface TestudoAPI {
     status: () => Promise<BridgeStatus>;
     start: (opts?: BridgeStartOptions) => Promise<BridgeStatus>;
     stop: () => Promise<BridgeStatus>;
+    request: (request: { path: string; method?: string; body?: string }) => Promise<{ status: number; body: string }>;
   };
   app: {
     quit: () => Promise<void>;

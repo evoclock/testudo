@@ -17,6 +17,7 @@ from testudo.data.databricks_adapter import query_databricks
 from testudo.data.duckdb_adapter import query_duckdb
 from testudo.orchestrator.context import StepContext
 from testudo.orchestrator.registry import register_tool
+from testudo.seats.credentials import get_provider_key
 
 
 @register_tool("data.duckdb_query")
@@ -41,11 +42,9 @@ def databricks_query_tool(
 ) -> dict[str, Any]:
     """Run a parameterised query against a Databricks SQL warehouse.
 
-    ``connection`` is optional. If absent, the tool builds it from the
-    ``DATABRICKS_SERVER_HOSTNAME`` / ``DATABRICKS_HTTP_PATH`` /
-    ``DATABRICKS_TOKEN`` env vars (sourced from the bridge process via
-    the .env.databricks autoloader). Workflows therefore don't need to
-    embed credentials.
+    ``connection`` is optional. If absent, non-sensitive endpoint settings
+    come from ``DATABRICKS_SERVER_HOSTNAME`` / ``DATABRICKS_HTTP_PATH`` and
+    the hosted access token comes from the platform credential store.
     """
     import os
 
@@ -54,13 +53,11 @@ def databricks_query_tool(
             connection = {
                 "server_hostname": os.environ["DATABRICKS_SERVER_HOSTNAME"],
                 "http_path": os.environ["DATABRICKS_HTTP_PATH"],
-                "access_token": os.environ["DATABRICKS_TOKEN"],
+                "access_token": get_provider_key("databricks"),
             }
         except KeyError as exc:
-            raise RuntimeError(
-                f"data.databricks_query needs the {exc.args[0]} env var "
-                "(set in ~/testudo/.env.databricks and the bridge "
-                "auto-loads it on Start)"
-            ) from exc
+            raise RuntimeError("databricks-endpoint-config-missing") from exc
+        if not connection["access_token"]:
+            raise RuntimeError("databricks-credential-missing")
 
     return query_databricks(connection, query, parameters).to_dict()

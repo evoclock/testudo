@@ -139,8 +139,8 @@ export function DatabasePanel({ busy, databricksReady, onRun }: Props) {
             disabled={databricksDisabled}
             title={
               databricksDisabled
-                ? "DATABRICKS_SERVER_HOSTNAME / HTTP_PATH / TOKEN not exported in the bridge process env. Source .env.databricks before starting the bridge."
-                : "Databricks env vars detected"
+                ? "Databricks endpoint settings or credential-store key are unavailable."
+                : "Databricks endpoint settings and credential-store key detected"
             }
             className={`px-4 py-2 ${
               adapter === "databricks"
@@ -251,10 +251,8 @@ export function DatabasePanel({ busy, databricksReady, onRun }: Props) {
             ))}
           </div>
           <p className="text-[11px] text-muted mt-2">
-            Reads{" "}
-            <code className="text-text">DATABRICKS_SERVER_HOSTNAME</code> /{" "}
-            <code className="text-text">HTTP_PATH</code> /{" "}
-            <code className="text-text">TOKEN</code> from the bridge process env.
+            Reads non-sensitive endpoint settings from configuration and the
+            access token from the platform credential store.
             Free Edition ships <code className="text-text">samples.bakehouse</code>.
           </p>
         </details>

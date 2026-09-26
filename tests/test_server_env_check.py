@@ -11,6 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from testudo import _loaded  # noqa: F401
+from testudo.seats import credentials
 from testudo.server import app as app_module
 from testudo.server.app import create_app
 
@@ -75,10 +76,30 @@ def test_env_check_databricks_env_set(
     monkeypatch.setattr(app_module, "_probe_ollama", lambda url: (False, [], "off"))
     monkeypatch.setenv("DATABRICKS_SERVER_HOSTNAME", "x.cloud.databricks.com")
     monkeypatch.setenv("DATABRICKS_HTTP_PATH", "/sql/1.0/warehouses/y")
-    monkeypatch.setenv("DATABRICKS_TOKEN", "dapi-z")
+    # The Databricks token lives in the credential store, not the env: a
+    # DATABRICKS_TOKEN env var alone must never satisfy the check. Patch
+    # the key-reader seam so key_state("databricks") reports a stored key
+    # without touching the real platform credential store.
+    monkeypatch.delenv("DATABRICKS_TOKEN", raising=False)
+    monkeypatch.setattr(credentials, "get_provider_key", lambda provider_id: "synthetic-set")
 
     body = client.get("/env-check", headers=_headers(token)).json()
     assert body["databricks_env_set"] is True
+
+
+def test_env_check_databricks_env_token_alone_is_not_set(
+    client_and_token: tuple[TestClient, str], monkeypatch
+) -> None:
+    """An env-var token with no credential-store key must report unset."""
+    client, token = client_and_token
+    monkeypatch.setattr(app_module, "_probe_ollama", lambda url: (False, [], "off"))
+    monkeypatch.setenv("DATABRICKS_SERVER_HOSTNAME", "x.cloud.databricks.com")
+    monkeypatch.setenv("DATABRICKS_HTTP_PATH", "/sql/1.0/warehouses/y")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dapi-z")
+    monkeypatch.setattr(credentials, "get_provider_key", lambda provider_id: None)
+
+    body = client.get("/env-check", headers=_headers(token)).json()
+    assert body["databricks_env_set"] is False
 
 
 def test_env_check_databricks_env_unset(

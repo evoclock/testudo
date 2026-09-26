@@ -44,14 +44,14 @@ export default function App() {
 
   const adoptStatus = useCallback(
     async (status: BridgeStatus) => {
-      if (!status.running || !status.url || !status.token) {
+      if (!status.running || !status.url) {
         setClient(null);
         setBridgeState(status.error ? "error" : "stopped");
         setBridgeError(status.error);
         setBridgePort(null);
         return;
       }
-      const c = new BridgeClient(status.url, status.token);
+      const c = new BridgeClient(status.url);
       setClient(c);
       setBridgePort(status.port);
       try {

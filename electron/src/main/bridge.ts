@@ -3,12 +3,15 @@
  *
  * The renderer asks the main process to start / stop / inspect the bridge
  * via IPC. This module is the single source of truth for the child
- * process. Token + URL live here and only leak to the renderer through
- * the explicit getStatus() return value.
+ * process. The bearer token remains main-process-only; renderer requests
+ * cross a narrow IPC proxy that attaches authentication here and only
+ * reaches an allowlisted set of bridge paths.
  */
 import { app } from "electron";
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { existsSync } from "node:fs";
+import type { Writable } from "node:stream";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -18,7 +21,6 @@ const __dirname = dirname(__filename);
 export interface BridgeStatus {
   running: boolean;
   url: string | null;
-  token: string | null;
   port: number | null;
   pid: number | null;
   error: string | null;
@@ -31,7 +33,83 @@ export interface StartOptions {
   runsDir?: string;
 }
 
-const TOKEN_LINE = /\[testudo\] bearer token:\s+(\S+)/;
+/**
+ * Explicit environment allowlist for the bridge child. The child receives
+ * only what `testudo serve` documents as non-secret configuration: process
+ * basics (PATH/HOME/TMPDIR), locale, the Linux user-state dir, the
+ * non-secret Databricks connection coordinates, and the TESTUDO_* config
+ * variables actually consumed on the Python side (model endpoints, registry
+ * and seats/data dir overrides). Everything else in process.env — in
+ * particular provider API keys and DATABRICKS_TOKEN — is excluded by
+ * construction: secrets live in the platform credential store, never in a
+ * child environment. No documented consumer is known to need more; if one
+ * appears, extend this list with a comment naming the consumer rather than
+ * widening to `...process.env`.
+ */
+const CHILD_ENV_ALLOWLIST: readonly string[] = [
+  "PATH",
+  "HOME",
+  "TMPDIR",
+  "LANG",
+  "LC_ALL",
+  "LC_CTYPE",
+  "XDG_STATE_HOME",
+  "DATABRICKS_SERVER_HOSTNAME",
+  "DATABRICKS_HTTP_PATH",
+  "TESTUDO_OLLAMA_URL",
+  "TESTUDO_OPENAI_BASE_URL",
+  "TESTUDO_MODEL_REGISTRY",
+  "TESTUDO_CONFIG_DIR",
+  "TESTUDO_DATA_DIR",
+  "TESTUDO_REPO_ROOT",
+];
+
+function buildChildEnv(): Record<string, string | undefined> {
+  const env: Record<string, string | undefined> = {};
+  for (const name of CHILD_ENV_ALLOWLIST) {
+    const value = process.env[name];
+    if (value !== undefined) {
+      env[name] = value;
+    }
+  }
+  return env;
+}
+
+/**
+ * Bridge paths the renderer is allowed to reach through the IPC proxy.
+ * Derived 1:1 from the renderer's actual calls in
+ * electron/src/renderer/src/lib/api.ts (BridgeClient methods + seatsMethods
+ * post targets) and the components that call them (App.tsx, WorkflowPanel,
+ * DatabasePanel, SeatsPanel). Do not add a path here without a matching
+ * renderer call. Patterns are plain regex sources (no flags) so they can be
+ * validated from the Python test suite (tests/test_electron_bridge_allowlist.py).
+ */
+export const BRIDGE_PATH_ALLOWLIST: readonly string[] = [
+  "^/health$",
+  "^/workflows$",
+  "^/workflows/[^/]+/readme$",
+  "^/tools$",
+  "^/env-check$",
+  "^/runs$",
+  "^/runs/[^/]+$",
+  "^/seats/config$",
+  "^/seats/draft$",
+  "^/seats/draft/update$",
+  "^/seats/config/apply$",
+  "^/seats/config/delete$",
+  "^/seats/ssh/probe$",
+  "^/seats/ssh/trust$",
+  "^/seats/preview$",
+  "^/seats/consent$",
+  "^/seats/operate$",
+  "^/seats/force-stop-challenge$",
+  "^/seats/provider-key$",
+  "^/seats/provider-key/state$",
+];
+
+export function isAllowedBridgePath(path: string): boolean {
+  return BRIDGE_PATH_ALLOWLIST.some((pattern) => new RegExp(pattern).test(path));
+}
 
 export class BridgeManager {
   private child: ChildProcess | null = null;
@@ -44,7 +122,6 @@ export class BridgeManager {
     return {
       running: this.child !== null && this.child.exitCode === null,
       url: this.currentUrl,
-      token: this.currentToken,
       port: this.currentPort,
       pid: this.child?.pid ?? null,
       error: this.lastError,
@@ -74,73 +151,50 @@ export class BridgeManager {
       runsDir,
     ];
 
-    // Auto-load .env.testudo / .env.databricks / .env.ollama from the
-    // repo root and merge into the child env. Turnkey: the user edits
-    // the file once, no shell sourcing required.
-    const envFromFiles = this.loadEnvFiles();
-    const envKeys = Object.keys(envFromFiles);
-    if (envKeys.length > 0) {
-      process.stderr.write(
-        `[bridge] loaded ${envKeys.length} env var(s) from repo .env.* files: ${envKeys.join(", ")}\n`,
-      );
-    } else {
-      process.stderr.write(
-        `[bridge] no .env.* values loaded (files empty or placeholders only)\n`,
-      );
-    }
+    // The token travels over an inherited pipe (fd 3), never argv or logs.
+    const token = randomBytes(32).toString("base64url");
+    args.push("--token-fd", "3");
 
     process.stderr.write(
       `[bridge] spawning: ${command} ${args.join(" ")} (cwd=${process.cwd()})\n`,
     );
 
-    this.child = spawn(command, args, {
-      stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, ...envFromFiles },
+    const child = spawn(command, args, {
+      stdio: ["ignore", "pipe", "pipe", "pipe"],
+      env: buildChildEnv(),
+    });
+    this.child = child;
+
+    const tokenPipe = child.stdio[3] as Writable;
+    // A child that dies before draining fd 3 would otherwise surface the
+    // failed token write as an unhandled stream error; the early-exit
+    // guard below turns that scenario into a clean start() failure.
+    tokenPipe.on("error", () => undefined);
+    tokenPipe.end(token);
+
+    child.stderr?.setEncoding("utf-8");
+    child.stderr?.on("data", (chunk: string) => {
+      process.stderr.write(`[testudo serve] ${chunk}`);
     });
 
-    const tokenPromise = new Promise<string>((accept, reject) => {
-      const timer = setTimeout(() => {
-        reject(new Error("timeout waiting for bridge token (10s)"));
-      }, 10_000);
+    this.currentToken = token;
+    this.currentUrl = `http://${host}:${port}`;
+    this.currentPort = port;
 
-      this.child!.stderr?.setEncoding("utf-8");
-      this.child!.stderr?.on("data", (chunk: string) => {
-        process.stderr.write(`[testudo serve] ${chunk}`);
-        const match = chunk.match(TOKEN_LINE);
-        if (match) {
-          clearTimeout(timer);
-          accept(match[1]);
-        }
-      });
-
-      this.child!.on("exit", (code) => {
-        clearTimeout(timer);
-        if (this.currentToken === null) {
-          reject(new Error(`bridge exited (code ${code}) before emitting token`));
-        }
-      });
-
-      this.child!.on("error", (err) => {
-        clearTimeout(timer);
-        reject(err);
-      });
+    // Early-exit guard: settle as soon as the child leaves the running
+    // state (spawn failure, instant crash, or later exit) so waitForHealth
+    // can fail fast instead of polling a dead child for the full window.
+    let settleExit!: (code: number | null) => void;
+    const exited = new Promise<number | null>((accept) => {
+      settleExit = accept;
+    });
+    child.once("exit", (code) => settleExit(code));
+    child.once("error", (err: Error) => {
+      process.stderr.write(`[bridge] child error: ${err.message}\n`);
+      settleExit(null);
     });
 
-    try {
-      const token = await tokenPromise;
-      this.currentToken = token;
-      this.currentUrl = `http://${host}:${port}`;
-      this.currentPort = port;
-    } catch (err) {
-      this.lastError = (err as Error).message;
-      this.killChild();
-      throw err;
-    }
-
-    // Wait for /health to respond
-    await this.waitForHealth(this.currentUrl!, 20_000);
-
-    this.child.on("exit", (code) => {
+    child.on("exit", (code) => {
       process.stderr.write(`[testudo serve] exited with ${code}\n`);
       this.currentToken = null;
       this.currentUrl = null;
@@ -148,7 +202,43 @@ export class BridgeManager {
       this.child = null;
     });
 
+    try {
+      await this.waitForHealth(this.currentUrl!, 20_000, exited);
+    } catch (err) {
+      // Kill-on-failure: a child that never became healthy must not
+      // survive start() as an orphan. SIGKILL because a child hung before
+      // its event loop runs (e.g. before reading fd 3) cannot be trusted
+      // to handle SIGTERM.
+      this.killChild();
+      this.lastError = (err as Error).message;
+      throw err;
+    }
+
     return this.status();
+  }
+
+  async request(path: string, method = "GET", body?: string): Promise<{ status: number; body: string }> {
+    if (
+      !this.currentUrl ||
+      !this.currentToken ||
+      !path.startsWith("/") ||
+      path.startsWith("//") ||
+      !["GET", "POST"].includes(method)
+    ) {
+      throw new Error("bridge-request-unavailable");
+    }
+    if (!isAllowedBridgePath(path)) {
+      throw new Error("bridge-request-forbidden");
+    }
+    const response = await fetch(`${this.currentUrl}${path}`, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${this.currentToken}`,
+      },
+      body,
+    });
+    return { status: response.status, body: await response.text() };
   }
 
   async stop(): Promise<BridgeStatus> {
@@ -186,21 +276,43 @@ export class BridgeManager {
     }
   }
 
+  /** Failure-path cleanup: kill an unhealthy child and scrub its state.
+   * Only reached when the child was never proven healthy, so there is no
+   * graceful-shutdown wait (see start()). */
   private killChild(): void {
-    if (this.child) {
+    const child = this.child;
+    this.child = null;
+    this.currentToken = null;
+    this.currentUrl = null;
+    this.currentPort = null;
+    if (child && child.exitCode === null) {
       try {
-        this.child.kill("SIGTERM");
+        child.kill("SIGKILL");
       } catch {
-        // ignore
+        // Already gone; nothing to clean up.
       }
-      this.child = null;
     }
   }
 
-  private async waitForHealth(url: string, timeoutMs: number): Promise<void> {
+  private async waitForHealth(
+    url: string,
+    timeoutMs: number,
+    exited?: Promise<number | null>,
+  ): Promise<void> {
+    let exitCode: number | null | undefined;
+    if (exited) {
+      // `exited` only ever resolves, so this needs no rejection handling;
+      // the flag check below is what short-circuits the poll loop.
+      void exited.then((code) => {
+        exitCode = code;
+      });
+    }
     const deadline = Date.now() + timeoutMs;
     let lastErr: unknown = null;
     while (Date.now() < deadline) {
+      if (exitCode !== undefined) {
+        throw new Error(`bridge exited before becoming healthy (code=${exitCode})`);
+      }
       try {
         const r = await fetch(`${url}/health`);
         if (r.ok) return;
@@ -212,47 +324,6 @@ export class BridgeManager {
     throw new Error(
       `bridge did not respond on ${url}/health within ${timeoutMs}ms (last: ${String(lastErr)})`,
     );
-  }
-
-  private loadEnvFiles(): Record<string, string> {
-    const envDir = app.isPackaged
-      ? app.getPath("userData")
-      : resolve(__dirname, "../../..");
-    const files = [".env.testudo", ".env.databricks", ".env.ollama"];
-    const out: Record<string, string> = {};
-    for (const name of files) {
-      const path = join(envDir, name);
-      if (!existsSync(path)) continue;
-      try {
-        const raw = readFileSync(path, "utf-8");
-        for (const lineRaw of raw.split(/\r?\n/)) {
-          const line = lineRaw.trim();
-          if (!line || line.startsWith("#")) continue;
-          const m = line.match(/^(?:export\s+)?([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$/i);
-          if (!m) continue;
-          let value = m[2].trim();
-          if (
-            (value.startsWith('"') && value.endsWith('"')) ||
-            (value.startsWith("'") && value.endsWith("'"))
-          ) {
-            value = value.slice(1, -1);
-          }
-          // skip placeholder defaults from the .example templates so an
-          // unfilled .env.* file does not shadow a real process.env value
-          if (
-            value.startsWith("REPLACE-") ||
-            value === "dapi-REPLACE-WITH-YOUR-TOKEN" ||
-            value === "dapi-..."
-          ) {
-            continue;
-          }
-          out[m[1]] = value;
-        }
-      } catch (err) {
-        process.stderr.write(`[bridge] failed to read ${path}: ${(err as Error).message}\n`);
-      }
-    }
-    return out;
   }
 
   private resolveCommand(): string {

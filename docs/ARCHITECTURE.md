@@ -176,7 +176,7 @@ The single most security-relevant invariant: **anything an LLM emits passes thro
               disk write
 ```
 
-Both servers speak JSON-RPC 2.0 over STDIO (process boundary as the isolation unit). The HMAC signing key (`TESTUDO_RECEIPT_KEY`) is generated per workflow run and exported to both subprocesses; the receipt is not portable across runs.
+Both servers speak JSON-RPC 2.0 over STDIO (process boundary as the isolation unit). The HMAC signing key is generated per workflow run by the launching host and handed to both subprocesses through an inherited read-only descriptor announced as `TESTUDO_RECEIPT_KEY_FD` (a bare fd number, never the key itself); nothing in `src/` spawns these servers, so the descriptor is host-provided by design. The receipt is not portable across runs.
 
 A third in-house server, `file_extractor`, is symmetrically read-only and handles document extraction (PDF / DOCX / PPTX / HTML / JSON / TXT) on the *input* side. Its output is sanitised via `strip_hidden` before returning.
 

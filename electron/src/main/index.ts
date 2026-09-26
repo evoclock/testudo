@@ -3,9 +3,8 @@
  *
  * Owns the FastAPI bridge subprocess via BridgeManager. The renderer
  * asks main to start / stop / inspect the bridge through IPC; the
- * token and URL never reach renderer scope except through the explicit
- * bridge:status return value, and they are scrubbed when the bridge
- * stops.
+ * token never reaches renderer scope; authenticated requests use a narrow
+ * main-process IPC proxy. Runtime state is scrubbed when the bridge stops.
  */
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import { fileURLToPath } from "node:url";
@@ -66,6 +65,11 @@ ipcMain.handle("bridge:start", async (_event, opts: StartOptions = {}) => {
 });
 
 ipcMain.handle("bridge:stop", () => bridge.stop());
+ipcMain.handle(
+  "bridge:request",
+  (_event, request: { path: string; method?: string; body?: string }) =>
+    bridge.request(request.path, request.method, request.body),
+);
 
 ipcMain.handle("app:quit", () => {
   app.quit();
