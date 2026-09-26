@@ -81,9 +81,7 @@ def test_env_check_databricks_env_set(
     # the key-reader seam so key_state("databricks") reports a stored key
     # without touching the real platform credential store.
     monkeypatch.delenv("DATABRICKS_TOKEN", raising=False)
-    monkeypatch.setattr(
-        credentials, "get_provider_key", lambda provider_id: "synthetic-set"
-    )
+    monkeypatch.setattr(credentials, "get_provider_key", lambda provider_id: "synthetic-set")
 
     body = client.get("/env-check", headers=_headers(token)).json()
     assert body["databricks_env_set"] is True
@@ -98,9 +96,7 @@ def test_env_check_databricks_env_token_alone_is_not_set(
     monkeypatch.setenv("DATABRICKS_SERVER_HOSTNAME", "x.cloud.databricks.com")
     monkeypatch.setenv("DATABRICKS_HTTP_PATH", "/sql/1.0/warehouses/y")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dapi-z")
-    monkeypatch.setattr(
-        credentials, "get_provider_key", lambda provider_id: None
-    )
+    monkeypatch.setattr(credentials, "get_provider_key", lambda provider_id: None)
 
     body = client.get("/env-check", headers=_headers(token)).json()
     assert body["databricks_env_set"] is False

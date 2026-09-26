@@ -16,9 +16,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-BRIDGE_TS = (
-    Path(__file__).resolve().parents[1] / "electron" / "src" / "main" / "bridge.ts"
-)
+BRIDGE_TS = Path(__file__).resolve().parents[1] / "electron" / "src" / "main" / "bridge.ts"
 
 # Every path the renderer actually calls, derived from
 # electron/src/renderer/src/lib/api.ts (BridgeClient methods + seatsMethods
