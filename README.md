@@ -1,7 +1,7 @@
 # Testudo
 
 <p align="center">
-  <img src="assets/Testudo_80s-trans-tight.png" alt="Testudo" width="240">
+  <img src="assets/testudo-animated-512.gif" alt="Testudo" width="240">
 </p>
 
 <p align="center">
