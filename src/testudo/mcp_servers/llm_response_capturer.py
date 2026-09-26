@@ -39,6 +39,7 @@ import hashlib
 import hmac
 import json
 import os
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from testudo.mcp_servers.base import BaseMCPServer, ToolSpec
@@ -99,7 +100,7 @@ def verify_receipt(
     return hmac.compare_digest(expected, receipt.get("signature", ""))
 
 
-def _read_signing_key(fd: int, reader=os.read) -> bytes:
+def _read_signing_key(fd: int, reader: Callable[[int, int], bytes] = os.read) -> bytes:
     """Read one bounded key from an inherited descriptor (injectable in tests)."""
     raw = reader(fd, 4097)
     if not raw or len(raw) > 4096:
