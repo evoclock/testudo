@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import sys
 import types
+from typing import ClassVar
 
 import pytest
 
@@ -21,7 +22,7 @@ from testudo.seats import credentials
 class _FakeBackendBase:
     """In-memory keyring backend; the store dict is per-test."""
 
-    STORE: dict[tuple[str, str], str] = {}
+    STORE: ClassVar[dict[tuple[str, str], str]] = {}
 
     def set_password(self, service: str, account: str, password: str) -> None:
         self.STORE[(service, account)] = password

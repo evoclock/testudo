@@ -5,16 +5,17 @@
 
 from __future__ import annotations
 
+import contextlib
 import io
 import json
 import os
 
 import pytest
 
+import testudo.mcp_servers.llm_response_capturer as receipt_module
 from testudo.mcp_servers.base import BaseMCPServer, ToolSpec
 from testudo.mcp_servers.file_extractor import build_server as build_extractor
 from testudo.mcp_servers.file_writer import build_server as build_writer
-import testudo.mcp_servers.llm_response_capturer as receipt_module
 from testudo.mcp_servers.llm_response_capturer import (
     SIGNING_KEY_FD_ENV,
     _load_signing_key,
@@ -61,10 +62,8 @@ def test_load_signing_key_parses_fd_reads_key_and_closes_fd(monkeypatch) -> None
             os.fstat(read_fd)
     finally:
         for fd in (read_fd, write_fd):
-            try:
+            with contextlib.suppress(OSError):
                 os.close(fd)
-            except OSError:
-                pass
 
 
 def test_load_signing_key_rejects_oversized_key(monkeypatch) -> None:
@@ -80,10 +79,8 @@ def test_load_signing_key_rejects_oversized_key(monkeypatch) -> None:
             _load_signing_key()
     finally:
         for fd in (read_fd, write_fd):
-            try:
+            with contextlib.suppress(OSError):
                 os.close(fd)
-            except OSError:
-                pass
 
 
 def test_load_signing_key_rejects_non_numeric_fd(monkeypatch) -> None:
