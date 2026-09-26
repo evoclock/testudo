@@ -22,7 +22,12 @@ receipt, signature mismatch, file-not-found for update).
 
 Assumptions: paths are constrained to ``REPO_ROOT`` (configurable via
 env). Path traversal is rejected before the receipt check. The signing
-key is loaded through the same inherited descriptor mechanism as the capturer.
+key is loaded through the same inherited descriptor mechanism as the
+capturer: the launching host generates the per-run key, writes it to a
+pipe, and passes the read end as a descriptor announced via
+``TESTUDO_RECEIPT_KEY_FD`` (a bare fd number, not the key). Nothing in
+:mod:`testudo` spawns these servers, so the descriptor is host-provided
+by design.
 
 References:
 

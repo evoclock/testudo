@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 
 import pytest
 
@@ -16,6 +17,7 @@ from testudo.mcp_servers.file_writer import build_server as build_writer
 import testudo.mcp_servers.llm_response_capturer as receipt_module
 from testudo.mcp_servers.llm_response_capturer import (
     SIGNING_KEY_FD_ENV,
+    _load_signing_key,
     _read_signing_key,
     issue_receipt,
     verify_receipt,
@@ -40,6 +42,69 @@ def test_signing_key_reader_is_bounded_and_injectable() -> None:
 
     assert _read_signing_key(9, fake_reader) == b"per-run-key"
     assert calls == [(9, 4097)]
+
+
+def test_load_signing_key_parses_fd_reads_key_and_closes_fd(monkeypatch) -> None:
+    """A valid fd number is parsed, the key is read once, and the
+    descriptor is closed so it cannot be re-read by later code."""
+    monkeypatch.setattr(receipt_module, "_SIGNING_KEY", None)
+    read_fd, write_fd = os.pipe()
+    try:
+        os.write(write_fd, b"synthetic-per-run-key")
+        os.close(write_fd)
+        monkeypatch.setenv(SIGNING_KEY_FD_ENV, str(read_fd))
+
+        assert _load_signing_key() == b"synthetic-per-run-key"
+
+        # fd-close behaviour: the descriptor is gone after the bounded read.
+        with pytest.raises(OSError):
+            os.fstat(read_fd)
+    finally:
+        for fd in (read_fd, write_fd):
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+
+
+def test_load_signing_key_rejects_oversized_key(monkeypatch) -> None:
+    """Keys longer than 4096 bytes are refused, not truncated."""
+    monkeypatch.setattr(receipt_module, "_SIGNING_KEY", None)
+    read_fd, write_fd = os.pipe()
+    try:
+        os.write(write_fd, b"x" * 5000)
+        os.close(write_fd)
+        monkeypatch.setenv(SIGNING_KEY_FD_ENV, str(read_fd))
+
+        with pytest.raises(RuntimeError, match="receipt-key-unavailable"):
+            _load_signing_key()
+    finally:
+        for fd in (read_fd, write_fd):
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+
+
+def test_load_signing_key_rejects_non_numeric_fd(monkeypatch) -> None:
+    monkeypatch.setattr(receipt_module, "_SIGNING_KEY", None)
+    monkeypatch.setenv(SIGNING_KEY_FD_ENV, "not-a-fd")
+    with pytest.raises(RuntimeError, match="receipt-key-unavailable"):
+        _load_signing_key()
+
+
+def test_load_signing_key_rejects_negative_fd(monkeypatch) -> None:
+    monkeypatch.setattr(receipt_module, "_SIGNING_KEY", None)
+    monkeypatch.setenv(SIGNING_KEY_FD_ENV, "-1")
+    with pytest.raises(RuntimeError, match="receipt-key-unavailable"):
+        _load_signing_key()
+
+
+def test_load_signing_key_rejects_missing_fd(monkeypatch) -> None:
+    monkeypatch.setattr(receipt_module, "_SIGNING_KEY", None)
+    monkeypatch.delenv(SIGNING_KEY_FD_ENV, raising=False)
+    with pytest.raises(RuntimeError, match="receipt-key-unavailable"):
+        _load_signing_key()
 
 
 def test_base_server_initialize_handshake() -> None:

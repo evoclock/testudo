@@ -16,7 +16,9 @@ Outputs: a structured result containing the cleaned content, a list of
 findings, the sanitiser decision, and an HMAC-signed receipt. The receipt
 is a base64 token over ``run_id || content_sha256 || decision``; the
 write-side server checks the signature against the per-run key before
-accepting a write.
+accepting a write. The key is host-provided: the launching process passes
+it through an inherited descriptor (``TESTUDO_RECEIPT_KEY_FD``), never
+through the environment or argv.
 
 Assumptions: this server has NO filesystem-write capability. It does not
 import :mod:`testudo.outputs.file` or the orchestrator's write-side
@@ -106,7 +108,15 @@ def _read_signing_key(fd: int, reader=os.read) -> bytes:
 
 
 def _load_signing_key() -> bytes:
-    """Load the per-run signing key once from a narrow inherited descriptor."""
+    """Load the per-run signing key once from a narrow inherited descriptor.
+
+    The key material never appears in the environment or on disk: the
+    host launcher generates the per-run key, writes it into a pipe, and
+    passes the read end to this process as an inherited descriptor whose
+    number is announced through ``TESTUDO_RECEIPT_KEY_FD`` (a bare fd
+    number, not the key). Nothing in :mod:`testudo` itself spawns these
+    MCP servers; the descriptor is host-provided by design.
+    """
     global _SIGNING_KEY
     if _SIGNING_KEY is not None:
         return _SIGNING_KEY

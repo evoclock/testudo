@@ -61,6 +61,14 @@ def _keyring() -> Any:
     return keyring
 
 
+# Exception chaining note: the ``from exc`` re-raises below deliberately
+# keep the underlying backend exception in ``__cause__`` for host-side
+# diagnostics (tracebacks never leave the process), while the
+# renderer-facing contract stays the value-free ``CredentialStoreError``
+# with a stable ``kind``. The chained causes are keyring backend errors
+# and never carry key material, so no values can leak through them.
+
+
 def set_provider_key(provider_id: str, key: str) -> None:
     """Store the key in the platform credential store. ``key`` is accepted
     only on write and never retained in renderer-readable state."""
