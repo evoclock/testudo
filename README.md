@@ -1,11 +1,8 @@
 # Testudo
 
 <p align="center">
-  <img src="assets/testudo-animated-512.gif" alt="Testudo" width="240">
-</p>
-
-<p align="center">
-  <img src="assets/testudo_80s_font-trans-tight.png" alt="Testudo 80s logo" width="160">
+  <img src="assets/testudo-animated-512.gif" alt="Testudo" width="240"><br>
+  <img src="assets/testudo_80s_font-trans-tight.png" alt="Testudo 80s logo" width="240">
 </p>
 
 <p align="center">
