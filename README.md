@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/Testudo_80s-trans-tight.png" alt="Testudo 80s logo" width="160">
+  <img src="assets/testudo_80s_font-trans-tight.png" alt="Testudo 80s logo" width="160">
 </p>
 
 <p align="center">
