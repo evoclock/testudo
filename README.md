@@ -5,6 +5,10 @@
 </p>
 
 <p align="center">
+  <img src="assets/Testudo_80s-trans-tight.png" alt="Testudo 80s logo" width="160">
+</p>
+
+<p align="center">
   <a href="https://github.com/evoclock/testudo/actions/workflows/ci.yml"><img src="https://github.com/evoclock/testudo/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0--only%20%2B%20attribution-blue?style=flat" alt="License"/></a>
   <img src="https://img.shields.io/badge/python-3.11%2B-3776AB?style=flat&logo=python&logoColor=white" alt="Python 3.11+"/>
